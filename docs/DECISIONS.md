@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-058 — Quantities the bill's way; 1–2 cent row gaps from rounded inputs pass visibly
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Problem (owner, Dutch energy bill):** quantities such as "1.783,00 kWh", "175 dagen" and "5,81" were refused ("quantity must be a number such as 1 or 2.5"). Checked by hand from the screenshot, one row would then still fail: 5,81 months × EUR 4,13223 = 24,01 while 23,99 is printed, because the printed months are rounded.
+
+**Decision:** quantities are read with the bill's decimal mark and thousands separator, with an optional unit word (kWh, dagen, maand, PC). A row whose printed quantity has decimals or whose rate has more than two decimals may differ by at most 2 cents from the printed row amount; it then passes with a visible note ("the printed quantity or rate is rounded, so a difference of EUR 0.02 is expected"). Larger differences, and any difference with whole quantities and two-decimal prices, still fail. The amount added up is always the printed row amount, so the bill's totals stay exact.
+
+**Verification:** 3 Python tests (bill-style quantities; rounded inputs within 2 cents pass with a note, 4 cents fail; whole quantity × 2-decimal price gets no tolerance). Not yet re-run on the owner's energy bill.
+
 ## D-057 — Row columns on reductions are checked; on totals they no longer block
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

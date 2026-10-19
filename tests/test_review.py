@@ -1,6 +1,7 @@
 """Confirmed browser review (schema 2) -> Python calculation and required draft (D-024/D-025)."""
 
 import copy
+from decimal import Decimal
 import json
 from pathlib import Path
 import unittest
@@ -460,3 +461,53 @@ class EnergyRates(unittest.TestCase):
         data, _ = self.payload("0,11.640", "1")
         with self.assertRaisesRegex(ReviewError, "unit price"):
             analyze_confirmed_review(data)
+
+
+class BillQuantities(unittest.TestCase):
+    """Seen live 2026-10-19: "1.783,00 kWh", "175 dagen", "5,81" on a comma bill."""
+
+    def test_quantities_follow_the_bills_decimal_mark_and_may_carry_a_unit(self):
+        from backend.billshield_core.review import _quantity
+        self.assertEqual(_quantity("1.783,00 kWh", ","), Decimal("1783.00"))
+        self.assertEqual(_quantity("1.354,70 kWh", ","), Decimal("1354.70"))
+        self.assertEqual(_quantity("175 dagen", ","), Decimal("175"))
+        self.assertEqual(_quantity("5,81", ","), Decimal("5.81"))
+        self.assertEqual(_quantity("1,783.00 kWh", "."), Decimal("1783.00"))
+        self.assertEqual(_quantity("2.5", ","), Decimal("2.5"))
+        with self.assertRaises(ReviewError):
+            _quantity("1.78.3", ",")
+
+
+class RoundedQuantities(unittest.TestCase):
+    """Seen live 2026-10-19: 5,81 months x EUR 4,13223 = 24,01 but 23,99 printed (the months are rounded)."""
+
+    def payload(self, quantity, rate):
+        data = json.loads((Path(__file__).parent / "fixtures/confirmed/BS-001.confirmed.json").read_text(encoding="utf-8"))
+        data["messageType"] = "automatic"
+        for line in data["lines"]:
+            line["questioned"] = False
+        charge = next(line for line in data["lines"] if line["role"] == "charge")  # printed 20,54
+        charge["breakdown"] = {"quantity": quantity, "unitPrice": rate}
+        return data, charge
+
+    def row(self, data, charge):
+        result = analyze_confirmed_review(data)
+        return result, next(check for check in result["rowChecks"] if check["lineId"] == charge["id"])
+
+    def test_two_cents_off_from_a_rounded_quantity_passes_with_a_visible_note(self):
+        data, charge = self.payload("4,971", "4,13223")  # 20,5413 -> 20,54 exact
+        result, row = self.row(data, charge)
+        self.assertTrue(row["matches"])
+        data, charge = self.payload("4,98", "4,13223")   # 20,5785 -> 20,58: 4 cents off -> still a failure
+        result, row = self.row(data, charge)
+        self.assertFalse(row["matches"])
+        data, charge = self.payload("4,975", "4,13223")  # 20,5578 -> 20,56: 2 cents off, rounded inputs -> passes
+        result, row = self.row(data, charge)
+        self.assertTrue(row["matches"])
+        self.assertIn("rounded", row["formula"])
+
+    def test_whole_numbers_get_no_tolerance(self):
+        data, charge = self.payload("2", "10,28")  # 20,56 vs printed 20,54: inputs are not rounded -> failure
+        result, row = self.row(data, charge)
+        self.assertFalse(row["matches"])
+        self.assertEqual(result["status"], "needs_recheck")

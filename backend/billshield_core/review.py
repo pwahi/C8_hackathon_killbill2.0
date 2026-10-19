@@ -341,16 +341,40 @@ class RowCheck:
     computed_minor: int
     printed_minor: int
     formula: str
+    # The printed quantity or rate is itself rounded (e.g. "5,81 months"), so the printed columns cannot reproduce
+    # the row exactly. A difference of at most ROW_ROUNDING_MINOR is then accepted, visibly; the row amount that is
+    # added up is always the printed one, so totals stay exact.
+    rounded_inputs: bool = False
+
+    @property
+    def rounding_only(self) -> bool:
+        return self.rounded_inputs and 0 < abs(self.computed_minor - self.printed_minor) <= ROW_ROUNDING_MINOR
 
     @property
     def matches(self) -> bool:
-        return self.computed_minor == self.printed_minor
+        return self.computed_minor == self.printed_minor or self.rounding_only
 
 
-def _quantity(raw: str) -> Decimal:
-    match = QUANTITY.fullmatch(raw.strip())
+ROW_ROUNDING_MINOR = 2
+
+# Quantities written the bill's way (seen live 2026-10-19 on a Dutch energy bill: "1.783,00 kWh", "175 dagen",
+# "5,81"): thousands separators and the bill's decimal mark, then an optional unit word.
+QUANTITY_BY_MARK = {
+    ",": re.compile(r"(\d{1,3}(?:\.\d{3})+(?:,\d{1,4})?|\d+(?:,\d{1,4})?)"),
+    ".": re.compile(r"(\d{1,3}(?:,\d{3})+(?:\.\d{1,4})?|\d+(?:\.\d{1,4})?)"),
+}
+QUANTITY_UNIT = re.compile(r"\s*[A-Za-zÀ-ÿ³²/]{0,12}\.?")
+
+
+def _quantity(raw: str, decimal_separator: str = ".") -> Decimal:
+    text = raw.strip()
+    match = QUANTITY_BY_MARK[decimal_separator].match(text)
+    if match and QUANTITY_UNIT.fullmatch(text[match.end():]):
+        thousands = "." if decimal_separator == "," else ","
+        return Decimal(match.group(1).replace(thousands, "").replace(decimal_separator, "."))
+    match = QUANTITY.fullmatch(text)  # a plain number such as 2.5 written with the other mark
     if not match:
-        raise ReviewError(f"quantity {raw!r} must be a number such as 1 or 2.5 (a unit like PC may follow)")
+        raise ReviewError(f"quantity {raw!r} must be a number such as 1, 2.5 or 1.783,00 (a unit like kWh may follow)")
     return Decimal(match.group(1).replace(",", "."))
 
 
@@ -373,12 +397,15 @@ def row_checks(review: ConfirmedReview, amounts: dict[str, int]) -> list[RowChec
         label = " ".join(line.description.split())
         value: int | None = None
         text = ""
+        rounded = False
         if details.unit_price and details.unit_price.strip():
             # The rate may have more than two decimals; only the row result is rounded to cents, as bills do.
             rate = parse_rate(details.unit_price, decimal_separator=review.decimal_separator, currency=review.currency)
             rate_text = f"{review.currency} {format(rate.normalize(), 'f')}" if rate.as_tuple().exponent < -2 else money(int(rate * 100))
+            rounded = rate.normalize().as_tuple().exponent < -2  # a rate like 0,09161 (a 2-decimal price is exact)
             if details.quantity and details.quantity.strip():
-                quantity = _quantity(details.quantity)
+                quantity = _quantity(details.quantity, review.decimal_separator)
+                rounded = rounded or quantity != quantity.to_integral_value()
                 value = int((rate * 100 * quantity).to_integral_value(ROUND_HALF_UP))
                 text = f"{format(quantity.normalize(), 'f')} × {rate_text}"
             else:
@@ -404,7 +431,12 @@ def row_checks(review: ConfirmedReview, amounts: dict[str, int]) -> list[RowChec
                 text += f" + {money(tax)}"
         if reduction and (value < 0) != (amounts[line.id] < 0):
             value, text = -value, f"−({text})"
-        checks.append(RowCheck(line.id, label, "row_amount", value, amounts[line.id], f"{text} = {money(value)}"))
+        check = RowCheck(line.id, label, "row_amount", value, amounts[line.id], f"{text} = {money(value)}", rounded)
+        if check.rounding_only:
+            check = RowCheck(line.id, label, "row_amount", value, amounts[line.id],
+                             f"{text} = {money(value)} ≈ {money(amounts[line.id])} printed: the printed quantity or "
+                             f"rate is rounded, so a difference of {money(abs(value - amounts[line.id]))} is expected", rounded)
+        checks.append(check)
     return checks
 
 
