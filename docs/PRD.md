@@ -1,10 +1,10 @@
 # BillShield — Product requirements
 
-Version 2.0 · 2026-10-19 · Owner: Prateek Wahi
+Version 2.1 · 2026-10-19 · Owner: Prateek Wahi
 
 This PRD describes **what is required now** and **what exists now**. It was rebased on 2026-10-19 (D-035): outdated directions and superseded proposals were removed. The reasons behind every choice, including superseded ones, stay in [DECISIONS.md](DECISIONS.md) (D-006 to D-035); earlier PRD versions remain in the Git history. When this PRD and the code disagree about what *exists*, the code wins; about what is *required*, this PRD wins — record the difference in DECISIONS.md.
 
-**Status:** Stages 0–2 accepted; FastAPI backend live on Vercel (access code required); Supabase saving, smaller version, live and owner-verified. No test by a real user other than the owner yet; classmate and stranger tests planned for 2026-10-20. Next development additions N-1 (UI), N-2 (server OCR evaluation), N-3 (chat + database) are planned, not built (§12).
+**Status:** Stages 0–2 accepted; FastAPI backend live on Vercel (access code required); Supabase saving, smaller version, live and owner-verified. N-1 sequential UI first version is implemented locally (D-036), awaiting owner review and deployment approval. N-2 server OCR evaluation and N-3 chat/database remain planned. No real-user test beyond the owner yet; classmate and stranger tests planned for 2026-10-20.
 
 ---
 
@@ -32,7 +32,7 @@ This PRD describes **what is required now** and **what exists now**. It was reba
 
 ## 3. User flow
 
-Provide → Confirm → Understand → Draft → Finish. (The current page implements this flow in the Stage 2 review layout; N-1 turns it into the owner's step-by-step screens.)
+Provide → Confirm → Understand → Draft → Finish. The local first version now separates these into screens; the deployed site retains its previous review layout until an approved deployment.
 
 | Step | Behaviour |
 |---|---|
@@ -173,12 +173,14 @@ Record for each test run: input, versions, device/browser, failures and correcti
 | 2 Extraction and grounded text | reading, confirmation, row checks, re-check gate, explanation, draft | Done — accepted by owner (D-029) |
 | 3 Backend + database | FastAPI; Supabase saving (smaller version) | Mostly done — chat, link tables, deletion pending (N-3) |
 | 4 Hosted backend | Vercel with access code | Done |
-| 5 UI | owner's step-by-step screens | Planned — N-1 (current page works but is the review layout) |
+| 5 UI | owner's step-by-step screens | First version local — owner review and deployment pending (D-036) |
 | 6 Observed user tests | known user (classmate) and stranger with their own bills | Not started — planned 2026-10-20 |
 
 After each stage the developer gives the owner changed files, exact run steps, test results, limitations and the next step, and stops for the owner's go-ahead. Pushing, deployments and settings changes need the owner's approval.
 
-## 12. Next development additions (planned for 2026-10-20, not built)
+## 12. Next development additions
+
+N-1 first version built locally on 2026-10-19 after owner approval; review pending. N-2/N-3 remain planned, not built. Local verification: 106 Python and 42 browser-module tests; A–D structured fixture screen replays with simulated extraction/AI, not live OCR tests. See D-036.
 
 Priority order (D-034). Keep time for the user tests before the deadline (Tue 2026-10-20 22:17 Europe/Amsterdam); if short, reduce these items, not the tests.
 
@@ -207,7 +209,7 @@ Priority order (D-034). Keep time for the user tests before the deadline (Tue 20
 | Review, events and line links survive reload for the same user | Done for saved reviews; reading back in the UI not built |
 | Masked least-data storage and cross-user isolation demonstrated | Done (live check) |
 | Same backend locally and on Vercel; secrets and limits verified | Done |
-| UI follows the owner's sequential design; copying never implies sending | Partly — N-1 |
+| UI follows the owner's sequential design; copying never implies sending | First version local; owner/usability review pending — N-1 |
 | Real-user evidence (known user + stranger) with actual outcomes and edits | Not yet |
 | Owner has run instructions, schema, decision log and honest limits | Done (README, HANDOFF, this PRD) |
 
@@ -221,6 +223,7 @@ Priority order (D-034). Keep time for the user tests before the deadline (Tue 20
 | 1.10–1.11 | 2026-10-19 | Difference explanation; row columns and re-check gate | D-027, D-028 |
 | 1.12 | 2026-10-19 | Current-state summary; next additions N-1–N-3 | D-029–D-034 |
 | 2.0 | 2026-10-19 | Rebased: only current requirements and status; outdated directions removed (history in DECISIONS.md and Git) | D-035 |
+| 2.1 | 2026-10-19 | Sequential UI first version local; 106 Python / 42 browser-module tests; owner review/deployment pending | D-036 |
 
 ## Sources checked
 

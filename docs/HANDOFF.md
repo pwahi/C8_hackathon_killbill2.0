@@ -5,7 +5,7 @@ Written 2026-10-19 by the previous coding agent. Audience: an AI coding agent co
 Your two jobs right now:
 
 1. **Get up to date and stay up to date** (§2). Do not build anything new yet.
-2. **Be ready for the next stage, N-1 (user interface), and start it only when the owner says so** (§7). The owner decides when; when asked, begin with the plan in §7, not with code.
+2. **N-1 first version is built locally (D-036, PRD v2.1); owner review is next.** Five separate screens, restrained yellow/charcoal styling. 106 Python / 42 browser-module tests pass. A–D screen replays use simulated extraction/AI and real calculations, not fresh live OCR tests. No push/deployment. See parent work/11_N1_UI_FIRST_VERSION.md. N-2/N-3 remain unbuilt; don't restart N-1 or change hosting without permission.
 
 ---
 
@@ -114,7 +114,9 @@ docs/PRD.md, docs/DECISIONS.md authoritative requirements and decision log
 - This repo is nested inside the owner's parent `C8` Git repository; run git commands from `billshield-app/`.
 - Supabase: anonymous sign-ins must be enabled; health shows `databaseConfigured: false` if the configured key is a secret key.
 
-## 7. Next stage: N-1 user interface — be ready, start only when asked
+## 7. N-1 user interface — first version awaiting owner review
+
+Update 2026-10-19 (D-036): owner approved the plan and first version. The implementation below is now local, not deployed. Next: owner reviews the screens with masked bills; keep time for real-user tests. The original implementation checklist follows for scope/reference, not as unfinished instructions to restart.
 
 Requirement: PRD v2.0 §12 → **N-1**. Summary: turn the working Stage 2 review page into the owner's **step-by-step design**: Provide → Confirm → Understand → Draft → Finish, one primary action per step, plain-language result first, privacy notes where data leaves the device, mobile-friendly. Reuse the existing API/modules; numeric rules unchanged.
 

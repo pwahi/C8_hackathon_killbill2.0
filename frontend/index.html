@@ -5,33 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' blob: data:; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
-    <title>BillShield local extraction check</title>
+    <title>Kill Bill 2.0 · Check your bill</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <header class="hero">
-      <p class="eyebrow">Stage 2 · local review tool</p>
-      <h1>Check what BillShield reads</h1>
-      <p class="lede">Choose local OCR or compare it with Groq vision. Local reading stays on your device. Groq receives only the image area you preview and explicitly send.</p>
-      <div class="privacy-strip" aria-label="Privacy summary">
-        <span>✓ Local PDF reading</span>
-        <span>✓ Local OCR files</span>
-        <span>Optional Groq · redacted crops only</span>
-        <span>✓ You confirm every line</span>
-        <span>✓ Python does every calculation</span>
-      </div>
+    <header class="brand-bar">
+      <a class="wordmark" href="./" aria-label="Kill Bill 2.0 home">KILL BILL<span>2.0</span></a>
+      <span class="brand-caption">A little clarity. Before you pay.</span>
     </header>
 
     <main>
+      <nav id="flow-nav" class="flow-nav" aria-label="Review progress"></nav>
+      <div class="flow-heading"><p id="flow-kicker" class="eyebrow">01 / PROVIDE</p><h1 id="flow-title" tabindex="-1">Let’s check your bill.</h1><p id="flow-description">See what adds up, what needs explaining, and what to say next.</p></div>
       <section class="panel setup" aria-labelledby="setup-title">
         <div>
           <p class="step">1</p>
-          <h2 id="setup-title">Choose one participant’s masked bill</h2>
-          <p>Choose one PDF, or all image pages for one participant. For Participant A, select both images together.</p>
+          <h2 id="setup-title">Start with your bill</h2>
+          <p>Choose a PDF or photos of the same bill. Use a copy with personal details covered.</p>
         </div>
         <div class="control-grid">
           <label class="file-control">
-            <span>Masked PDF or image pages</span>
+            <span>Your bill</span>
             <input id="bill-files" type="file" accept="application/pdf,image/jpeg,image/png" multiple>
           </label>
           <label>
@@ -49,7 +43,7 @@
             </select>
           </label>
           <label>
-            <span>Expected amount <small>(optional)</small></span>
+            <span>What did you expect to pay? <small>(optional)</small></span>
             <input id="expected-amount" inputmode="decimal" placeholder="For example 19.50">
           </label>
         </div>
@@ -58,10 +52,13 @@
           <input id="access-code" type="password" autocomplete="off">
         </label>
         <div class="actions">
-          <button id="open-vision" class="primary" type="button">Read with Groq (best for photos)</button>
-          <button id="process" class="secondary" type="button">Read bill locally (no upload)</button>
+          <button id="start-review" class="primary" type="button">Review my bill <span aria-hidden="true">→</span></button>
+          <details class="reading-options"><summary>Reading options</summary><div class="actions">
+          <button id="open-vision" class="secondary" type="button">Read a charge table with Groq</button>
+          <button id="process" class="secondary" type="button">Read on this device</button></div></details>
           <button id="reset" class="secondary" type="button">Clear this review</button>
         </div>
+        <p class="privacy-note">PDF text can be read on your device. For photos, you choose and approve a redacted charge area before it goes to Groq.</p>
         <div id="status" class="status" role="status" aria-live="polite">Ready. No file has been opened.</div>
       </section>
 
@@ -70,7 +67,7 @@
           <div class="section-heading">
             <div>
               <p class="step">2</p>
-              <h2>Inspect the source</h2>
+              <h2>Your bill</h2>
             </div>
             <p><span class="key candidate-key"></span> Possible amount <span class="key confirmed-key"></span> Confirmed <span class="key table-key"></span> Table area (not exact)</p>
           </div>
@@ -81,12 +78,12 @@
           <div class="section-heading">
             <div>
               <p class="step">3</p>
-              <h2>Confirm only relevant lines</h2>
+              <h2>Check the charges</h2>
             </div>
             <span id="candidate-count" class="count"></span>
           </div>
-          <div class="actions"><button id="confirm-all" class="primary" type="button">Confirm all ready lines</button></div>
-          <p class="hint">Check each amount against the visible page or table, then tick it. An exact box is optional. Give every line a role: only charges and discounts are added; subtotals and the grand total are checked against them, never added. Type discounts with a minus sign. Labels: short words only, no names, account details or amounts.</p>
+          <div class="actions"><button id="confirm-all" class="secondary" type="button">Select all checked charges</button></div>
+          <p class="hint">Compare these with your bill. Fix anything that looks wrong. Charges are added; printed totals are used to check the sum. Discounts need a minus sign.</p>
           <div id="candidate-list" class="candidate-list"></div>
         </div>
       </section>
@@ -94,8 +91,8 @@
       <section id="payload-panel" class="panel payload-panel" hidden aria-labelledby="payload-title">
         <div>
           <p class="step">4</p>
-          <h2 id="payload-title">Inspect the safe structured data, then calculate</h2>
-          <p>The preview contains only the lines you confirmed: no file, image or OCR text. <strong>Calculate and explain</strong> sends exactly this preview to Python on this computer (127.0.0.1). Only if Python finds a difference are the confirmed labels and amounts, plus Python's results, sent to Groq (gpt-oss-20b) for a suggested explanation. No image or OCR text is sent.</p>
+          <h2 id="payload-title">Ready to check the numbers?</h2>
+          <p>Only confirmed charges go to the server. If there’s a difference, those labels, amounts and the calculation results go to Groq for an explanation. Your full bill and OCR text are not sent in this step.</p>
         </div>
         <div class="control-grid message-grid">
           <label>
@@ -128,14 +125,14 @@
 
       <section id="result-panel" class="panel result-panel" hidden aria-labelledby="result-title">
         <div>
-          <p class="step">5</p>
-          <h2 id="result-title">Result and message</h2>
+              <p class="step">YOUR RESULT</p>
+          <h2 id="result-title">Here’s what we found</h2>
         </div>
         <div id="result-summary"></div>
         <div id="recheck-box" class="recheck-box" hidden>
           <h3>Check these lines first</h3>
           <ul id="result-suspects"></ul>
-          <p class="hint">Fix the marked cards on the right (or untick a line that is counted twice), then build the preview and calculate again. If you compared every number with the bill and it really is printed like this, you can still get a careful message:</p>
+          <p class="hint">Go back to the charges, fix the marked amounts or untick a line counted twice, then check again. If you compared every number with the bill and it really is printed like this, you can still get a careful message:</p>
           <button id="recheck-confirm" class="secondary" type="button">I re-checked: the bill really shows these numbers</button>
         </div>
         <div class="result-grid">
@@ -173,7 +170,7 @@
       <h2>Check the area before sending</h2>
       <p>This exact image goes to Groq’s Qwen model. Include charge labels and prices. Exclude names, phone/account numbers and other personal details.</p>
       <img id="groq-crop-preview" alt="Selected area to send to Groq">
-      <p>Model responses are cached privately on this computer to avoid repeat requests. Every amount still needs your confirmation.</p>
+      <p>Only this approved area is sent. Every extracted amount still needs your confirmation. Local development may reuse a private response cache; the hosted app does not.</p>
       <label class="confirm-control"><input id="groq-redacted" type="checkbox">I checked this image and it contains no personal identifiers.</label>
       <div class="actions"><button id="groq-send" class="primary" disabled>Send this area to Groq</button><button id="groq-cancel" class="secondary">Cancel</button></div>
     </dialog>

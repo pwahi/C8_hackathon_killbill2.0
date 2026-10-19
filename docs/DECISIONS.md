@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-036 — First sequential UI, local owner-review checkpoint
+
+Date: 2026-10-19. Status: Owner approved implementation; first version implemented and locally verified; owner acceptance and deployment pending.
+
+Owner approved Provide → Confirm → Understand → Draft → Finish with minimal Kill Bill 2.0 accents. Existing API/numeric/extraction/storage rules remain unchanged. Plain HTML/JS, off-white/charcoal/yellow; source details, row columns and JSON behind disclosures; separate Copy and actual-send reporting. A completed result gates Draft/Finish; edits revoke the previous result; needs_recheck exposes a return to charges. New-bill reset clears bill-specific expectation and message settings. No chat, OCR provider change, migration, push or deployment.
+
+**Affected:** frontend/index.html, styles.css, review-app.mjs; new ui-flow.mjs and test/ui-flow.test.mjs; scripts/ui_fixture_server.py (offline test-only); README, PRD v2.1, HANDOFF, AGENTS, parent PROJECT/work record. **Verification:** 106 Python / 42 browser-module tests pass; agent browser replays A–D with simulated extraction/AI and real calculations/drafts, B edited-total gate, Finish/reset and desktop/mobile layout checks. Not live OCR accuracy or real-user evidence. [Detailed record](../../work/11_N1_UI_FIRST_VERSION.md). N-1 owner review remains open; prior deployed version unchanged.
+
 ## D-035 — PRD rebased to version 2.0 (current requirements only)
 
 Date: 2026-10-19. Status: Done (documentation only).

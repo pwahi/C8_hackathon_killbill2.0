@@ -1,5 +1,7 @@
 # BillShield application
 
+**Current checkpoint (D-036, 2026-10-19):** the five-screen UI is implemented locally, awaiting owner review and deployment approval. Current requirements: PRD v2.1. **The progress notes below predate hosting/database work and are historical, not current status.** See [current run instructions](#current-local-ui-checkpoint--2026-10-19-d-036) at the end.
+
 **Update 2026-10-19 (D-028):** Groq now returns one card per table row with the row's printed columns (quantity, price, discount, taxable value, taxes); Python checks each row and adds only row amounts. If the numbers do not add up, the page shows **Check these lines first** with the suspect lines marked, writes no message and calls no AI; fix the lines, or press **I re-checked: the bill really shows these numbers** to get a careful message. Round-off lines use the role **Adjustment**.
 
 **Update 2026-10-19 (D-027):** **Calculate and explain** runs Python locally. If there is a difference, Python first looks for lines or groups that add up exactly to your expected amount or the difference, then sends the confirmed labels and amounts (no image) to Groq `openai/gpt-oss-20b` for a suggested cause. The result shows ✅ Python facts and 💡 unverified AI suggestions separately; the AI may pick which lines the message asks about and add one question without numbers. Try it from a terminal: `.\.venv\Scripts\python.exe scripts/explain_difference.py tests/fixtures/confirmed/BS-004.confirmed.json` (makes one Groq call unless cached).
@@ -128,3 +130,23 @@ For every material change, update the PRD when affected, append a decision with 
 The current C8 parent directory is already a Git repository. This folder has deliberately NOT been initialized as a nested repository, and no remote or GitHub write has been performed. To publish it independently later, copy/export only this folder into a separate checkout outside the parent repository, inspect staged files for secrets/personal information, then initialize/connect the chosen repository. Repository name, owner, visibility, and deployment linkage are future choices.
 
 The tested minimum Python version is declared in `pyproject.toml`. Browser dependencies are pinned in `frontend/package.json` and `package-lock.json`. No LLM key or model configuration is required for the confirmed MVP path.
+# Current local UI checkpoint — 2026-10-19 (D-036)
+
+Five screens: **Provide → Confirm → Understand → Draft → Finish**. Minimal charcoal/yellow styling. Same backend and numeric rules. First version is local; owner acceptance and deployment pending. Older progress notes above are historical; current requirements/status are in `docs/PRD.md` v2.1.
+
+From this application folder in PowerShell:
+
+```powershell
+.venv\Scripts\python.exe app.py
+```
+
+Open http://127.0.0.1:4173/. If already running, refresh; don't start a second server on the same port. Use masked bills, verify amounts and types, then **Confirm and check charges**. Review results → message → Finish. Copy is not a send. The normal app uses your existing configured services; photo areas require approval before going to Groq.
+
+Tests (106 Python and 42 browser-module tests passed):
+
+```powershell
+.venv\Scripts\python.exe -m unittest discover -s tests
+npm --prefix frontend test
+```
+
+Optional developer-only offline UI testing: `.venv\Scripts\python.exe scripts/ui_fixture_server.py` on port 4180. It simulates extraction/AI and disables saving; do not mistake it for the normal app or an OCR accuracy test. No cloud changes or new model calls were made for this UI verification. Owner usability checks remain required.

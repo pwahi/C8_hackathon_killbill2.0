@@ -2,6 +2,8 @@
 
 2026-10-19 · Status: research and proposal for the owner's review; nothing built. Requirement context: PRD v2.0 §3 (flow) and §12 N-1.
 
+Follow-up 2026-10-19 (D-036): owner approved the five-screen Provide/Confirm/Understand/Draft/Finish first version, now implemented locally. This original research remains proposal/history, not a claim every detail was adopted. No external font, film asset, animation, chat or new OCR service added. Owner review pending; see PRD v2.1.
+
 **Principle:** BillShield is a bill-checking tool. Clarity and trust come first; the *Kill Bill* reference is a light accent (colour, chapter labels, one "cut" motif) — never decoration that competes with the numbers.
 
 ## 1. What similar apps teach

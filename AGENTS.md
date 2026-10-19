@@ -9,6 +9,6 @@ Essentials (details in `docs/HANDOFF.md`):
 - Code owns every number; models only extract candidates or write validated, number-free prose. Keep the verdicts `verified_mismatch`, `unexplained`, `checks_passed`; every message references confirmed line IDs.
 - Never print, commit or request secrets (`.env.local`); never store or send bill images/OCR text beyond an approved Groq area; use only the publishable Supabase key.
 - Never invent results; separate implemented, verified and owner-reported.
-- Next stage is **N-1 user interface** (PRD v2.0 §12): be ready, start only when the owner asks.
+- **N-1 first UI version is implemented locally (D-036, PRD v2.1).** Owner review and deployment approval are next. Do not restart the build or assume it is deployed; N-2/N-3 remain unbuilt.
 - Hackathon check-in 4 is next (see docs/HANDOFF.md §8): help draft only when asked; ask for the actual prompt first.
 - After material changes update `docs/DECISIONS.md`, `docs/PRD.md` and the parent `../PROJECT.md`.

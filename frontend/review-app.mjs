@@ -5,6 +5,7 @@ import { extractPdfTokens } from "./extraction/pdf-client.mjs";
 import { buildServerPayload } from "./extraction/privacy.mjs";
 import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion } from "./extraction/bulk-confirm.mjs";
+import { createFlow } from "./ui-flow.mjs";
 
 const elements = {
   files: document.querySelector("#bill-files"),
@@ -50,12 +51,13 @@ const elements = {
 };
 
 const ROLE_LABELS = {
-  charge: "Charge · added to the total",
-  discount: "Discount · separate line, negative",
-  adjustment: "Adjustment · round-off, added to the total",
-  subtotal: "Subtotal · printed check, not added",
-  total: "Grand total · printed check, not added",
+  charge: "Charge",
+  discount: "Discount (minus amount)",
+  adjustment: "Rounding / adjustment",
+  subtotal: "Printed subtotal",
+  total: "Printed total",
 };
+const flow = createFlow();
 const LOCATOR_LABELS = { pdf_text: "PDF text", local_ocr: "local OCR", groq: "Groq (unverified)", user: "you" };
 const VERDICT_LABELS = {
   verified_mismatch: "Verified mismatch — the confirmed printed figures do not add up",
@@ -171,7 +173,7 @@ groqSend.addEventListener("click", async () => {
     elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
     invalidatePayload("Vision suggestions added. Review them and rebuild the safe preview.");
     drawHighlights();
-    setStatus(`Groq filled in ${added.length} lines, including a suggested role for each. Compare them with the bill, fix anything wrong, then click Confirm all ready lines.`);
+    setStatus(`Groq filled in ${added.length} lines. Compare the amounts and types with your bill, fix anything wrong, then choose Confirm and check charges.`);
   } catch (error) {
     if (selection.generation === reviewGeneration) setStatus(error.message, "failure");
   } finally { groqRequestRunning = false; pendingGroq = null; }
@@ -255,6 +257,7 @@ function hideResult() {
 }
 
 function invalidatePayload(message = "Changes not yet previewed.") {
+  flow.invalidated();
   reviewState.payload = null;
   reviewState.rechecked = false;
   elements.downloadPayload.disabled = true;
@@ -275,7 +278,13 @@ function resetReview({ keepFiles = false } = {}) {
   elements.payloadPanel.hidden = true;
   elements.payloadError.textContent = "";
   invalidatePayload("Confirm the relevant lines, then build the preview.");
-  if (!keepFiles) elements.files.value = "";
+  if (!keepFiles) {
+    elements.files.value = "";
+    elements.expectedAmount.value = "";
+    elements.messageType.value = "automatic";
+    elements.earlierPeriodGroup.value = "";
+  }
+  flow.reset();
 }
 
 function validSelection(files) {
@@ -617,7 +626,7 @@ function candidateCard(candidate) {
   description.addEventListener("input", () => updateCandidate(candidate.id, "description", description.value));
   descriptionLabel.append(description);
   const roleLabel = document.createElement("label");
-  roleLabel.append(document.createTextNode("Role on the bill"));
+  roleLabel.append(document.createTextNode("Type of amount"));
   const role = document.createElement("select");
   role.dataset.field = "role";
   role.append(new Option("Choose…", ""), ...Object.entries(ROLE_LABELS).map(([value, text]) => new Option(text, value)));
@@ -625,7 +634,7 @@ function candidateCard(candidate) {
   role.addEventListener("change", () => updateCandidate(candidate.id, "role", role.value));
   roleLabel.append(role);
   const groupLabel = document.createElement("label");
-  groupLabel.append(document.createTextNode("Group (optional; required for a subtotal)"));
+  groupLabel.append(document.createTextNode("Section / period (needed for subtotals)"));
   const group = document.createElement("input");
   group.placeholder = "For example: September";
   group.value = candidate.group || "";
@@ -681,9 +690,14 @@ function candidateCard(candidate) {
     attention.textContent = candidate.attention;
     card.append(attention);
   }
-  card.append(top, evidence, context, warning, fields);
-  if (candidate.breakdown) card.append(rowColumnsEditor(candidate));
-  card.append(questioned, retry);
+  card.append(top, fields);
+  const more = document.createElement("details");
+  more.className = "line-details";
+  more.innerHTML = "<summary>Source &amp; row details</summary>";
+  more.append(evidence, context, warning);
+  if (candidate.breakdown) more.append(rowColumnsEditor(candidate));
+  more.append(questioned, retry);
+  card.append(more);
   return card;
 }
 
@@ -729,6 +743,7 @@ function showCandidates(tokens, extractor) {
   drawHighlights();
   elements.review.hidden = false;
   elements.payloadPanel.hidden = false;
+  flow.opened();
 }
 
 async function processSelection() {
@@ -914,7 +929,7 @@ function renderResult(result, ai = { state: "skipped" }) {
   elements.draftNote.textContent = notes.join(" ");
   renderGap(result, ai);
   elements.resultPanel.hidden = false;
-  elements.resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  flow.result(result, ai.state === "asking");
 }
 
 async function analyzeReview() {
@@ -950,9 +965,10 @@ async function analyzeReview() {
   } catch (error) {
     if (generation !== reviewGeneration) return;
     elements.payloadError.textContent = error instanceof Error ? error.message : String(error);
-    setStatus("Python could not analyze this review. See the message under step 4.", "failure");
+    setStatus("This review could not be checked. See the error below the charges.", "failure");
   } finally {
     if (payload === reviewState.payload) elements.analyze.disabled = false;
+    if (generation === reviewGeneration) flow.settled();
   }
 }
 
@@ -975,7 +991,7 @@ function confirmAllReady() {
   const parts = [`Confirmed ${confirmed} line${confirmed === 1 ? "" : "s"}.`];
   if (attention) parts.push(`${attention} need your attention (red note on the card).`);
   if (noRole) parts.push(`${noRole} without a role were left unticked; that is fine if they are not bill amounts.`);
-  parts.push("Then click Build safe preview and Calculate and explain.");
+  parts.push("When the selected charges are correct, continue with Confirm and check charges.");
   setStatus(parts.join(" "), attention ? "failure" : "");
 }
 
@@ -1010,12 +1026,12 @@ async function explainDifference(payload, generation) {
       setStatus("Done. Python checked the numbers and the AI suggested likely causes. Check the message, edit it if needed, then copy it. Nothing has been sent.");
     } else {
       renderResult(output.result, { state: "error", message: output.explanationError || output.skipped || "No AI explanation." });
-      setStatus("Python finished. The AI explanation was not available, but the checked message below is still valid.");
+      setStatus("Numbers checked. The AI explanation was unavailable; your checked draft is still ready in the Draft step.");
     }
   } catch (error) {
     if (generation !== reviewGeneration) return;
     elements.resultGap.querySelector(".hint")?.replaceWith(paragraph(`AI step failed: ${error.message}. The Python result and message are still valid.`, "error"));
-    setStatus("Python finished. The AI step failed, but the checked message below is still valid.", "failure");
+    setStatus("Numbers checked. The AI explanation failed; your checked draft is still ready in the Draft step.", "failure");
   }
 }
 
@@ -1040,6 +1056,18 @@ elements.markSent.addEventListener("click", async () => {
 });
 
 elements.process.addEventListener("click", processSelection);
+document.querySelector("#start-review").addEventListener("click", () => {
+  const files = Array.from(elements.files.files || []);
+  const photos = files.length && files.every((file) => /^image\/(jpeg|png)$/.test(file.type));
+  (photos ? elements.openVision : elements.process).click();
+});
+document.querySelector("#confirm-and-check").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  confirmAllReady();
+  try { if (previewPayload()) await analyzeReview(); }
+  finally { button.disabled = false; }
+});
 document.querySelector("#open-vision").addEventListener("click", async () => {
   resetReview({ keepFiles: true });
   const button = document.querySelector("#open-vision");
@@ -1063,7 +1091,7 @@ document.querySelector("#open-vision").addEventListener("click", async () => {
 });
 elements.reset.addEventListener("click", () => {
   resetReview();
-  setStatus("Cleared. No bill data is retained by this page.");
+  setStatus("Cleared from this page. Previously saved reviews have not been deleted.");
 });
 elements.previewPayload.addEventListener("click", previewPayload);
 elements.downloadPayload.addEventListener("click", downloadPayload);
@@ -1071,6 +1099,7 @@ elements.analyze.addEventListener("click", analyzeReview);
 elements.copyDraft.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(elements.draftText.value);
+    flow.copied();
     setStatus("Message copied to your clipboard. BillShield has not sent anything; sending is up to you.");
     recordEvent("copied").catch(() => {});
   } catch {
