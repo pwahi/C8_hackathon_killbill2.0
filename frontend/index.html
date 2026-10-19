@@ -36,6 +36,38 @@
           <li class="fs-you"><span>You send it</span></li>
         </ol>
         <p class="landing-note">Every number comes from code. Your bill image is never saved.</p>
+        <div class="how-details">
+          <section class="how-card how-card-ai">
+            <h2><span class="wf-dot ai"></span>The AI models</h2>
+            <dl>
+              <dt>Reads your bill</dt><dd>Claude Haiku 5.5 by Anthropic, reached through OpenRouter</dd>
+              <dt>Explains and words the message</dt><dd>GPT-OSS 120B, hosted on Groq</dd>
+            </dl>
+            <p>The AI never decides an amount. It writes the message with blanks that the code fills in.</p>
+          </section>
+          <section class="how-card how-card-code">
+            <h2><span class="wf-dot code"></span>The calculation</h2>
+            <p>Every sum, difference and result is worked out by our Python code, to the exact cent, not by the AI.</p>
+            <p>Each section of your bill is checked against the subtotal printed on it.</p>
+          </section>
+          <section class="how-card">
+            <h2>Where it runs</h2>
+            <dl>
+              <dt>Website and Python code</dt><dd>Vercel (cloud)</dd>
+              <dt>Your bill file</dt><dd>Opened in your browser. Only the pages you tick pass through our server to the AI, and are not kept.</dd>
+            </dl>
+          </section>
+          <section class="how-card">
+            <h2>What we store</h2>
+            <p>In Supabase (EU), linked to an anonymous ID for this browser:</p>
+            <ul>
+              <li>the lines you checked: label, amount, page</li>
+              <li>what you expected to pay and the result</li>
+              <li>your message, and whether you copied or sent it</li>
+            </ul>
+            <p class="how-never">Never stored: your bill image. No sign-up: we never ask for your name or e-mail.</p>
+          </section>
+        </div>
         <div class="how-actions">
           <button id="how-start" class="primary" type="button">Check my bill</button>
           <button id="how-back" class="text-button" type="button">← Back</button>

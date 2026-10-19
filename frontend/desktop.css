@@ -417,3 +417,18 @@ body[data-ui-step='how'] #status, body[data-ui-step='how'] .chapter-heading, bod
 .provide-layout .saved-total { text-align: left; }
 body[data-ui-step='0'] .privacy-note, body[data-ui-step='0'] .reading-options { display: none; }
 @media (max-width: 1100px) { .provide-layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* How it works: the facts behind the row — models, calculation, hosting, storage. */
+.how-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: min(860px, 100%); text-align: left; }
+.how-card { background: #fff; border: 1px solid #E3E1DA; border-radius: 8px; padding: 18px 20px; font-size: 14px; line-height: 1.55; color: #3c4043; }
+.how-card h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 0 0 10px; color: #111; }
+.how-card p { margin: 0 0 8px; } .how-card p:last-child { margin-bottom: 0; }
+.how-card dl { display: grid; gap: 2px; margin: 0 0 10px; }
+.how-card dt { font-size: 12px; font-weight: 600; color: #5F6368; margin-top: 6px; } .how-card dt:first-child { margin-top: 0; }
+.how-card dd { margin: 0; color: #202124; }
+.how-card ul { margin: 0 0 8px; padding-left: 18px; }
+.how-never { font-weight: 600; color: #202124; }
+.wf-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 10px; }
+.wf-dot.ai { background: #E5512A; } .wf-dot.code { background: #202124; }
+.how-page { padding: 32px 0; }
+@media (max-width: 700px) { .how-details { grid-template-columns: minmax(0, 1fr); } }
