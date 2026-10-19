@@ -474,3 +474,32 @@ body[data-ui-step='2'] .read-column { display: none; }
 .read-column #status { margin: 0; padding: 14px 16px; border-radius: 8px; background: #fff; border: 1px solid #E3E1DA; font-size: 14px; line-height: 1.5; }
 .read-column #status.busy { border-color: var(--accent); background: #FFFBEA; }
 .read-column #status.failure { border-color: #C8102E; background: #FDF1F3; }
+
+/* ---- Check the lines per owner sketch "Page 3" (2026-10-19) ---- */
+/* Top: Check all lines | + Add a line, side by side. */
+.line-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 10px; }
+.line-actions .secondary { min-height: 46px; font-size: 15px; }
+#check-all-lines.done { border-color: #1E7B3A; color: #1E7B3A; }
+/* Per row: where it is on the bill (eye) and delete (×), in two narrow columns on the right. */
+.line-overview, .line-table-heading { padding-right: 84px; }
+.line-table-heading { position: relative; }
+.heading-tools { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: flex; gap: 6px; }
+.heading-tools span { width: 32px; text-align: center; font-size: 10px; }
+.locate-line { position: absolute; top: 10px; right: 41px; z-index: 1; width: 32px; height: 32px; padding: 0; display: grid; place-items: center;
+  background: transparent; border: 0; color: var(--muted); cursor: pointer; border-radius: 4px; }
+.locate-line:hover { background: #F4F4EF; color: #111; }
+.candidate-card { position: relative; }
+/* Bottom: Review lines (only highlighted when needed) | Looks right — check it. */
+.check-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.check-actions button { min-height: 52px; font-size: 16px; font-weight: 600; }
+.review-lines:disabled { border-color: #D5D3CC !important; color: #9AA0A6 !important; background: #fff; opacity: 1; }
+.review-lines.needed { border: 2px solid #C8102E; color: #C8102E; background: #FDF1F3; }
+/* Advanced (for experts) with an ⓘ. */
+.advanced-review > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.info-dot { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 50%; border: 1px solid currentColor;
+  font-size: 10px; font-weight: 700; font-style: italic; font-family: Georgia, serif; vertical-align: 1px; }
+.advanced-note { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 8px 0 12px; }
+@media (max-width: 760px) {
+  .line-overview, .line-table-heading { padding-right: 78px; }
+  .check-actions { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-055 — Check the lines per owner sketch "Page 3"
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Decision:** "Check all lines" (replaces the ready-lines checkbox; same rules) and "+ Add a line" side by side at the top. Each line has two small tools on the right: an eye (show where it is on the bill) and × (delete, with Undo). For a single bill the rows come first (sections with indented sub-lines, then the printed total) and "What you pay — ✓ checked by Python" is the closing row; several invoices keep a header each. Bottom: "Review lines" (red and enabled only when a line has a hint from Python or needs a decision; it opens that line) beside "Looks right — check it". "Message options & data preview" becomes "Advanced (for experts) ⓘ" with a one-line explanation and the privacy note.
+
+**Verification:** 220 Python / 96 browser-module tests; headless Edge walk with the masked two-page Vodafone bill.
+
 ## D-054 — A line the verified bill adds up without is information, not a charge
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

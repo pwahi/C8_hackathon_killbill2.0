@@ -44,11 +44,14 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
 
   for (const invoice of tree) {
     references.push(...invoice.references);
-    rows.push({ type: "invoice", id: invoice.id, depth: 0, label: tree.length > 1 ? invoice.label : "What you pay",
-      status: status(invoice, byGid), amountId: byGid.get(invoice.printedLineId)?.id || null });
+    const header = { type: "invoice", id: invoice.id, depth: 0, label: tree.length > 1 ? invoice.label : "What you pay",
+      status: status(invoice, byGid), amountId: byGid.get(invoice.printedLineId)?.id || null };
+    // One bill: the lines first, "What you pay" as the closing row (owner sketch). Several invoices: a header each.
+    if (tree.length > 1) rows.push(header);
     invoice.rows.forEach((gid) => line(gid, 0, false));
     invoice.sections.forEach((section) => visit(section, 0));
     line(invoice.printedLineId, 0, false);
+    if (tree.length === 1) rows.push(header);
   }
 
   const referenceLines = candidates.filter((candidate) => candidate.reference);

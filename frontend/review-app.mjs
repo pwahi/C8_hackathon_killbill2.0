@@ -1025,7 +1025,15 @@ function candidateCard(candidate) {
     document.querySelector("#undo-remove").hidden = false;
     setStatus("Line removed from this review. Undo remove restores it. Previously saved reviews are unchanged.");
   });
-  card.append(remove);
+  // Where is it on the bill? The eye shows the line on its page (owner sketch: Del and location per row).
+  const where = document.createElement("button");
+  where.type = "button";
+  where.className = "locate-line";
+  where.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  where.title = "Show where this line is on the bill";
+  where.setAttribute("aria-label", `Show on page ${candidate.page}: ${candidate.description || "unlabelled"}`);
+  where.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); focusCandidate(candidate.id); });
+  card.append(remove, where);
   const top = document.createElement("div");
   top.className = "candidate-top";
   const confirm = document.createElement("label");
@@ -1332,13 +1340,23 @@ function acceptSection(subtotalId, memberIds) {
 function refreshPrintedCheck() {
   const selection = allReadyState(reviewState.candidates, elements.currency.value);
   const allLines = document.querySelector("#accept-all-lines");
+  const checkAll = document.querySelector("#check-all-lines");
+  checkAll.disabled = selection.disabled;
+  checkAll.textContent = selection.checked ? "✓ All lines checked" : "Check all lines";
+  checkAll.classList.toggle("done", selection.checked);
+  // Review lines: highlighted only when a line needs the person (a hint from Python or a missing decision).
+  const needs = reviewState.candidates.filter(line => line.attention && !line.reference);
+  const review = document.querySelector("#review-lines");
+  review.disabled = !needs.length;
+  review.classList.toggle("needed", needs.length > 0);
+  review.textContent = needs.length ? `Review ${needs.length} line${needs.length === 1 ? "" : "s"}` : "Nothing to review";
   allLines.checked = selection.checked;
   allLines.indeterminate = selection.indeterminate;
   allLines.disabled = selection.disabled;
   document.querySelector("#accept-all-hint").textContent = `${selection.selected} of ${selection.ready} ready lines accepted.${selection.blocked ? ` ${selection.blocked} line${selection.blocked === 1 ? " needs" : "s need"} details or a decision and will stay unticked.` : ""} This confirms what was read—not whether the bill adds up.${reviewState.candidates.some(line => line.role === "subtotal") ? " Section links are confirmed separately below." : ""}`;
   const state = printedCheckPresence(reviewState.candidates);
   const verified = Boolean(reviewState.tree?.length) && reviewState.tree.every(invoice => invoice.matches === true);
-  document.querySelector(".all-lines-control").hidden = verified;
+  document.querySelector(".all-lines-control").hidden = true;  // replaced by the "Check all lines" button
   document.querySelector("#printed-check-message").hidden = verified && state !== "missing" && state !== "needs_details";
   document.querySelector("#add-printed-total").hidden = document.querySelector("#printed-check-message").hidden;
   const text = {
@@ -1843,6 +1861,20 @@ function recommendExtractor() {
 
 elements.files.addEventListener("change", recommendExtractor);
 elements.confirmAll.addEventListener("click", confirmAllReady);
+document.querySelector("#check-all-lines").addEventListener("click", () => {
+  const box = document.querySelector("#accept-all-lines");
+  box.checked = !box.checked;
+  box.dispatchEvent(new Event("change"));
+});
+document.querySelector("#review-lines").addEventListener("click", () => {
+  const next = reviewState.candidates.find(line => line.attention && !line.reference);
+  if (!next) return;
+  focusCandidate(next.id);
+  const card = document.querySelector(`[data-card-id="${CSS.escape(next.id)}"]`);
+  const editor = card?.querySelector(".line-editor");
+  if (editor) editor.open = true;
+  card?.scrollIntoView({ block: "center", behavior: "smooth" });
+});
 document.querySelector("#accept-all-lines").addEventListener("change", event => {
   if (event.target.checked) return confirmAllReady();
   reviewState.candidates = confirmReadyLines(reviewState.candidates, elements.currency.value, false);

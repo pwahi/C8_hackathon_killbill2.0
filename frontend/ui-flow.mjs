@@ -102,14 +102,21 @@ export function createFlow() {
 
   const heading = make("div", "chapter-heading", '<p class="eyebrow" id="chapter-number"></p><div class="step-progress" aria-hidden="true"><span id="step-progress-bar"></span></div><h1 id="chapter-title" tabindex="-1"></h1><p id="chapter-description"></p>');
   $("main").insertBefore(heading, $("#review"));
-  const advanced = make("details", "advanced-review", "<summary>Message options &amp; data preview</summary>");
+  // Owner sketch "Page 3": the technical controls are for experts, with a short explanation behind ⓘ.
+  const advanced = make("details", "advanced-review", '<summary>Advanced (for experts) <span class="info-dot" title="The exact data Python receives, and the message type. You do not need this to check your bill.">i</span></summary><p class="advanced-note">The exact data Python receives, and the message type. You do not need this to check your bill. Checking sends your confirmed lines to our server; if there is a difference, the AI also receives those lines and the result — never your bill image.</p>');
   advanced.append($(".message-grid"), $("#preview-payload").parentElement, $("#payload-output"), $(".checkpoint"));
   const check = make("button", "primary", "Looks right — check it");
   check.id = "confirm-and-check";
-  $("#payload-panel").append(make("p", "analysis-privacy", "Checking sends confirmed lines to our server. If there is a difference, Groq also receives those lines and the checked result—not your bill image."), check, advanced);
+  // Bottom row: Review lines (highlighted only when a line needs you) | Looks right — check it.
+  const reviewLines = make("button", "secondary review-lines", "Review lines");
+  reviewLines.id = "review-lines";
+  reviewLines.type = "button";
+  const checkRow = make("div", "check-actions");
+  checkRow.append(reviewLines, check);
+  $("#payload-panel").append(checkRow, advanced);
   $(".candidate-panel").append($("#payload-panel"));
-  $("#candidate-list").before(make("div", "line-table-heading", "<span>LINE</span><span>WHAT IS IT</span><span>AMOUNT</span>"));
-  const lineActions = make("div", "line-actions", '<button id="add-line" class="secondary" type="button">+ Add a line</button><button id="undo-remove" class="text-button" type="button" hidden>Undo remove</button>');
+  $("#candidate-list").before(make("div", "line-table-heading", "<span>LINE</span><span>WHAT IS IT</span><span>AMOUNT</span><span class=\"heading-tools\" aria-hidden=\"true\"><span>Where</span><span>Del</span></span>"));
+  const lineActions = make("div", "line-actions", '<button id="check-all-lines" class="secondary" type="button" disabled>Check all lines</button><button id="add-line" class="secondary" type="button">+ Add a line</button><button id="undo-remove" class="text-button" type="button" hidden>Undo remove</button>');
   $(".line-table-heading").before(lineActions);
   const allLines = make("div", "all-lines-control", '<label><input id="accept-all-lines" type="checkbox" disabled aria-describedby="accept-all-hint"> I checked all ready lines against the bill</label><p id="accept-all-hint">No lines yet. This confirms what was read—not whether the bill adds up.</p>');
   $(".line-table-heading").before(allLines);

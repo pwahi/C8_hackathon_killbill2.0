@@ -12,16 +12,16 @@ const LINES = [c("fee"), c("a"), c("b"), c("s"), c("t"), c("r", { reference: { t
 test("a section that adds up is collapsed and its rows are not repeated elsewhere", () => {
   const rows = lineTreeRows(LINES, TREE);
   assert.deepEqual(rows.map((row) => [row.type, row.id, row.depth]), [
-    ["invoice", "inv", 0], ["line", "whole-fee", 0], ["section", "mob", 0], ["line", "whole-t", 0],
+    ["line", "whole-fee", 0], ["section", "mob", 0], ["line", "whole-t", 0], ["invoice", "inv", 0],
     ["group", "references", 0], ["group", "other", 0], ["line", "manual-1", 0]]);
-  assert.equal(rows[2].status, "ok");
-  assert.equal(rows[2].collapsed, true);
-  assert.equal(rows[0].label, "What you pay");
+  assert.equal(rows[1].status, "ok");
+  assert.equal(rows[1].collapsed, true);
+  assert.equal(rows[3].label, "What you pay");
 });
 
 test("opening a section shows its breakdown indented, ending with its printed subtotal", () => {
   const rows = lineTreeRows(LINES, TREE, new Map([["mob", false]]));
-  const inside = rows.slice(3, 6);
+  const inside = rows.slice(2, 5);
   assert.deepEqual(inside.map((row) => [row.id, row.depth, row.breakdown]), [["whole-a", 1, true], ["whole-b", 1, true], ["whole-s", 1, true]]);
 });
 
@@ -51,7 +51,7 @@ test("without a tree every line is a plain row", () => {
 test("a total that adds up while a section inside does not is not called 'changed'", () => {
   const tree = [{ ...TREE[0], sections: [{ ...TREE[0].sections[0], matches: false }] }];
   const lines = LINES.map((line) => ({ ...line, structureVerified: false }));
-  assert.equal(lineTreeRows(lines, tree)[0].status, "inner");
+  assert.equal(lineTreeRows(lines, tree).find((row) => row.type === "invoice").status, "inner");
 });
 
 test("lines the reader saw without a type are folded away as 'not counted'; the person's own lines stay visible", () => {
