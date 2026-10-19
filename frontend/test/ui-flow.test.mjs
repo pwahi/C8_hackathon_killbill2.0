@@ -14,11 +14,13 @@ test("required expectation preserves zero and printed decimal strings without ca
   }
 });
 
-test("draft and finish cannot be opened before a completed check", () => {
+test("results and message cannot be opened before a completed check", () => {
   assert.equal(canVisit(0, { opened: false }), true);
   assert.equal(canVisit(1, { opened: false }), false);
   assert.equal(canVisit(1, { opened: true }), true);
-  for (const step of [2, 3, 4]) {
+  assert.equal(canVisit(2, { opened: false }), false);
+  assert.equal(canVisit(2, { opened: true }), true);
+  for (const step of [3, 4]) {
     assert.equal(canVisit(step, { opened: true, complete: false }), false);
     assert.equal(canVisit(step, { opened: true, complete: true, busy: true }), false);
     assert.equal(canVisit(step, { opened: true, complete: true, busy: false }), true);

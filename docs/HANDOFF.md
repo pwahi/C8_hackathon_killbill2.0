@@ -9,6 +9,8 @@ Your two jobs right now:
 
 Latest follow-up D-037 / PRD v2.2: expected amount is required in the main UI (including both readers and payload preparation). Unknown-expectation core test C remains valid but can no longer be replayed unchanged through main UI. 106 Python / 44 browser-module tests pass. Parent work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md maps all five sketches and six questions to code, including crop storage and missing promise/history/chat features. No push/deployment or storage changes.
 
+Latest UI D-038 / PRD v2.3: owner's desktop HTML mock-up implemented locally. Chapters Your bill, Read, Check the lines, What we found, Your message (Finish/sent reporting in message sidebar). Compact expandable rows, maths aside, real source preview on re-check, local Anton font/licence. Required expectation and all backend rules retained; no dummy channel/format controls. 107 Python / 47 browser-module tests pass; offline fixture/browser/mobile verification in parent work/13_DESKTOP_MOCKUP_IMPLEMENTATION.md. docs/DESIGN.md is implementation reference. No push/deployment; owner review next. Do not rebuild old D-036 presentation.
+
 ---
 
 ## 1. Working with the owner (read first)

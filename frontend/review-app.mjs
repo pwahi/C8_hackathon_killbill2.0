@@ -6,6 +6,7 @@ import { buildServerPayload } from "./extraction/privacy.mjs";
 import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion } from "./extraction/bulk-confirm.mjs";
 import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
+import { resultHeadline, mathRows } from "./result-display.mjs";
 
 const elements = {
   files: document.querySelector("#bill-files"),
@@ -173,7 +174,8 @@ groqSend.addEventListener("click", async () => {
     elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
     invalidatePayload("Vision suggestions added. Review them and rebuild the safe preview.");
     drawHighlights();
-    setStatus(`Groq filled in ${added.length} lines. Compare the amounts and types with your bill, fix anything wrong, then choose Confirm and check charges.`);
+    flow.extracted();
+    setStatus(`Groq filled in ${added.length} lines. Compare them with your bill, open anything that needs fixing, then choose Looks right — check it.`);
   } catch (error) {
     if (selection.generation === reviewGeneration) setStatus(error.message, "failure");
   } finally { groqRequestRunning = false; pendingGroq = null; }
@@ -280,6 +282,7 @@ function resetReview({ keepFiles = false } = {}) {
   invalidatePayload("Confirm the relevant lines, then build the preview.");
   if (!keepFiles) {
     elements.files.value = "";
+    document.querySelector("#selected-file").textContent = "or click to choose · one bill · up to 10 pages";
     elements.expectedAmount.value = "";
     elements.messageType.value = "automatic";
     elements.earlierPeriodGroup.value = "";
@@ -305,6 +308,7 @@ async function pdfLibrary() {
 function addCandidate(candidate, message) {
   reviewState.candidates.push(candidate);
   elements.candidateList.append(candidateCard(candidate));
+  flow.extracted();
   elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
   invalidatePayload();
   drawHighlights();
@@ -328,7 +332,12 @@ function pageShell(pageNumber) {
   vision.className = "primary";
   vision.textContent = `Select charge table for Groq · page ${pageNumber}`;
   tools.append(manual, typed, vision);
-  elements.pages.append(tools);
+  const pageOptions = document.createElement("details");
+  pageOptions.className = "page-options";
+  const optionsTitle = document.createElement("summary");
+  optionsTitle.textContent = `Page ${pageNumber} · Add a line or read another area`;
+  pageOptions.append(optionsTitle, tools);
+  elements.pages.append(pageOptions);
   const shell = document.createElement("div");
   shell.className = "page-shell";
   shell.dataset.page = String(pageNumber);
@@ -562,6 +571,7 @@ function updateCandidate(candidateId, field, value) {
   document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"] .attention`)?.remove();
   const card = document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"]`);
   card?.classList.toggle("confirmed", field === "confirmed" ? value : reviewState.candidates[index].confirmed);
+  if (card) updateLineOverview(card, reviewState.candidates[index]);
   drawHighlights();
 }
 
@@ -569,6 +579,13 @@ function evidenceText(candidate) {
   if (candidate.precision === "exact") return `Exact location on page ${candidate.page} · located by ${LOCATOR_LABELS[candidate.locatedBy] || "unknown"}`;
   if (candidate.precision === "table") return `Table area on page ${candidate.page} · exact position not known`;
   return `Page ${candidate.page} only · no position recorded`;
+}
+
+function updateLineOverview(card, candidate) {
+  card.querySelector(".line-name").textContent = candidate.description || "Add a label";
+  card.querySelector(".line-kind").textContent = ROLE_LABELS[candidate.role] || "Choose type";
+  card.querySelector(".line-amount").textContent = candidate.rawAmount || "Add amount";
+  card.classList.toggle("printed-total", candidate.role === "total" || candidate.role === "subtotal");
 }
 
 function candidateCard(candidate) {
@@ -690,14 +707,22 @@ function candidateCard(candidate) {
     attention.textContent = candidate.attention;
     card.append(attention);
   }
-  card.append(top, fields);
+  const editor = document.createElement("details");
+  editor.className = "line-editor";
+  editor.open = Boolean(candidate.attention || !candidate.role || !candidate.rawAmount || !candidate.description);
+  const overview = document.createElement("summary");
+  overview.className = "line-overview";
+  overview.innerHTML = '<span class="line-name"></span><span class="line-kind"></span><span class="line-amount"></span>';
+  editor.append(overview, top, fields);
+  card.append(editor);
+  updateLineOverview(card, candidate);
   const more = document.createElement("details");
   more.className = "line-details";
   more.innerHTML = "<summary>Source &amp; row details</summary>";
   more.append(evidence, context, warning);
   if (candidate.breakdown) more.append(rowColumnsEditor(candidate));
   more.append(questioned, retry);
-  card.append(more);
+  editor.append(more);
   return card;
 }
 
@@ -743,7 +768,7 @@ function showCandidates(tokens, extractor) {
   drawHighlights();
   elements.review.hidden = false;
   elements.payloadPanel.hidden = false;
-  flow.opened();
+  flow.opened(candidates.length > 0);
 }
 
 async function processSelection() {
@@ -865,7 +890,16 @@ function renderGap(result, ai) {
     if (ai.explanation.evidenceToRequest.length) nodes.push(paragraph(`Evidence that would settle it: ${ai.explanation.evidenceToRequest.join("; ")}`));
     nodes.push(paragraph(`Model: ${ai.explanation.model}. Its text contains no amounts; every number on this page comes from Python.`, "hint"));
   }
-  elements.resultGap.replaceChildren(...nodes);
+  const facts = document.createElement("section");
+  facts.className = "python-facts";
+  const suggestion = document.createElement("section");
+  suggestion.className = "ai-reason";
+  let target = facts;
+  for (const node of nodes) {
+    if (node.classList.contains("gap-heading") && node.textContent.includes("AI suggestion")) target = suggestion;
+    target.append(node);
+  }
+  elements.resultGap.replaceChildren(facts, suggestion);
 }
 
 function markSuspects(suspects) {
@@ -879,9 +913,14 @@ function renderResult(result, ai = { state: "skipped" }) {
   const needsRecheck = result.status === "needs_recheck";
   const verdict = document.createElement("p");
   verdict.className = needsRecheck ? "verdict verdict-verified_mismatch" : `verdict verdict-${result.verdict}`;
-  verdict.textContent = needsRecheck
-    ? "⚠️ The confirmed numbers do not add up. This is usually a reading mistake, not a billing problem."
-    : VERDICT_LABELS[result.verdict] || result.verdict;
+  const headline = resultHeadline(result);
+  verdict.textContent = headline.text;
+  if (headline.amount) {
+    const amount = document.createElement("mark");
+    amount.textContent = headline.amount;
+    verdict.append(" ", amount);
+  }
+  verdict.title = needsRecheck ? "Check the reading before continuing" : VERDICT_LABELS[result.verdict] || result.verdict;
   elements.recheckBox.hidden = !needsRecheck;
   elements.draftBox.hidden = needsRecheck;
   if (needsRecheck) {
@@ -894,6 +933,39 @@ function renderResult(result, ai = { state: "skipped" }) {
   if (result.amounts.expected) parts.push(`you expected: ${result.amounts.expected}`, `difference: ${result.amounts.difference}`);
   totals.textContent = parts.join(" · ");
   elements.resultSummary.replaceChildren(verdict, totals);
+  const table = document.createElement("table");
+  table.className = "math-table";
+  table.setAttribute("aria-label", "Code-checked bill amounts");
+  const tableBody = document.createElement("tbody");
+  for (const row of mathRows(result)) {
+    const tr = document.createElement("tr");
+    tr.className = `math-${row.kind}`;
+    for (const text of [row.label, row.value]) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.append(td);
+    }
+    tableBody.append(tr);
+  }
+  table.append(tableBody);
+  document.querySelector("#math-table").replaceChildren(table);
+  document.querySelector("#math-table").hidden = needsRecheck;
+  document.querySelector("#math-title").textContent = needsRecheck ? "ON YOUR BILL" : "THE MATHS";
+  const sourcePreview = document.querySelector("#recheck-source");
+  sourcePreview.hidden = !needsRecheck;
+  sourcePreview.replaceChildren();
+  if (needsRecheck) {
+    const suspectIds = new Set(result.suspects.flatMap(suspect => suspect.lineIds));
+    const suspectPage = result.lines.find(line => suspectIds.has(line.id))?.source.page || result.lines[0]?.source.page;
+    const source = reviewState.pageElements.get(suspectPage)?.querySelector("canvas, img");
+    if (source) {
+      const preview = document.createElement("img");
+      preview.className = "source-preview";
+      preview.alt = `Source bill page ${suspectPage}. Return to the lines to inspect and correct it.`;
+      preview.src = source.tagName === "CANVAS" ? source.toDataURL("image/png") : source.src;
+      sourcePreview.append(preview, paragraph(`Source page ${suspectPage}. Use Fix the lines to inspect other pages or change amounts. No exact error location is inferred here.`, "hint"));
+    }
+  }
   if (result.messageTypeNote) {
     const note = document.createElement("p");
     note.className = "error";
@@ -993,12 +1065,15 @@ function confirmAllReady() {
   const parts = [`Confirmed ${confirmed} line${confirmed === 1 ? "" : "s"}.`];
   if (attention) parts.push(`${attention} need your attention (red note on the card).`);
   if (noRole) parts.push(`${noRole} without a role were left unticked; that is fine if they are not bill amounts.`);
-  parts.push("When the selected charges are correct, continue with Confirm and check charges.");
+  parts.push("When the selected charges are correct, continue with Looks right — check it.");
   setStatus(parts.join(" "), attention ? "failure" : "");
 }
 
 function recommendExtractor() {
   const files = Array.from(elements.files.files || []);
+  document.querySelector("#selected-file").textContent = files.length
+    ? `${files.length} file${files.length === 1 ? "" : "s"} selected · ${files.map(file => file.name).join(", ")}`
+    : "or click to choose · one bill · up to 10 pages";
   const photos = files.length > 0 && files.every((file) => /^image\/(jpeg|png)$/.test(file.type));
   elements.openVision.className = photos ? "primary" : "secondary";
   elements.process.className = photos ? "secondary" : "primary";
@@ -1028,12 +1103,12 @@ async function explainDifference(payload, generation) {
       setStatus("Done. Python checked the numbers and the AI suggested likely causes. Check the message, edit it if needed, then copy it. Nothing has been sent.");
     } else {
       renderResult(output.result, { state: "error", message: output.explanationError || output.skipped || "No AI explanation." });
-      setStatus("Numbers checked. The AI explanation was unavailable; your checked draft is still ready in the Draft step.");
+      setStatus("Numbers checked. The AI explanation was unavailable; your checked draft is ready in Your message.");
     }
   } catch (error) {
     if (generation !== reviewGeneration) return;
     elements.resultGap.querySelector(".hint")?.replaceWith(paragraph(`AI step failed: ${error.message}. The Python result and message are still valid.`, "error"));
-    setStatus("Numbers checked. The AI explanation failed; your checked draft is still ready in the Draft step.", "failure");
+    setStatus("Numbers checked. The AI explanation failed; your checked draft is ready in Your message.", "failure");
   }
 }
 
@@ -1098,7 +1173,6 @@ document.querySelector("#open-vision").addEventListener("click", async () => {
     } else { await renderImages(files); }
     showCandidates([], kind === "pdf" ? "pdf_text" : "local_ocr");
     reviewState.pageElements.get(1)?.startGroqSelection();
-    reviewState.pageElements.get(1)?.scrollIntoView({ behavior: "smooth", block: "start" });
     const more = reviewState.pageElements.size > 1 ? " Afterwards, use the Groq button above each other page that has charges." : "";
     setStatus(`Bill opened locally. Draw one box around the charge table on page 1 (labels and prices). You will see the exact image before anything is sent.${more}`);
   } catch (error) { resetReview({ keepFiles: true }); setStatus(error.message, "failure"); }

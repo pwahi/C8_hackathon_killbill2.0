@@ -11,5 +11,6 @@ Essentials (details in `docs/HANDOFF.md`):
 - Never invent results; separate implemented, verified and owner-reported.
 - **N-1 first UI version is implemented locally (D-036, PRD v2.1).** Owner review and deployment approval are next. Do not restart the build or assume it is deployed; N-2/N-3 remain unbuilt.
 - D-037 / PRD v2.2 follow-up: expected amount required in main UI; 106 Python / 44 browser-module tests pass. See parent work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md for confirmed code-versus-sketch gaps and crop-storage boundary. No push/deployment yet.
+- Latest D-038 / PRD v2.3: UI now follows owner's desktop HTML mock-up, with Your bill → Read → Check the lines → What we found → Your message (Finish in sidebar). 107 Python / 47 browser-module tests pass. See docs/DESIGN.md and parent work/13_DESKTOP_MOCKUP_IMPLEMENTATION.md. Local only; owner review/deployment pending.
 - Hackathon check-in 4 is next (see docs/HANDOFF.md §8): help draft only when asked; ask for the actual prompt first.
 - After material changes update `docs/DECISIONS.md`, `docs/PRD.md` and the parent `../PROJECT.md`.

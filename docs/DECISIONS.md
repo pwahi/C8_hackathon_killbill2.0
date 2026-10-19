@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-038 — Adopt owner's desktop HTML mock-up
+
+Date: 2026-10-19. Status: Owner requested implementation; adapted working desktop UI implemented locally; owner acceptance/deployment pending.
+
+Supplied `BillShield UI mock-ups.html` becomes the desktop visual reference. Chapters now Your bill → Read → Check the lines → What we found → Your message, with Finish/sent reporting inside the message chapter. Replaces D-036's presentation/navigation (not backend rules). Uses compact expandable rows, two-column upload/result/message layouts, checked maths table, real source preview for re-check, and separate Python/AI sections. Amount strings come only from Python results; edits invalidate drafts; needs_recheck gate preserved. Required expectation D-037 overrides older optional mock-up text. No copied example values, fake VAT exclusions or error boxes. No nonfunctional channel/format toggles. Existing server/model/storage rules unchanged.
+
+Anton Latin font extracted unchanged from supplied bundle with licence and self-hosted under frontend/assets/fonts; no external font calls. System sans replaces unbundled IBM Plex. Read preview stays an explicit modal; mobile adapts responsively. New design/reference helper does not execute owner bundle scripts or publish anything.
+
+**Affected:** frontend index/styles/desktop.css/ui-flow/review-app/result-display, local font/licence; UI/display/API tests; scripts/preview_mockup.py; docs/DESIGN.md, PRD v2.3, HANDOFF/README/AGENTS; parent work/13 and PROJECT. **Verification:** 107 Python / 47 browser-module tests; desktop/mobile browser checks; offline structured A/B/D draft replays; C matching UI branch with explicitly synthetic expectation (not new participant evidence); changed-total re-check and explicit re-check draft. [Full record](../../work/13_DESKTOP_MOCKUP_IMPLEMENTATION.md). No live provider/database writes, push, deployment or owner acceptance claimed.
+
 ## D-037 — Expected amount required in comparison UI; sketch/privacy audit
 
 Date: 2026-10-19. Status: Owner-directed change implemented and locally verified; not pushed/deployed.

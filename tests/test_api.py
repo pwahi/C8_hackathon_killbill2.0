@@ -36,6 +36,21 @@ class ApiTests(unittest.TestCase):
         self.assertIsInstance(body["groqKeyConfigured"], bool)
         self.assertNotIn("gsk_", json.dumps(body))
 
+    def test_desktop_design_assets_are_served_locally_with_font_licence(self):
+        page = self.client.get("/")
+        self.assertIn('href="./desktop.css"', page.text)
+        css = self.client.get("/desktop.css")
+        self.assertEqual(css.status_code, 200)
+        self.assertIn("./assets/fonts/anton-latin.woff2", css.text)
+        self.assertNotIn("fonts.googleapis.com", css.text)
+        self.assertNotIn("fonts.gstatic.com", css.text)
+        font = self.client.get("/assets/fonts/anton-latin.woff2")
+        self.assertEqual(font.status_code, 200)
+        self.assertTrue(font.content.startswith(b"wOF2"))
+        licence = self.client.get("/assets/fonts/ANTON-LICENSE.txt")
+        self.assertEqual(licence.status_code, 200)
+        self.assertIn("SIL OPEN FONT LICENSE", licence.text)
+
     def test_analyze_returns_python_result_and_draft(self):
         response = self.client.post("/api/analyze", json=fixture("BS-002"), headers=ORIGIN)
         self.assertEqual(response.status_code, 200)

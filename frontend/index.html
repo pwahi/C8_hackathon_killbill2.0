@@ -4,19 +4,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="no-referrer">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' blob: data:; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
-    <title>Kill Bill 2.0 · Check your bill</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' blob: data:; style-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <title>BillShield · Check your bill</title>
     <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./desktop.css">
   </head>
   <body>
     <header class="brand-bar">
-      <a class="wordmark" href="./" aria-label="Kill Bill 2.0 home">KILL BILL<span>2.0</span></a>
-      <span class="brand-caption">A little clarity. Before you pay.</span>
+      <a class="wordmark" href="./" aria-label="BillShield home">BILLSHIELD<span aria-hidden="true"></span><small>Kill Bill 2.0</small></a>
     </header>
 
     <main>
       <nav id="flow-nav" class="flow-nav" aria-label="Review progress"></nav>
-      <div class="flow-heading"><p id="flow-kicker" class="eyebrow">01 / PROVIDE</p><h1 id="flow-title" tabindex="-1">Let’s check your bill.</h1><p id="flow-description">See what adds up, what needs explaining, and what to say next.</p></div>
+      <div class="flow-heading"><p id="flow-kicker" class="eyebrow">CHAPTER 1</p><h1 id="flow-title" tabindex="-1">YOUR BILL</h1><span class="title-cut" aria-hidden="true"></span><p id="flow-description">Add the bill you want to check and what you expected to pay. We check the confirmed lines and help you write one clear message.</p></div>
       <section class="panel setup" aria-labelledby="setup-title">
         <div>
           <p class="step">1</p>
@@ -25,8 +25,10 @@
         </div>
         <div class="control-grid">
           <label class="file-control">
-            <span>Your bill</span>
-            <input id="bill-files" type="file" accept="application/pdf,image/jpeg,image/png" multiple>
+            <svg class="upload-icon" aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V4M7 9l5-5 5 5M4 16v3h16v-3"/></svg>
+            <span>Drop a photo or PDF here</span>
+            <small id="selected-file">or click to choose · one bill · up to 10 pages</small>
+            <input id="bill-files" aria-label="Your bill" type="file" accept="application/pdf,image/jpeg,image/png" multiple>
           </label>
           <label>
             <span>Currency</span>
@@ -36,7 +38,7 @@
             </select>
           </label>
           <label>
-            <span>Decimal mark on this bill</span>
+            <span>Amounts look like</span>
             <select id="decimal-separator">
               <option value=".">Point · 1,299.00</option>
               <option value=",">Comma · 1.299,00</option>
@@ -53,7 +55,7 @@
           <input id="access-code" type="password" autocomplete="off">
         </label>
         <div class="actions">
-          <button id="start-review" class="primary" type="button">Review my bill <span aria-hidden="true">→</span></button>
+          <button id="start-review" class="primary" type="button">Read my bill</button>
           <details class="reading-options"><summary>Reading options</summary><div class="actions">
           <button id="open-vision" class="secondary" type="button">Read a charge table with Groq</button>
           <button id="process" class="secondary" type="button">Read on this device</button></div></details>

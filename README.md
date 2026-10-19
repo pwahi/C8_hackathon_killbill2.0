@@ -1,5 +1,11 @@
 # BillShield application
 
+**Latest UI checkpoint — D-038, PRD v2.3:** local working UI now follows the owner's desktop mock-up: **Your bill → Read → Check the lines → What we found → Your message**, with Finish/sent reporting beside the draft. Expected amount required; local reading and approved-crop Groq path retained. 107 Python / 47 browser-module tests pass. No push or deployment; owner review pending. Design details: [docs/DESIGN.md](docs/DESIGN.md). Earlier status notes below are historical.
+
+Run from this application folder: `.venv\Scripts\python.exe app.py`; open http://127.0.0.1:4173/ (if already running, refresh—do not start another server). Use Ctrl+F5 if old styling is cached. Upload a masked bill and actual expected amount, approve a crop if needed, check/edit rows, then **Looks right — check it** and **Write my message**. Only report I sent it after actually sending.
+
+Tests: `.venv\Scripts\python.exe -m unittest discover -s tests` and `npm --prefix frontend test`. Offline developer replay/visual checks are not fresh OCR accuracy or real-user tests. Missing chat, history-loading and other known gaps are unchanged.
+
 **Current checkpoint (D-036, 2026-10-19):** the five-screen UI is implemented locally, awaiting owner review and deployment approval. Current requirements: PRD v2.1. **The progress notes below predate hosting/database work and are historical, not current status.** See [current run instructions](#current-local-ui-checkpoint--2026-10-19-d-036) at the end.
 
 **Follow-up D-037 / PRD v2.2:** expected amount is now required before reading/comparison in the main UI; don't guess an unknown amount. Tests: 106 Python / 44 browser-module pass. Crops pass through the server to Groq without app image persistence; local responses are cached, and separate benchmark test crops already exist. No push/deployment. Full sketch/privacy audit is in parent `work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md`.

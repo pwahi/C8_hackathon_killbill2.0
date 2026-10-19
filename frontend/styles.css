@@ -208,11 +208,6 @@ details .actions { margin: 8px 0; }
 .finish-step > p { font-size: 13px; line-height: 1.6; color: var(--muted); }
 .sent-box { margin: 25px 0; font-size: 12px; }
 .flow-actions { display: flex; justify-content: space-between; max-width: 900px; margin-top: 25px; gap: 15px; }
-body[data-ui-step="0"] [data-flow-panel]:not([data-flow-panel="0"]),
-body[data-ui-step="1"] [data-flow-panel]:not([data-flow-panel="1"]),
-body[data-ui-step="2"] [data-flow-panel]:not([data-flow-panel="2"]),
-body[data-ui-step="3"] [data-flow-panel]:not([data-flow-panel="3"]),
-body[data-ui-step="4"] [data-flow-panel]:not([data-flow-panel="4"]) { display: none !important; }
 @media (max-width: 850px) { .review-layout { grid-template-columns: 1fr; } .document-panel { max-height: 48vh; } .candidate-panel { max-height: none; } }
 @media (max-width: 600px) {
   .brand-bar { padding: 20px; } .brand-caption { display: none; } main { padding: 0 18px 35px; }
