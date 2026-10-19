@@ -2019,7 +2019,8 @@ elements.recheckConfirm.addEventListener("click", async () => {
 elements.markSent.addEventListener("click", async () => {
   elements.markSent.disabled = true;
   try {
-    const answer = await recordEvent("sent", elements.sentText.value.trim() || null);
+    // The pasted text if given, otherwise the message as it stands in the box (owner: no paste box in the way).
+    const answer = await recordEvent("sent", elements.sentText.value.trim() || elements.draftText.value.trim() || null);
     elements.sentNote.textContent = answer.wordsChanged == null
       ? "Recorded as sent. Paste the exact text you sent to also count the changed words."
       : `Recorded as sent: ${answer.wordsChanged} word${answer.wordsChanged === 1 ? "" : "s"} changed compared with the draft (goal: fewer than 20). Long numbers and e-mail addresses were removed before saving.`;

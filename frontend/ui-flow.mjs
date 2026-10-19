@@ -137,19 +137,29 @@ export function createFlow() {
   recheckBack.addEventListener("click", () => go(2));
   recheckBox.append(recheckBack);
 
-  const draftPanel = make("section", "message-layout");
+  // Message chapter (owner sketch 2026-10-19): tone and message on the left, instructions on the right, then one
+  // row of three buttons: Copy message | I sent it | Check another bill.
+  const draftPanel = make("section", "message-layout message-page");
   draftPanel.dataset.flowPanel = "4";
   const draft = $("#draft-box");
-  const sent = make("aside", "panel sent-panel", '<h2>After you send it</h2><p id="finish-state">Kill Bill never sends anything. You choose where and when to send.</p>');
-  sent.append(draft.querySelector(".sent-box"));
-  const again = make("button", "text-button", "Check another bill");
-  again.addEventListener("click", () => $("#reset").click());
-  sent.append(again);
-  // Message chapter: say plainly what the message is for and how to send it (stranger test, step 5).
+  const columns = make("div", "message-columns");
+  const instructions = make("aside", "message-instructions", '<h2 class="eyebrow">INSTRUCTIONS</h2>');
   const sendGuide = make("ol", "send-guide", "<li>Pick a tone and edit the text if you like.</li><li>Press <strong>Copy message</strong>.</li><li>Paste it into an e-mail, chat or contact form to the company that sent the bill.</li><li>Come back and press <strong>I sent it</strong>, so we know it helped.</li>");
   sendGuide.setAttribute("aria-label", "How to send it");
-  draft.querySelector(".tone-picker").before(sendGuide);
-  draftPanel.append(draft, sent);
+  const finish = make("p", "hint", "Kill Bill never sends anything. You choose where and when to send.");
+  finish.id = "finish-state";
+  instructions.append(sendGuide, finish, draft.querySelector("#save-note"), draft.querySelector(":scope > .hint:last-child"));
+  columns.append(draft, instructions);
+  const sentBox = draft.querySelector(".sent-box");
+  const again = make("button", "secondary", "Check another bill");
+  again.type = "button";
+  again.addEventListener("click", () => $("#reset").click());
+  const buttons = make("div", "message-actions");
+  buttons.append(draft.querySelector("#copy-draft"), draft.querySelector("#mark-sent"), again);
+  // Changed the text after copying? The exact text sent can still be pasted, only to count changed words.
+  const pasted = make("details", "sent-details", "<summary>Changed the text after copying? Paste what you sent</summary>");
+  pasted.append(sentBox);
+  draftPanel.append(columns, buttons, sentBox.querySelector("#sent-note"), pasted);
   $("#result-panel").replaceChildren(resultBody, math);
   $("main").append(draftPanel);
 
@@ -197,7 +207,7 @@ export function createFlow() {
     } else $("#chapter-description").textContent = guidance;
     // Above both columns, so "Your bill adds up" and The maths start on the same line (owner 2026-10-19).
     if (current === 3) $("#result-panel").before(heading);
-    else if (current === 4) draft.prepend(heading);
+    else if (current === 4) draftPanel.prepend(heading);
     else $("main").insertBefore(heading, $("#review"));
     navButtons.forEach((button, index) => {
       button.disabled = !canVisit(index, state);

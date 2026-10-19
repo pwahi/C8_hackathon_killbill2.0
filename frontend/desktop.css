@@ -617,3 +617,22 @@ body[data-ui-step='3'] .chapter-heading { margin-bottom: 28px; }
 body[data-ui-step='3'] .verdict { font-size: 30px; line-height: 1.3; font-weight: 700; margin-top: -6px; }
 body[data-ui-step='3'] .verdict mark { padding: 0 6px; }
 body[data-ui-step='3'] .flow-actions { max-width: calc((100% - 48px) * 1.2 / 2.2); display: flex; justify-content: space-between; align-items: center; }
+
+/* ---- Your message (owner sketch, chapter 5) ---- */
+body[data-ui-step="4"] .message-layout.message-page { display: block !important; }
+.message-columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+.message-instructions { padding-top: 4px; display: grid; gap: 14px; }
+.message-instructions .eyebrow { margin: 0; }
+.message-instructions .send-guide { margin: 0; padding: 0 0 0 20px; background: none; font-size: 15px; line-height: 1.7; }
+.message-instructions .hint { margin: 0; font-size: 13px; line-height: 1.5; }
+.draft-box > .actions:empty, .sent-box > .actions:empty { display: none; }
+.message-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+.message-actions button { width: 100%; min-height: 52px; font-size: 16px; }
+#sent-note { margin: 10px 0 0; }
+.sent-details { margin-top: 16px; font-size: 13px; color: var(--muted); }
+.sent-details > summary { cursor: pointer; }
+.sent-details .sent-box { margin: 12px 0 0; border: 0; padding: 0; }
+body[data-ui-step='4'] #status:not(.failure) { display: none; }
+@media (max-width: 760px) {
+  .message-columns, .message-actions { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
