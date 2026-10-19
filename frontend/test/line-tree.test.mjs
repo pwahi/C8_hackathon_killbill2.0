@@ -96,3 +96,13 @@ test("a part's total that is shown, not counted, explains its gap under the part
   const header = lineTreeRows(lines, tree).find((row) => row.id === "inv");
   assert.deepEqual([header.status, header.hint], ["rounding", "a 0.01 rounding difference"]);
 });
+
+test("with several parts each part's total closes its own lines, and a rounding line sits inside its part", () => {
+  const tree = [{ ...TREE[0], id: "elec", label: "Electricity", printedLineId: "t", rows: ["a"], sections: [], matches: false, rounding: true },
+                { ...TREE[0], id: "gas", label: "Gas", printedLineId: "t2", rows: ["b"], sections: [] }];
+  const lines = [c("a"), c("t"), c("b"), c("t2"), { id: "rounding-1", roundingFor: "t", role: "adjustment" }];
+  const rows = lineTreeRows(lines, tree);
+  assert.deepEqual(rows.map((row) => row.id), ["whole-a", "rounding-1", "whole-t", "elec", "whole-b", "whole-t2", "gas"]);
+  assert.equal(rows.find((row) => row.id === "elec").part, true);
+  assert.equal(rows.some((row) => row.id === "other"), false);
+});

@@ -32,6 +32,10 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
     placed.add(candidate.id);
     rows.push({ type: "line", id: candidate.id, depth, breakdown });
   };
+  // A rounding line the person added sits inside the part it fixes, just above that part's printed figure.
+  const roundings = (gid, depth, breakdown) => candidates
+    .filter((candidate) => gid && candidate.roundingFor === gid && !placed.has(candidate.id))
+    .forEach((candidate) => { placed.add(candidate.id); rows.push({ type: "line", id: candidate.id, depth, breakdown }); });
   const hide = (node) => nodeGids(node).forEach((gid) => byGid.get(gid) && placed.add(byGid.get(gid).id));
   // Rows and sections in the order they are printed on the bill (the reading order of the lines), so a VAT line
   // printed after a section is not listed above it.
@@ -50,22 +54,24 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
       amountId: byGid.get(node.printedLineId)?.id || null, hint: byGid.get(node.printedLineId)?.attention || null });
     if (collapsed) { hide(node); collectReferences(node); return; }
     children(node).forEach((child) => child.section ? visit(child.section, depth + 1) : line(child.row, depth + 1, true));
+    roundings(node.printedLineId, depth + 1, true);
     line(node.printedLineId, depth + 1, true);
   };
   const collectReferences = (node) => node.sections.forEach((child) => { references.push(...child.references); collectReferences(child); });
 
   for (const invoice of tree) {
     references.push(...invoice.references);
-    const header = { type: "invoice", id: invoice.id, depth: 0, label: tree.length > 1 ? invoice.label : "What you pay",
+    const header = { type: "invoice", id: invoice.id, depth: 0, part: tree.length > 1, label: tree.length > 1 ? invoice.label : "What you pay",
       status: status(invoice, byGid, fixed), amountId: byGid.get(invoice.printedLineId)?.id || null,
       // A part's total that is shown, not counted (several parts with sections) has no card of its own to explain
       // a gap, so the explanation sits under the part's header; otherwise the total line itself shows it.
       hint: byGid.get(invoice.printedLineId)?.reference ? byGid.get(invoice.printedLineId).gapHint || null : null };
-    // One bill: the lines first, "What you pay" as the closing row (owner sketch). Several invoices: a header each.
-    if (tree.length > 1) rows.push(header);
+    // The lines first, the total as the closing row, like on a receipt (owner sketch). With several parts
+    // (electricity and gas) each part ends with its own total.
     children(invoice).forEach((child) => child.section ? visit(child.section, 0) : line(child.row, 0, false));
+    roundings(invoice.printedLineId, 0, false);
     line(invoice.printedLineId, 0, false);
-    if (tree.length === 1) rows.push(header);
+    rows.push(header);
   }
 
   const referenceLines = candidates.filter((candidate) => candidate.reference);

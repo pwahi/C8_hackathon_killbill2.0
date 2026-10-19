@@ -135,7 +135,7 @@ function renderLines() {
 function treeHeader(row, byId) {
   // Same columns as the lines (owner sketch): title with the period below, "What is it", amount, and the eye.
   const header = document.createElement("div");
-  header.className = `tree-row tree-${row.type} status-${row.status || "none"}`;
+  header.className = `tree-row tree-${row.type}${row.part ? " tree-part" : ""} status-${row.status || "none"}`;
   header.dataset.nodeId = row.id;
   header.style.setProperty("--depth", row.depth);
   const name = document.createElement("span");
@@ -177,7 +177,7 @@ function refreshTreeHeaders() {
     if (row.type === "line") continue;
     const header = document.querySelector(`.tree-row[data-node-id="${CSS.escape(row.id)}"]`);
     if (!header) continue;
-    header.className = `tree-row tree-${row.type} status-${row.status || "none"}`;
+    header.className = `tree-row tree-${row.type}${row.part ? " tree-part" : ""} status-${row.status || "none"}`;
     const text = row.type === "invoice" && row.status === "ok"
       ? "✓ all lines add up to this (checked by Python)" : row.type === "section" && row.status === "ok" ? "" : STATUS_TEXT[row.status] || "";
     let state = header.querySelector(".tree-status");
