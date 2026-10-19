@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-051 — Rename to Kill Bill 2.0; landing page; Chapter 1 per owner sketch
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Decision (owner sketches, parent evidence):** the visible name becomes **Kill Bill 2.0**; "BillShield" is removed from every screen and user-facing server message. Logo per the owner's drawing: K over B, an orange-red slash as the "I", LL over LL, 2.0 underneath (CSS, no image). A new landing page comes before step 1: what it is about, how to use it (the five chapters), a minimal workflow chart tagging each step as You / AI (Claude Haiku, GPT-OSS) / Code (Python), and what happens to the data; "Start checking my bill" opens step 1, the logo returns to it. Chapter 1 follows the sketch: one line "Add the bill…", upload, expected amount / currency / decimal mark in one row, Read my bill; earlier checks in a right-hand column; privacy text moves to the landing page; reading options removed from Chapter 1 (still under "Other ways to read" in Read). Internal names (repository, Python package, browser storage keys, headers) are unchanged so saved checks keep working.
+
+**Verification:** 218 Python / 94 browser-module tests; headless Edge walk from the landing page through all five chapters at 1280 px and 390 px.
+
 ## D-050 — UI clarity pass from the stranger test
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

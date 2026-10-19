@@ -30,7 +30,8 @@ export function createFlow() {
     const node = document.createElement(tag); node.className = className; node.innerHTML = html; return node;
   };
   const state = { opened: false, complete: false, busy: false };
-  let current = 0;
+  const INTRO = -1;  // the landing page (what it is, how to use it, the data workflow) comes before step 1
+  let current = INTRO;
   $(".brand-bar").append($("#flow-nav"));
   const status = $("#status");
   $("main").prepend(status);
@@ -46,6 +47,12 @@ export function createFlow() {
   controls.prepend($("#expected-amount").closest("label"));
   settings.append(controls, $("#access-box"), $(".privacy-note"), $(".setup .actions"));
   $(".setup").replaceChildren(intro, settings);
+  // Owner sketch 2026-10-19: Chapter 1 is the form, with earlier checks in a column on the right.
+  const provide = make("div", "provide-layout");
+  $(".setup").before(provide);
+  provide.append($(".setup"), $("#saved-checks"));
+  $("#start-checking").addEventListener("click", () => go(0));
+  $("#home-link").addEventListener("click", (event) => { event.preventDefault(); go(INTRO, true); });
 
   const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">READ YOUR BILL</p><h2>Let the AI read your bill</h2><p class="read-lead">It finds every price and groups them the way your bill does. Python then checks every sum. About 20 seconds per page.</p>');
   // Owner decision 2026-10-19: reading every page is the main route; drawing an area stays the fallback.
@@ -123,7 +130,7 @@ export function createFlow() {
   const draftPanel = make("section", "message-layout");
   draftPanel.dataset.flowPanel = "4";
   const draft = $("#draft-box");
-  const sent = make("aside", "panel sent-panel", '<h2>After you send it</h2><p id="finish-state">BillShield never sends anything. You choose where and when to send.</p>');
+  const sent = make("aside", "panel sent-panel", '<h2>After you send it</h2><p id="finish-state">Kill Bill never sends anything. You choose where and when to send.</p>');
   sent.append(draft.querySelector(".sent-box"));
   const again = make("button", "text-button", "Check another bill");
   again.addEventListener("click", () => $("#reset").click());
@@ -150,8 +157,13 @@ export function createFlow() {
     return button;
   });
   function paint() {
-    document.body.dataset.uiStep = String(current);
-    heading.hidden = current === 0;
+    document.body.dataset.uiStep = current === INTRO ? "intro" : String(current);
+    heading.hidden = current <= 0;
+    if (current === INTRO) {
+      navButtons.forEach((button, index) => { button.disabled = !canVisit(index, state); button.removeAttribute("aria-current"); });
+      back.hidden = true; next.hidden = true;
+      return;
+    }
     $("#chapter-number").textContent = stepLabel(current);
     $("#step-progress-bar").style.width = `${((current + 1) / STEPS.length) * 100}%`;
     $("#chapter-title").textContent = STEPS[current].toUpperCase();
@@ -164,14 +176,14 @@ export function createFlow() {
       button.disabled = !canVisit(index, state);
       if (index === current) button.setAttribute("aria-current", "step"); else button.removeAttribute("aria-current");
     });
-    back.hidden = current === 0;
+    back.hidden = false;  // on step 1, Back returns to the landing page
     next.hidden = current !== 3 || !state.complete;
     next.disabled = state.busy;
   }
   function go(step, force = false) {
-    if (!force && !canVisit(step, state)) return;
+    if (step !== INTRO && !force && !canVisit(step, state)) return;
     current = step; paint();
-    (current === 0 ? $("#flow-title") : $("#chapter-title")).focus({ preventScroll: true });
+    (current === INTRO ? $("#landing-title") : current === 0 ? $("#flow-title") : $("#chapter-title")).focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }
   paint();
@@ -185,12 +197,12 @@ export function createFlow() {
     opened(hasLines = false) { state.opened = true; state.hasLines = hasLines; readingStage = hasLines ? "review" : "select"; paintReading(); go(hasLines ? 2 : 1); },
     extracted(stayReading = false) { state.opened = true; state.hasLines = readingCount > 0; if (stayReading) { readingStage = readingCount ? "review" : "select"; paintReading(); } go(stayReading ? 1 : 2); },
     invalidated() { state.complete = false; state.busy = false; if (current > 2) go(state.opened ? 2 : 0, true); else paint(); },
-    reset() { state.opened = false; state.hasLines = false; state.complete = false; state.busy = false; readingStage = "choose"; readingPage = 1; readingCount = 0; paintReading(); $("#finish-state").textContent = "BillShield never sends anything. You choose where and when to send."; go(0, true); },
+    reset() { state.opened = false; state.hasLines = false; state.complete = false; state.busy = false; readingStage = "choose"; readingPage = 1; readingCount = 0; paintReading(); $("#finish-state").textContent = "Kill Bill never sends anything. You choose where and when to send."; go(0, true); },
     result(result, pending = false) {
       state.complete = result.status === "complete"; state.busy = pending;
       $("#result-gap").hidden = !state.complete; unknown.hidden = !state.complete; go(3, true);
     },
     settled() { state.busy = false; paint(); },
-    copied() { $("#finish-state").textContent = "Message copied. It has not been sent by BillShield."; },
+    copied() { $("#finish-state").textContent = "Message copied. It has not been sent by Kill Bill."; },
   };
 }

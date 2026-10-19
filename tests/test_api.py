@@ -147,7 +147,7 @@ class ApiTests(unittest.TestCase):
     def test_page_is_served_but_secrets_are_not(self):
         page = self.client.get("/")
         self.assertEqual(page.status_code, 200)
-        self.assertIn("BillShield", page.text)
+        self.assertIn("Kill Bill", page.text)
         for path in ("/.env.local", "/../.env.local", "/%2e%2e/.env.local", "/../private/groq-cache"):
             self.assertIn(self.client.get(path).status_code, (404, 400), path)
 

@@ -151,7 +151,7 @@ def parse_confirmed_amount(raw: str, *, decimal_separator: str, currency: str) -
     if not pattern.fullmatch(text):
         raise ReviewError(
             f"amount {raw!r} does not match the selected decimal mark {decimal_separator!r}. "
-            "Check the digits and decimal mark on the bill and correct it; BillShield will not guess."
+            "Check the digits and decimal mark on the bill and correct it; Kill Bill will not guess."
         )
     amount = parse_major_to_minor(text, decimal_separator=decimal_separator)
     return -amount if negative else amount
@@ -218,7 +218,7 @@ def build_case(review: ConfirmedReview) -> tuple[BillCase, dict[str, int]]:
         if line.role == "discount" and amount >= 0:
             raise ReviewError(
                 f"discount {line.description!r} must be entered as a negative amount (for example -200.00); "
-                "BillShield does not flip signs for you"
+                "Kill Bill does not flip signs for you"
             )
         if line.role == "charge" and amount < 0:
             raise ReviewError(f"charge {line.description!r} is negative; mark it as a discount if it reduces the bill")

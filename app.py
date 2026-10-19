@@ -60,7 +60,7 @@ CACHE_DIR = None if HOSTED else ROOT / "private" / "groq-cache"
 CROP_LIMIT = 4_400_000
 
 app = FastAPI(
-    title="BillShield API",
+    title="Kill Bill 2.0 API",
     version=VERSION,
     description="Confirmed bill lines in, code-checked calculations and a required editable draft out. "
     "Python owns every number; models only suggest. Nothing is sent to a provider by this API on its own.",
@@ -75,7 +75,7 @@ def error(status: int, message: str) -> JSONResponse:
 async def read_json(request: Request, limit: int) -> dict | JSONResponse:
     """Shared guard: allowed page origin, JSON content type, bounded body."""
     if request.headers.get("origin") not in ALLOWED_ORIGINS:
-        return error(403, "Open this review from the BillShield page.")
+        return error(403, "Open this review from the Kill Bill page.")
     if HOSTED and not ACCESS_CODE:
         return error(503, "This test server has no access code configured yet.")
     if ACCESS_CODE and not hmac.compare_digest(request.headers.get("x-billshield-access", ""), ACCESS_CODE):

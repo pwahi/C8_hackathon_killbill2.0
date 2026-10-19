@@ -1995,7 +1995,7 @@ elements.copyDraft.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(elements.draftText.value);
     flow.copied();
-    setStatus("Message copied to your clipboard. BillShield has not sent anything; sending is up to you.");
+    setStatus("Message copied to your clipboard. Kill Bill has not sent anything; sending is up to you.");
     recordEvent("copied").catch(() => {});
   } catch {
     elements.draftText.select();

@@ -21,5 +21,5 @@ def explain_review(payload: dict, api_key: str, cache_dir: Path | None) -> dict:
         return {"result": result, "explanation": None, "explanationError": str(error)}
     except (ValueError, KeyError, IndexError):
         return {"result": result, "explanation": None, "explanationError":
-                f"The {MODEL} answer did not pass BillShield's safety checks, so it was not used. The Python result and message are unaffected."}
+                f"The {MODEL} answer did not pass Kill Bill's safety checks, so it was not used. The Python result and message are unaffected."}
     return {"result": analyze_confirmed_review(payload, explanation), "explanation": explanation}

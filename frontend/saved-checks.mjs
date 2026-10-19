@@ -126,7 +126,7 @@ export function createSavedChecks({ api, hasSession, accessMissing }) {
     const copy = make("button", "primary", "Copy message");
     copy.type = "button";
     copy.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(text.value); note.textContent = "Copied. BillShield has not sent anything."; }
+      try { await navigator.clipboard.writeText(text.value); note.textContent = "Copied. Kill Bill has not sent anything."; }
       catch { text.select(); note.textContent = "Copy was blocked by the browser. The message is selected; press Ctrl+C."; }
       if (message.id) api(`/api/messages/${encodeURIComponent(message.id)}/events`, { action: "copied" }).catch(() => {});
     });
