@@ -326,6 +326,15 @@ def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str]
         if invoice.id in invoice_owners:
             # Several invoices: each printed invoice total checks its own rows, like a subtotal.
             entry.update(role="subtotal", group=names[invoice.id])
+        elif multi:
+            # Several parts that each have sections (seen live: electricity and gas on one energy bill). The flat
+            # line list allows one grand total, so each part's total is shown, not sent as a second grand total;
+            # Python checked it against its own part in the structure above. A rounding gap can still be settled.
+            state = ("✓ adds up" if node.matches else
+                     f"≈ {format_minor(abs(node.computed_minor - node.printed_minor), currency)} rounding difference"
+                     if rounding_fix(node, decimal_separator) else "✗ does not add up: compare it with the bill")
+            entry.update(role="", referenceText=f"Total of {invoice.label or 'this part'} — checked by Python against "
+                                                f"its own lines: {state}")
         result[invoice.total_line_id] = entry
     mismatched = {p.ids[0] for p in check.problems if p.kind == "summary_mismatch"}
     for link in structure.summaries:

@@ -88,3 +88,11 @@ test("a period in brackets is shown smaller under the line title; the label is n
   assert.deepEqual(splitPeriod("Supply"), { title: "Supply", period: "" });
   assert.deepEqual(splitPeriod("VAT (21%) on fees"), { title: "VAT (21%) on fees", period: "" });
 });
+
+test("a part's total that is shown, not counted, explains its gap under the part's header", () => {
+  const tree = [{ ...TREE[0], label: "Gas", matches: false, rounding: true, sections: [] },
+                { ...TREE[0], id: "inv2", label: "Electricity", printedLineId: "t2", rows: [], sections: [] }];
+  const lines = [...LINES.map((line) => line.gid === "t" ? { ...line, reference: { text: "Total of Gas" }, gapHint: "a 0.01 rounding difference" } : line), c("t2")];
+  const header = lineTreeRows(lines, tree).find((row) => row.id === "inv");
+  assert.deepEqual([header.status, header.hint], ["rounding", "a 0.01 rounding difference"]);
+});

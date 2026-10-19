@@ -280,3 +280,26 @@ class Rounding(unittest.TestCase):
             result = link_pages([(1, bigger)], decimal_separator=",", currency="EUR", api_key="k")
         self.assertIsNone(result["lines"]["p1-t"]["rounding"])
         self.assertNotIn("rounding", result["lines"]["p1-t"]["hint"])
+
+
+class SeveralPartsWithSections(unittest.TestCase):
+    """Seen live 2026-10-19: one energy bill with an electricity part and a gas part, each with sections and a total."""
+
+    PAGE = page([line("a", "Electricity supply", "100,00", "charge"), line("s1", "Subtotal supply", "100,00", "subtotal"),
+                 line("t1", "Total electricity", "100,00", "total"),
+                 line("b", "Gas supply", "50,00", "charge"), line("s2", "Subtotal gas supply", "50,00", "subtotal"),
+                 line("t2", "Total gas", "50,01", "total")])
+    LINKS = {"invoices": [{"id": "e", "label": "Electricity", "total_line_id": "p1-t1"},
+                          {"id": "g", "label": "Gas", "total_line_id": "p1-t2"}],
+             "sections": [{"id": "se", "parent_id": "e", "label": "Supply", "subtotal_line_id": "p1-s1"},
+                          {"id": "sg", "parent_id": "g", "label": "Gas supply", "subtotal_line_id": "p1-s2"}],
+             "rows": [{"line_id": "p1-a", "parent_id": "se"}, {"line_id": "p1-b", "parent_id": "sg"}]}
+
+    def test_each_part_total_is_shown_checked_not_sent_as_a_second_grand_total(self):
+        with patch("billshield_core.whole_bill.post_chat", return_value=reply(self.LINKS)):
+            result = link_pages([(1, self.PAGE)], decimal_separator=",", currency="EUR", api_key="k")
+        electricity, gas = result["lines"]["p1-t1"], result["lines"]["p1-t2"]
+        self.assertEqual((electricity["role"], gas["role"]), ("", ""))
+        self.assertIn("✓ adds up", electricity["referenceText"])
+        self.assertIn("rounding difference", gas["referenceText"])
+        self.assertEqual(gas["rounding"], {"minor": 1, "raw": "0,01"})

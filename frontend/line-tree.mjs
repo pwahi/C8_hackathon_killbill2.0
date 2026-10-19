@@ -57,7 +57,10 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
   for (const invoice of tree) {
     references.push(...invoice.references);
     const header = { type: "invoice", id: invoice.id, depth: 0, label: tree.length > 1 ? invoice.label : "What you pay",
-      status: status(invoice, byGid, fixed), amountId: byGid.get(invoice.printedLineId)?.id || null };
+      status: status(invoice, byGid, fixed), amountId: byGid.get(invoice.printedLineId)?.id || null,
+      // A part's total that is shown, not counted (several parts with sections) has no card of its own to explain
+      // a gap, so the explanation sits under the part's header; otherwise the total line itself shows it.
+      hint: byGid.get(invoice.printedLineId)?.reference ? byGid.get(invoice.printedLineId).gapHint || null : null };
     // One bill: the lines first, "What you pay" as the closing row (owner sketch). Several invoices: a header each.
     if (tree.length > 1) rows.push(header);
     children(invoice).forEach((child) => child.section ? visit(child.section, 0) : line(child.row, 0, false));

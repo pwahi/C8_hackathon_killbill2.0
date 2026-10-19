@@ -236,6 +236,7 @@ function visionCandidate(line, { page, area, sourceKey, outputCurrency, placed, 
     extractionSignature: JSON.stringify({description: line.description, amount: line.raw_amount, role: line.role, group: line.group, currency: line.currency, breakdown: line.breakdown}),
     role: placed && "role" in placed ? placed.role : suggestion.role, group: placed ? placed.group : suggestion.group,
     sectionPath: placed?.path || "", structureVerified: Boolean(placed?.verified), rounding: placed?.rounding || null,
+    gapHint: placed?.hint || null,
     reference: placed && placed.role === "" ? { text: referenceText(placed) } : null,
     attention: placed && placed.role === "" ? null : placed?.hint || null,
     breakdown: cleaned ? cleaned.columns : null,
@@ -669,9 +670,10 @@ async function pdfLibrary() {
 
 // Rounding (owner 2026-10-19): Python names a 1-2 cent gap and the exact adjustment, written as the bill writes
 // amounts. The person adds it with one click as a visible line "Rounding difference (added by you)"; Python checks the
-// whole bill again with it on Looks right. Nothing is absorbed silently and only one rounding line can be added.
+// whole bill again with it on Looks right. Nothing is absorbed silently; at most one rounding line per printed figure.
 function roundingButton(candidate) {
-  if (!candidate?.rounding || reviewState.candidates.some(line => line.roundingFor)) return null;
+  // One rounding line per printed figure (a bill with electricity and gas can be a cent off in each part).
+  if (!candidate?.rounding || reviewState.candidates.some(line => line.roundingFor === candidate.gid)) return null;
   const button = document.createElement("button");
   button.type = "button";
   button.className = "secondary rounding-button";
@@ -1484,7 +1486,8 @@ function refreshPrintedCheck() {
   const pendingBoxes = [...document.querySelectorAll("#section-links .section-review")].filter(box => !box.hidden);
   document.querySelector(".printed-check-prompt").hidden = document.querySelector("#printed-check-message").hidden && !pendingBoxes.length;
   // Review lines also counts grouping questions that wait for Yes/Change, so it never says "Nothing to review" then.
-  const waiting = reviewState.candidates.filter(line => line.attention && !line.reference).length + pendingBoxes.length;
+  const roundingOpen = reviewState.candidates.filter(line => line.reference && line.rounding && !reviewState.candidates.some(other => other.roundingFor === line.gid)).length;
+  const waiting = reviewState.candidates.filter(line => line.attention && !line.reference).length + pendingBoxes.length + roundingOpen;
   const review = document.querySelector("#review-lines");
   review.disabled = !waiting;
   review.classList.toggle("needed", waiting > 0);
@@ -1936,7 +1939,8 @@ document.querySelector("#check-all-lines").addEventListener("click", () => {
 document.querySelector("#review-lines").addEventListener("click", () => {
   const next = reviewState.candidates.find(line => line.attention && !line.reference);
   if (!next) {
-    document.querySelector("#section-links .section-review:not([hidden])")?.scrollIntoView({ block: "center", behavior: "smooth" });
+    (document.querySelector("#section-links .section-review:not([hidden])") || document.querySelector(".rounding-button"))
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
     return;
   }
   focusCandidate(next.id);

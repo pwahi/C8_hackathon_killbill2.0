@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-059 — Bills with several parts (electricity and gas): one rounding line per figure; part totals not sent as extra grand totals
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Problem (owner, energy bill with electricity and gas):** after adding a rounding line for electricity, no button appeared for the gas part's 0,01 gap (the rule allowed one rounding line per check). The final check would also have refused two printed grand totals.
+
+**Decision:** one rounding line per printed figure. On a bill with several parts that each have sections, each part's total is shown as "Total of Gas — checked by Python against its own lines: ✓ / ≈ rounding / ✗" and not sent as a second grand total (the structure check already compared it with its own lines). Its explanation and the rounding button sit under the part's header; "Review lines" counts an open rounding. Bills with one part are unchanged.
+
+**Verification:** 1 Python test (two parts with sections: totals shown and checked, rounding kept), 1 browser-module test (explanation under the part's header); single-part walk with the masked Vodafone bill still completes. Not yet re-run on the owner's energy bill.
+
 ## D-058 — Quantities the bill's way; 1–2 cent row gaps from rounded inputs pass visibly
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
