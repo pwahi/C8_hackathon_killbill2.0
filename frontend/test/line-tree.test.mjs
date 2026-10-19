@@ -106,3 +106,11 @@ test("with several parts each part's total closes its own lines, and a rounding 
   assert.equal(rows.find((row) => row.id === "elec").part, true);
   assert.equal(rows.some((row) => row.id === "other"), false);
 });
+
+test("a section whose lines were all removed disappears, and its part reads as changed", () => {
+  const tree = [{ ...TREE[0], matches: false }];
+  const lines = LINES.filter((line) => !["a", "b", "s"].includes(line.gid));
+  const rows = lineTreeRows(lines, tree);
+  assert.equal(rows.some((row) => row.id === "mob"), false);
+  assert.equal(rows.find((row) => row.type === "invoice").status, "changed");
+});

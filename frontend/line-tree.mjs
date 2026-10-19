@@ -7,16 +7,20 @@ const nodeGids = (node) => [node.printedLineId, ...node.rows, ...node.sections.f
 const innerMismatch = (node) => node.sections.some((child) => child.matches === false || innerMismatch(child));
 
 function status(node, byGid, fixed = new Set()) {
+  // After the person edits or removes a line in this part, Python's earlier answer no longer applies either way.
+  const members = nodeGids(node).map((gid) => byGid.get(gid));
+  if (node.matches != null && members.some((line) => !line || line.edited)) return "changed";
   if (node.matches === false) {
     // A 1-2 cent gap is named rounding; once the person added a rounding line, Python checks it again on Looks right.
     if (fixed.has(node.printedLineId)) return "changed";
     return node.rounding ? "rounding" : "mismatch";
   }
   if (node.matches !== true) return "none";
-  const members = nodeGids(node).map((gid) => byGid.get(gid));
-  if (members.some((line) => !line || line.edited)) return "changed";   // only after the person edits or removes
   return innerMismatch(node) ? "inner" : "ok";
 }
+
+// A section or part whose lines were all removed is not shown any more (owner: "I deleted this but it shows up").
+const hasLines = (node, byGid) => nodeGids(node).some((gid) => byGid.has(gid));
 
 // toggles: Map(id -> collapsed). Default: a section that adds up is collapsed; one with a problem stays open.
 export function lineTreeRows(candidates, tree, toggles = new Map()) {
@@ -47,6 +51,7 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
   ].sort((a, b) => a.at - b.at);
 
   const visit = (node, depth) => {
+    if (!hasLines(node, byGid)) return;
     references.push(...node.references);
     const state = status(node, byGid, fixed);
     const collapsed = toggles.has(node.id) ? toggles.get(node.id) : state === "ok";
@@ -60,6 +65,7 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
   const collectReferences = (node) => node.sections.forEach((child) => { references.push(...child.references); collectReferences(child); });
 
   for (const invoice of tree) {
+    if (!hasLines(invoice, byGid)) continue;
     references.push(...invoice.references);
     const header = { type: "invoice", id: invoice.id, depth: 0, part: tree.length > 1, label: tree.length > 1 ? invoice.label : "What you pay",
       status: status(invoice, byGid, fixed), amountId: byGid.get(invoice.printedLineId)?.id || null,
