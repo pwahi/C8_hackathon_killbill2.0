@@ -1364,8 +1364,6 @@ function refreshPrintedCheck() {
   const state = printedCheckPresence(reviewState.candidates);
   const verified = Boolean(reviewState.tree?.length) && reviewState.tree.every(invoice => invoice.matches === true);
   document.querySelector(".all-lines-control").hidden = true;  // replaced by the "Check all lines" button
-  document.querySelector("#printed-check-message").hidden = verified && state !== "missing" && state !== "needs_details";
-  document.querySelector("#add-printed-total").hidden = document.querySelector("#printed-check-message").hidden;
   const text = {
     missing: "No printed total or subtotal captured yet. Add the final total exactly as printed on your bill so we can check the sum.",
     needs_details: "A printed total/subtotal line is incomplete. Fill its amount and label; a subtotal also needs the section it covers.",
@@ -1426,9 +1424,21 @@ function refreshPrintedCheck() {
     section.append(title, context, details, note, yes, change);
     return section;
   }));
-  // Python verified every section: the grouping confirmations are already accepted, so they are not shown again.
-  document.querySelector("#section-links").hidden = verified;
-  document.querySelector(".printed-check-prompt").hidden = document.querySelector("#printed-check-message").hidden && (verified || !document.querySelector("#section-links").children.length);
+  // Only grouping questions that still need a Yes/Change are shown; accepted ones ("✓ These lines are linked") stay
+  // hidden, as does the printed-total reminder unless a total is missing (owner: a long list with nothing to do).
+  document.querySelectorAll("#section-links .section-review").forEach(box => {
+    box.hidden = sectionAccepted(reviewState.candidates, box.dataset.subtotalId);
+  });
+  document.querySelector("#printed-check-message").hidden = state !== "missing" && state !== "needs_details";
+  document.querySelector("#add-printed-total").hidden = document.querySelector("#printed-check-message").hidden;
+  const pendingBoxes = [...document.querySelectorAll("#section-links .section-review")].filter(box => !box.hidden);
+  document.querySelector(".printed-check-prompt").hidden = document.querySelector("#printed-check-message").hidden && !pendingBoxes.length;
+  // Review lines also counts grouping questions that wait for Yes/Change, so it never says "Nothing to review" then.
+  const waiting = reviewState.candidates.filter(line => line.attention && !line.reference).length + pendingBoxes.length;
+  const review = document.querySelector("#review-lines");
+  review.disabled = !waiting;
+  review.classList.toggle("needed", waiting > 0);
+  review.textContent = waiting ? `Review ${waiting} item${waiting === 1 ? "" : "s"}` : "Nothing to review";
 }
 
 function openManualLine(role = "charge") {
@@ -1875,7 +1885,10 @@ document.querySelector("#check-all-lines").addEventListener("click", () => {
 });
 document.querySelector("#review-lines").addEventListener("click", () => {
   const next = reviewState.candidates.find(line => line.attention && !line.reference);
-  if (!next) return;
+  if (!next) {
+    document.querySelector("#section-links .section-review:not([hidden])")?.scrollIntoView({ block: "center", behavior: "smooth" });
+    return;
+  }
   focusCandidate(next.id);
   const card = document.querySelector(`[data-card-id="${CSS.escape(next.id)}"]`);
   const editor = card?.querySelector(".line-editor");

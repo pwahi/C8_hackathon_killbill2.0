@@ -527,3 +527,7 @@ button.tree-section:hover { background: #E9E8E2; }
 #status.notification-box.busy { border-color: var(--accent); background: #FFFBEA; }
 #status.notification-box.failure { border-color: #C8102E; background: #FDF1F3; }
 body[data-ui-step='2'] .line-actions { margin-top: 0; }
+
+/* Zoom: the page really gets bigger (about twice the panel width) and the panel scrolls; markers scale with it. */
+.document-panel:not(.fit) .page-shell { width: 200%; max-width: none; margin: 0; }
+.document-panel:not(.fit) .page-shell canvas, .document-panel:not(.fit) .page-shell img { width: 100%; max-width: none; height: auto; }
