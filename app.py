@@ -69,6 +69,9 @@ groq_lock = asyncio.Lock()  # one provider request at a time per server process;
 
 
 def error(status: int, message: str) -> JSONResponse:
+    if not HOSTED and status == 422:
+        # Developer machine only: say why a check was refused (messages can contain bill labels, so never hosted).
+        print(f"refused (422): {message}", flush=True)
     return JSONResponse({"error": message}, status_code=status, headers={"cache-control": "no-store"})
 
 

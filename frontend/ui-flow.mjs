@@ -6,7 +6,7 @@ export const STEPS = ["Your bill", "Read", "Check the lines", "What we found", "
 export const STEP_GUIDANCE = [
   "Upload your bill and tell us what you expected to pay.",
   "Choose the pages with prices, then press Read. The AI reads every price.",
-  ["Compare each line with your bill.", "Click a line to fix it; the eye shows where it is on the bill.", "When it all matches, press Looks right — check it."],
+  ["Compare each line with your bill.", "Click a line to see it on the bill and fix it; × removes it.", "When it all matches, press Looks right — check it."],
   "Here is what Python found. Next: write the message to the company.",
   "Copy this message and send it to the company yourself. Then come back and press I sent it.",
 ];
@@ -115,7 +115,7 @@ export function createFlow() {
   checkRow.append(reviewLines, check);
   $("#payload-panel").append(checkRow, advanced);
   $(".candidate-panel").append($("#payload-panel"));
-  $("#candidate-list").before(make("div", "line-table-heading", "<span>LINE</span><span>WHAT IS IT</span><span>AMOUNT</span><span class=\"heading-tools\" aria-hidden=\"true\"><span>Where</span><span>Del</span></span>"));
+  $("#candidate-list").before(make("div", "line-table-heading", "<span>LINE</span><span>WHAT IS IT</span><span>AMOUNT</span>"));
   const lineActions = make("div", "line-actions", '<button id="check-all-lines" class="secondary" type="button" disabled>Check all lines</button><button id="add-line" class="secondary" type="button">+ Add a line</button><button id="undo-remove" class="text-button" type="button" hidden>Undo remove</button>');
   $(".line-table-heading").before(lineActions);
   const allLines = make("div", "all-lines-control", '<label><input id="accept-all-lines" type="checkbox" disabled aria-describedby="accept-all-hint"> I checked all ready lines against the bill</label><p id="accept-all-hint">No lines yet. This confirms what was read—not whether the bill adds up.</p>');

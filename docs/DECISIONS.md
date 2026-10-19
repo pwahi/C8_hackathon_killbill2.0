@@ -24,6 +24,8 @@ Date: 2026-10-19. Status: Implemented and tested locally; push pending owner app
 
 **Third follow-up (owner sketch, same day):** sections and lines share one set of columns — title (with the billing period in small grey text below), What is it ("Section" for sections), Amount, Where (eye) and Del (×; lines only, a section is not deleted in one click). A period written in brackets in a line label is shown below the title (display only; the label is unchanged). One type hierarchy: column headers small caps grey; section titles 15 px semi-bold; line titles 14.5 px regular (main lines medium); periods and statuses 12 px grey; amounts in fixed-width figures. Type pills are short (Charge, Discount, Rounding, Subtotal, Total).
 
+**Fourth follow-up (owner, same day):** no Where/Del columns. Clicking a line shows it on the bill (only the bill panel scrolls) and opens it for fixing; a small × at the end of each line removes it. The ✓ of a checked line sits before its title again.
+
 ## D-054 — A line the verified bill adds up without is information, not a charge
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

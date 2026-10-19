@@ -569,3 +569,13 @@ body[data-ui-step='2'] .line-actions { margin-top: 0; }
 /* Rows without a type use the "What is it" space for their text. */
 .tree-invoice .tree-label, .tree-group .tree-label { grid-column: 1 / 3; }
 .tree-invoice .tree-kind, .tree-group .tree-kind { display: none; }
+
+/* No Where/Del columns (owner): click a line to see it on the bill; a small × at the end removes it. */
+.line-overview, .line-table-heading, .tree-row { padding-right: 46px !important; }
+.heading-tools, .locate-line { display: none !important; }
+.remove-line { top: 50%; transform: translateY(-50%); }
+.candidate-card > .remove-line { top: 24px; }
+.line-overview { cursor: pointer; }
+/* The ✓ of a checked line sits in front of its title, not on a row of its own. */
+.confirmed .line-name::before { content: none !important; }
+.confirmed .line-title::before { content: '✓ '; color: var(--green); }

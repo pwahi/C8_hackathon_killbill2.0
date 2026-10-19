@@ -167,16 +167,6 @@ function treeHeader(row, byId) {
     header.addEventListener("click", toggle);
     header.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } });
   }
-  if (row.type === "section" && row.amountId) {
-    const where = document.createElement("button");
-    where.type = "button";
-    where.className = "locate-line";
-    where.innerHTML = EYE_ICON;
-    where.title = "Show this section's printed total on the bill";
-    where.setAttribute("aria-label", `Show ${row.label} on the bill`);
-    where.addEventListener("click", (event) => { event.stopPropagation(); focusCandidate(row.amountId); });
-    header.append(where);
-  }
   return header;
 }
 
@@ -988,7 +978,12 @@ function focusCandidate(candidateId) {
   else if (candidate.precision === "table") target = document.querySelector(`.table-area[data-region-key="${CSS.escape(regionKey(candidate.page, candidate.region))}"]`);
   else target = reviewState.pageElements.get(candidate.page);
   target?.classList.add("active");
-  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Scroll only the bill panel, so the line list (where the person clicked) stays where it is.
+  const panel = target?.closest(".document-panel");
+  if (panel) {
+    const box = target.getBoundingClientRect(), view = panel.getBoundingClientRect();
+    panel.scrollBy({ top: box.top - view.top - view.height / 2 + box.height / 2, behavior: "smooth" });
+  } else target?.scrollIntoView({ behavior: "smooth", block: "center" });
   document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"] input[data-field="description"]`)?.focus({ preventScroll: true });
 }
 
@@ -1097,15 +1092,7 @@ function candidateCard(candidate) {
     document.querySelector("#undo-remove").hidden = false;
     setStatus("Line removed from this review. Undo remove restores it. Previously saved reviews are unchanged.");
   });
-  // Where is it on the bill? The eye shows the line on its page (owner sketch: Del and location per row).
-  const where = document.createElement("button");
-  where.type = "button";
-  where.className = "locate-line";
-  where.innerHTML = EYE_ICON;
-  where.title = "Show where this line is on the bill";
-  where.setAttribute("aria-label", `Show on page ${candidate.page}: ${candidate.description || "unlabelled"}`);
-  where.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); focusCandidate(candidate.id); });
-  card.append(remove, where);
+  card.append(remove);
   const top = document.createElement("div");
   top.className = "candidate-top";
   const confirm = document.createElement("label");
@@ -1265,6 +1252,8 @@ function candidateCard(candidate) {
   editor.open = Boolean(candidate.attention || (!reviewState.tree && (!candidate.role || !candidate.rawAmount || !candidate.description)));
   const overview = document.createElement("summary");
   overview.className = "line-overview";
+  // Clicking a line shows where it is on the bill and opens it for fixing (owner: no separate "Where" column).
+  overview.addEventListener("click", () => { if (!editor.open) setTimeout(() => focusCandidate(candidate.id), 0); });
   overview.innerHTML = '<span class="line-name"></span><span class="line-kind"></span><span class="line-amount"></span>';
   editor.append(overview, top, fields);
   card.append(editor);
