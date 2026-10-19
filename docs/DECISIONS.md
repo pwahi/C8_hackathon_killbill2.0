@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-057 — Row columns on reductions are checked; on totals they no longer block
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Problem (owner, energy bill):** "Energy tax reduction" (−249,22) was read with its printed row columns. Python only allowed row columns on charges and refused the whole check ("row details belong to a charge line"), shown as a red "Not confirmed" note; the owner pressed Looks right eight times without a result.
+
+**Decision:** row columns are checked on every summed line (charge, discount, adjustment). For discounts and adjustments the computed value takes the sign of the printed amount (a reduction is often a positive rate × quantity with a negative row amount); the size is still compared exactly, so a wrong multiplication is still caught. Row columns on a printed subtotal or total are not checked and no longer block the review. Locally (never hosted) the server now logs the reason for a refused check.
+
+**Verification:** 3 Python tests (reduction checked by size; wrong multiplication on a reduction caught; columns on a total do not block). Not yet re-run on the owner's energy bill.
+
 ## D-056 — A 1–2 cent gap is named rounding and settled only by a visible line
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

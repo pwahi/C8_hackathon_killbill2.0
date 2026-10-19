@@ -337,8 +337,13 @@ def row_checks(review: ConfirmedReview, amounts: dict[str, int]) -> list[RowChec
         details = line.breakdown
         if details is None:
             continue
-        if line.role != "charge":
-            raise ReviewError(f"row details belong to a charge line, not to {line.description!r}")
+        if line.role not in SUMMED_ROLES:
+            # Row columns only mean something on lines that are added up; on a printed subtotal or total they are
+            # not checked (they used to block the whole review, seen live 2026-10-19).
+            continue
+        # A reduction (energy tax reduction, refund) is often printed as a positive rate times a quantity, with a
+        # negative row amount. For discounts and adjustments the sign follows the row amount; the size is checked.
+        reduction = line.role in ("discount", "adjustment")
         label = " ".join(line.description.split())
         value: int | None = None
         text = ""
@@ -358,6 +363,8 @@ def row_checks(review: ConfirmedReview, amounts: dict[str, int]) -> list[RowChec
         if details.taxable_value and details.taxable_value.strip():
             taxable = parse(details.taxable_value)
             if value is not None:
+                if reduction and (value < 0) != (taxable < 0):
+                    value, text = -value, f"−({text})"
                 checks.append(RowCheck(line.id, label, "taxable_value", value, taxable, f"{text} = {money(value)}"))
             value, text = taxable, money(taxable)
         if value is None:
@@ -367,6 +374,8 @@ def row_checks(review: ConfirmedReview, amounts: dict[str, int]) -> list[RowChec
                 tax = parse(raw_tax)
                 value += tax
                 text += f" + {money(tax)}"
+        if reduction and (value < 0) != (amounts[line.id] < 0):
+            value, text = -value, f"−({text})"
         checks.append(RowCheck(line.id, label, "row_amount", value, amounts[line.id], f"{text} = {money(value)}"))
     return checks
 

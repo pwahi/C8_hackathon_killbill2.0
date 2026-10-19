@@ -208,11 +208,12 @@ class RowCheckTests(unittest.TestCase):
         self.assertEqual(result["status"], "complete")
         self.assertEqual(result["minor"]["calculatedTotal"], 2243440)
 
-    def test_row_details_only_on_charges(self) -> None:
+    def test_row_details_on_a_printed_total_are_not_checked_and_do_not_block(self) -> None:
         data = canyon_rows()
         line_by_id(data, "order_total")["breakdown"] = {"unitPrice": "1,378.80"}
-        with self.assertRaisesRegex(ReviewError, "row details"):
-            analyze_confirmed_review(data)
+        result = analyze_confirmed_review(data)
+        self.assertEqual(result["status"], "complete")
+        self.assertNotIn("order_total", {check["lineId"] for check in result["rowChecks"]})
 
 
 class RoleAndSignTests(unittest.TestCase):
@@ -406,3 +407,30 @@ class RoundingLine(unittest.TestCase):
     def test_with_the_rounding_line_the_bill_adds_up(self):
         result = analyze_confirmed_review(self.payload(True))
         self.assertEqual((result["status"], result["verdict"]), ("complete", "checks_passed"))
+
+
+
+class ReductionRows(unittest.TestCase):
+    """Seen live 2026-10-19 (energy bill): "Energy tax reduction" printed with row columns and a negative amount."""
+
+    def payload(self, unit_price):
+        data = json.loads((Path(__file__).parent / "fixtures/confirmed/BS-001.confirmed.json").read_text(encoding="utf-8"))
+        data["messageType"] = "automatic"
+        for line in data["lines"]:
+            line["questioned"] = False
+        discount = next(line for line in data["lines"] if line["role"] == "discount")
+        discount["breakdown"] = {"quantity": "1", "unitPrice": unit_price}
+        return data, discount
+
+    def test_a_reduction_with_row_columns_is_checked_by_size(self):
+        data, discount = self.payload("0")
+        discount["breakdown"]["unitPrice"] = discount["rawAmount"].lstrip("-")  # printed as a positive rate
+        result = analyze_confirmed_review(data)
+        self.assertEqual(result["status"], "complete")
+        row = next(check for check in result["rowChecks"] if check["lineId"] == discount["id"])
+        self.assertTrue(row["matches"])
+
+    def test_a_wrong_multiplication_on_a_reduction_is_still_caught(self):
+        data, discount = self.payload("9,99")
+        result = analyze_confirmed_review(data)
+        self.assertEqual(result["status"], "needs_recheck")
