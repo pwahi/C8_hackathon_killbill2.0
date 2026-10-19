@@ -1794,11 +1794,10 @@ function renderResult(result, ai = { state: "skipped" }) {
   verdict.className = needsRecheck ? "verdict verdict-verified_mismatch" : `verdict verdict-${result.verdict}`;
   const headline = resultHeadline(result);
   verdict.textContent = headline.text;
-  // The difference sits in its own large yellow box under the headline (owner sketch, chapter 4).
-  const differenceBox = document.createElement("div");
   if (headline.amount) {
-    differenceBox.className = "difference-box";
-    differenceBox.append(paragraph(headline.amountLabel || "Difference", "difference-label"), paragraph(headline.amount, "difference-amount"));
+    const amount = document.createElement("mark");
+    amount.textContent = headline.amount;
+    verdict.append(" ", amount, headline.after ? ` ${headline.after}` : "");
   }
   verdict.title = needsRecheck ? "Check the reading before continuing" : VERDICT_LABELS[result.verdict] || result.verdict;
   elements.recheckBox.hidden = !needsRecheck;
@@ -1807,12 +1806,8 @@ function renderResult(result, ai = { state: "skipped" }) {
     elements.resultSuspects.replaceChildren(...result.suspects.map(suspectItem));
     markSuspects(result.suspects);
   }
-  const totals = document.createElement("p");
-  const parts = [`Calculated total: ${result.amounts.calculatedTotal}`];
-  if (result.amounts.printedTotal) parts.push(`printed total: ${result.amounts.printedTotal}`);
-  if (result.amounts.expected) parts.push(`you expected: ${result.amounts.expected}`, `difference: ${result.amounts.difference}`);
-  totals.textContent = parts.join(" · ");
-  elements.resultSummary.replaceChildren(...[verdict, headline.amount ? differenceBox : null, totals].filter(Boolean));
+  // The totals are in The maths next to it (owner: no second line repeating them).
+  elements.resultSummary.replaceChildren(verdict);
   const table = document.createElement("table");
   table.className = "math-table";
   table.setAttribute("aria-label", "Code-checked bill amounts");

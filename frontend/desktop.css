@@ -612,3 +612,8 @@ body[data-ui-step='3'] .chapter-heading { margin-bottom: 28px; }
 .math-explanation[open] { gap: 8px; }
 .ai-reason .unknown-line { margin: 0; font-size: 13px; }
 .unknown-summary[hidden] { display: none !important; }
+/* Chapter 4, third pass (owner): inline headline with the yellow amount; the left column's boxes and the bottom
+   buttons share one width; the headline and THE MATHS start on the same line. */
+body[data-ui-step='3'] .verdict { font-size: 30px; line-height: 1.3; font-weight: 700; margin-top: -6px; }
+body[data-ui-step='3'] .verdict mark { padding: 0 6px; }
+body[data-ui-step='3'] .flow-actions { max-width: calc((100% - 48px) * 1.2 / 2.2); display: flex; justify-content: space-between; align-items: center; }

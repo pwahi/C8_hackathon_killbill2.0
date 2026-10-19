@@ -10,9 +10,9 @@ const result = {status: "complete", verdict: "unexplained", minor: {expected: 12
     {description: "Total", role: "total", amount: "EUR 1378.80"}]};
 
 test("desktop headline copies Python difference without inventing an explanation", () => {
-  assert.deepEqual(resultHeadline(result), {text: "Your bill adds up.", amount: "EUR 79.80", amountLabel: "Difference from what you expected"});
+  assert.deepEqual(resultHeadline(result), {text: "Your bill adds up. It is", amount: "EUR 79.80", after: "more than you expected."});
   const negative = {...result, minor: {...result.minor, difference: -100}, amounts: {...result.amounts, difference: "EUR -1.00"}};
-  assert.equal(resultHeadline(negative).amount, "EUR -1.00");
+  assert.deepEqual([resultHeadline(negative).amount, resultHeadline(negative).after], ["EUR 1.00", "less than you expected."]);
 });
 
 test("recheck and verified mismatch never get an adds-up headline", () => {

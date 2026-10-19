@@ -4,8 +4,11 @@ export function resultHeadline(result) {
   if (result.verdict === "verified_mismatch") return { text: "The re-checked figures do not add up.", amount: null };
   if (result.minor.expected == null) return { text: "The confirmed bill amounts add up.", amount: null };
   if (result.minor.difference === 0) return { text: "Your bill adds up and matches what you expected.", amount: null };
-  // Owner sketch (chapter 4): a short headline, then the difference large in its own yellow box.
-  return { text: "Your bill adds up.", amount: result.amounts.difference, amountLabel: "Difference from what you expected" };
+  // Owner (chapter 4): "Your bill adds up. It is EUR 79.80 more than you expected." Python's figure is shown as
+  // printed; only its minus sign is turned into the word "less".
+  const less = result.minor.difference < 0;
+  return { text: "Your bill adds up. It is", amount: less ? result.amounts.difference.replace("-", "") : result.amounts.difference,
+    after: less ? "less than you expected." : "more than you expected." };
 }
 
 // Short maths: one row per section (Python's section sum), then lines outside any section, then one total.
