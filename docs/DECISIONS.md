@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-035 — PRD rebased to version 2.0 (current requirements only)
+
+Date: 2026-10-19. Status: Done (documentation only).
+
+Owner asked to rebase the whole PRD and remove outdated decisions. PRD v2.0 replaces the layered v1.x text with one current document: outcome and success measure, scope, user flow with outcomes A/B/C, functional requirements with a Done/Partly/Planned status each, rules that must not break, architecture, data model with build status, implemented API, configuration and hosting, tests with current results, stage status, next additions N-1–N-3, open choices and risks, definition of done, condensed change history. Removed from the PRD: the "earlier technical direction" sections, stacked status paragraphs, the original API proposal, superseded statements (e.g. "an LLM is optional only", "no LLM key required", multipart upload, ten-table storage as already built) and choices since decided. Nothing is lost: reasons and superseded choices stay in this log (entries are not edited), and every earlier PRD version stays in the Git history. Gaps made explicit by the rebase: FR-02 periods/invoice metadata, FR-06 period compatibility, FR-10 edited events, FR-11 reading back/stale revisions, FR-12 deletion, FR-14 duplicate saves on repeated clicks.
+
+**Affected:** docs/PRD.md (v2.0), docs/HANDOFF.md, AGENTS.md, PROJECT.md. **Verification:** documentation only; statements checked against the code and the 106 Python / 40 browser tests run on 2026-10-19.
+
 ## D-034 — Next development additions: UI, server OCR evaluation, chat + database
 
 Date: 2026-10-19. Status: Owner direction confirmed; planned for 2026-10-20; **not implemented**.

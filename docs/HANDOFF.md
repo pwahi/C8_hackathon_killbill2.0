@@ -32,8 +32,8 @@ Set-Location frontend; npm test; Set-Location ..              # expect: all pass
 
 Then read, in this order (skim what you already know, read what changed — use `git log -p -- docs/`):
 
-1. `docs/PRD.md` — sections **Current state** and **Next development additions** (v1.12 or later). Authoritative requirements.
-2. `docs/DECISIONS.md` — newest entries first (D-034 at the time of writing). Every material decision, with status and verification.
+1. `docs/PRD.md` — v2.0 or later; one current document (status line, §3 flow, §4 requirement status, §5 rules, §11 stages, §12 next additions). Authoritative requirements.
+2. `docs/DECISIONS.md` — newest entries first (D-035 at the time of writing). Every material decision, with status and verification.
 3. `../PROJECT.md` (parent workspace, outside this repo) — overall status, action table (A-0xx), progress history. May have newer owner news than the repo.
 4. `../work/09_STAGE_2_EXTRACTION.md` — detailed work log of extraction/confirmation work.
 5. This file.
@@ -116,7 +116,7 @@ docs/PRD.md, docs/DECISIONS.md authoritative requirements and decision log
 
 ## 7. Next stage: N-1 user interface — be ready, start only when asked
 
-Requirement: PRD v1.12 → "Next development additions" → **N-1**. Summary: turn the working Stage 2 review page into the owner's **step-by-step design**: Provide → Confirm → Understand → Draft → Finish, one primary action per step, plain-language result first, privacy notes where data leaves the device, mobile-friendly. Reuse the existing API/modules; numeric rules unchanged.
+Requirement: PRD v2.0 §12 → **N-1**. Summary: turn the working Stage 2 review page into the owner's **step-by-step design**: Provide → Confirm → Understand → Draft → Finish, one primary action per step, plain-language result first, privacy notes where data leaves the device, mobile-friendly. Reuse the existing API/modules; numeric rules unchanged.
 
 When the owner says to start:
 
@@ -124,7 +124,7 @@ When the owner says to start:
 2. Prefer plain HTML/JS in `frontend/` (no build step — Vercel and the vendor setup depend on that) unless the owner approves otherwise.
 3. Build in small steps; after each, run all tests and drive the four reference cases (A–D) through the new screens. Acceptance: same verdicts and drafts as today; existing tests pass; a first-time user does not need terms like "role" or "precision" explained.
 4. Keep real-user tests possible: the owner plans classmate (A-006) and stranger (A-007) tests on 2026-10-20. If time runs short, cut UI scope, not the tests.
-5. Afterwards (only when asked): N-3 chat + `chat_turns`/`finding_lines`/`message_lines` migration, N-2 LightOnOCR-3 comparison (needs a GPU host; evaluate before adopting). See PRD.
+5. Afterwards (only when asked): N-3 chat + `chat_turns`/`finding_lines`/`message_lines` migration, N-2 LightOnOCR-3 comparison (needs a GPU host; evaluate before adopting). See PRD §12.
 
 ## 8. Hackathon check-ins — check-in 4 is next (help only when asked)
 
