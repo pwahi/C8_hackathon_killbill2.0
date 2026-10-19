@@ -10,5 +10,6 @@ Essentials (details in `docs/HANDOFF.md`):
 - Never print, commit or request secrets (`.env.local`); never store or send bill images/OCR text beyond an approved Groq area; use only the publishable Supabase key.
 - Never invent results; separate implemented, verified and owner-reported.
 - **N-1 first UI version is implemented locally (D-036, PRD v2.1).** Owner review and deployment approval are next. Do not restart the build or assume it is deployed; N-2/N-3 remain unbuilt.
+- D-037 / PRD v2.2 follow-up: expected amount required in main UI; 106 Python / 44 browser-module tests pass. See parent work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md for confirmed code-versus-sketch gaps and crop-storage boundary. No push/deployment yet.
 - Hackathon check-in 4 is next (see docs/HANDOFF.md §8): help draft only when asked; ask for the actual prompt first.
 - After material changes update `docs/DECISIONS.md`, `docs/PRD.md` and the parent `../PROJECT.md`.

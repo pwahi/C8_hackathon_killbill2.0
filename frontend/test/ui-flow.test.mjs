@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canVisit } from "../ui-flow.mjs";
+import { canVisit, requireExpectedAmount } from "../ui-flow.mjs";
+
+test("comparison entry requires an expectation; unknown is never replaced with zero", () => {
+  for (const value of [null, undefined, "", "  ", "\n\t"]) {
+    assert.throws(() => requireExpectedAmount(value), /Enter what you expected/);
+  }
+});
+
+test("required expectation preserves zero and printed decimal strings without calculations", () => {
+  for (const amount of ["0", "19,50", "1,299.00", "1.299,00"]) {
+    assert.equal(requireExpectedAmount(` ${amount} `), amount);
+  }
+});
 
 test("draft and finish cannot be opened before a completed check", () => {
   assert.equal(canVisit(0, { opened: false }), true);

@@ -1,6 +1,6 @@
 # BillShield — Product requirements
 
-Version 2.1 · 2026-10-19 · Owner: Prateek Wahi
+Version 2.2 · 2026-10-19 · Owner: Prateek Wahi
 
 This PRD describes **what is required now** and **what exists now**. It was rebased on 2026-10-19 (D-035): outdated directions and superseded proposals were removed. The reasons behind every choice, including superseded ones, stay in [DECISIONS.md](DECISIONS.md) (D-006 to D-035); earlier PRD versions remain in the Git history. When this PRD and the code disagree about what *exists*, the code wins; about what is *required*, this PRD wins — record the difference in DECISIONS.md.
 
@@ -36,7 +36,7 @@ Provide → Confirm → Understand → Draft → Finish. The local first version
 
 | Step | Behaviour |
 |---|---|
-| **Provide** | Choose one PDF or the image pages of one bill (≤ 4,000,000 bytes per file, ≤ 10 pages); currency; decimal mark; expected amount (optional). |
+| **Provide** | Choose one PDF or the image pages of one bill (≤ 4,000,000 bytes per file, ≤ 10 pages); currency; decimal mark; **expected amount required** before reading/comparison. Unknown is not replaced with zero or the bill total. |
 | **Read** | Photos: recommended **Groq vision** (`qwen/qwen3.8-27b`) on one table area the person draws, previews and confirms free of personal details (one request per area). PDFs: local PDF.js text. Fallback: local Tesseract OCR, or typing an amount seen on a page. Nothing is uploaded without the explicit preview step. |
 | **Confirm** | One card per line/row, pre-filled (label, amount in the chosen decimal format without currency signs, suggested role, group, printed row columns). The source page/table stays visible. The person fixes what is wrong and clicks **Confirm all ready lines**; lines with problems get a plain red note; lines without a role stay unticked. |
 | **Understand** | **Calculate and explain** → Python checks → outcome A, B or C (below). |
@@ -46,7 +46,7 @@ Provide → Confirm → Understand → Draft → Finish. The local first version
 | Outcome | When | Result |
 |---|---|---|
 | **A — re-check** | a row, subtotal or the printed total does not add up | No verdict, no message, no AI call. Suspect lines are listed and marked (e.g. a discount already inside a row and counted again). After fixing, recalculate; or "I re-checked: the bill really shows these numbers" → `verified_mismatch` with a cautious message naming the figures. |
-| **B — no issue** | arithmetic fine; no expectation, or it matches | `checks_passed` summary of what was checked; nothing sent to an AI. |
+| **B — no issue** | arithmetic fine; expectation matches | `checks_passed` summary of what was checked; nothing sent to an AI. The reusable core/API still supports absent expectations for arithmetic-only tests, but the main UI requires one (D-037). |
 | **C — difference** | arithmetic fine; differs from the expected amount | Python finds groups/lines that exactly equal the expected amount or the difference; then **Groq `openai/gpt-oss-20b`** suggests likely causes from confirmed labels, amounts and Python's results only. Verdict stays `unexplained`. |
 
 Unreadable input gives an actionable error or a request to confirm, never a false no-issue result. Missing evidence is stated; the draft stays cautious.
@@ -60,7 +60,7 @@ Unreadable input gives an actionable error or a request to confirm, never a fals
 | FR-03 | Traceable source evidence | Every line has page and precision `exact` / `table` / `page`; no guessed box shown as exact; missing exact box does not block confirmation | Done |
 | FR-04 | Confirmation boundary | Calculations use only explicitly confirmed lines; original extraction distinguishable from corrections | Done |
 | FR-05 | Exact money arithmetic | Integer cents/paise, Decimal parsing, explicit decimal mark, signed discounts, tax-included amounts not added twice, no mixed currencies | Done |
-| FR-06 | Compare expectation with the bill | Total difference separated from exactly explained parts and the unexplained remainder; expectation is never proof | Partly — period compatibility not checked |
+| FR-06 | Compare expectation with the bill | Main UI requires an expected amount; total difference separated from exactly explained parts and the unexplained remainder; expectation is never proof | Partly — required input implemented locally (D-037); promise evidence/effective-date intake and period compatibility missing |
 | FR-07 | Honest verdicts | Only `verified_mismatch`, `unexplained`, `checks_passed`; unexplained is never "wrong"; failed reading is never checks-passed | Done |
 | FR-08 | Chat about the current bill | Uses only the person's review; new facts are proposed corrections needing re-confirmation; no model arithmetic trusted | Planned (N-3) |
 | FR-09 | Required draft | Every completed review reaches a draft (incl. no-issue); only Python numbers and valid line links | Done |
@@ -87,6 +87,7 @@ Unreadable input gives an actionable error or a request to confirm, never a fals
 **Evidence and privacy**
 - Never fabricate coordinates or present a table area as an exact location.
 - Bill files and OCR text stay in the browser; only an area the person previewed and approved goes to Groq vision; only confirmed labels, amounts and Python results go to the text model, and only for outcome C.
+- Approved crops pass through the app server in memory; they are not saved by the app to disk or Supabase. Local provider-response cache contains extracted information (not request images); hosted cache is off. Separate benchmark-preparation scripts save masked test crops. Groq retention settings are not established by this code audit; Git ignore does not prevent OneDrive sync. See D-037 and the [sketch/privacy audit](../../work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md).
 - Stored: confirmed structured lines and derived results. Sent texts are stored with e-mail addresses, IBANs and numbers of seven or more digits blanked (after counting changed words). Labels with amounts or likely private data are rejected.
 - The server uses only the **publishable** Supabase key and each user's own token; secret keys are refused in code; row level security is the access control.
 - Bill text is data, never instructions.
@@ -114,7 +115,7 @@ Conceptual model from the owner's hand-drawn design (E-109), with the agreed add
 | users | Supabase anonymous auth users; no contact fields | Done |
 | bills | user, currency, decimal mark, document kind, provider (optional), created | Done |
 | line_items | bill, client line ID, description, role, group, amount in minor units, confirmed and originally extracted raw amount, extractor, corrected, source page/precision/locator/box, row columns | Done |
-| expectations | bill, expected amount, source, optional effective date, recorded date; changes are new rows | Done |
+| expectations | bill, expected amount, source, optional effective date, recorded date; changes should be new rows | Partly — amount/recorded time saved; source defaults user-entered; effective date and version-change UI/API not implemented |
 | findings | bill, expectation, verdict, arithmetic and comparison status, totals, difference, calculation (formulas, groups, row checks, exact matches), missing information, supporting line IDs, AI explanation | Done |
 | finding_lines | finding ↔ line link | Planned (N-3); line IDs stored as an array in findings meanwhile |
 | messages | finding, draft text, message type, line IDs, AI question, model | Done |
@@ -127,6 +128,8 @@ All tables carry `user_id`; row level security allows each user to read and add 
 **Word-change convention:** lower-case, ignore punctuation, split into words, word-level Levenshtein (insert/delete/substitute = 1 each). No sent text → unknown, not zero.
 
 **Identity:** one anonymous Supabase identity per browser (no sign-up). Consequence: history is per browser; another device is another user. Comparing a person's bills over time (question 3 of the owner's question map) is not supported yet.
+
+**Sketch alignment (D-037):** core flow/HLD match; chat, previous-bill comparison, full promise/change chronology, loading history, join tables and file references do not. Arrays preserve current line associations but are not the drawn join tables. Original brief file-storage/link expectations need submission review; do not introduce image storage without a new privacy decision. [Full audit](../../work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md).
 
 ## 8. API (implemented)
 
@@ -224,6 +227,7 @@ Priority order (D-034). Keep time for the user tests before the deadline (Tue 20
 | 1.12 | 2026-10-19 | Current-state summary; next additions N-1–N-3 | D-029–D-034 |
 | 2.0 | 2026-10-19 | Rebased: only current requirements and status; outdated directions removed (history in DECISIONS.md and Git) | D-035 |
 | 2.1 | 2026-10-19 | Sequential UI first version local; 106 Python / 42 browser-module tests; owner review/deployment pending | D-036 |
+| 2.2 | 2026-10-19 | Required expectation in main UI; crop-storage and sketch alignment audit; 106 Python / 44 browser-module tests | D-037 |
 
 ## Sources checked
 

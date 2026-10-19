@@ -43,8 +43,9 @@
             </select>
           </label>
           <label>
-            <span>What did you expect to pay? <small>(optional)</small></span>
-            <input id="expected-amount" inputmode="decimal" placeholder="For example 19.50">
+            <span>What did you expect to pay? <small>(required)</small></span>
+            <input id="expected-amount" inputmode="decimal" required aria-describedby="expected-hint" placeholder="For example 19.50">
+            <small id="expected-hint">Use the amount you remember or were quoted. Don’t guess: we need this to compare.</small>
           </label>
         </div>
         <label id="access-box" class="access-box" hidden>

@@ -7,6 +7,8 @@ Your two jobs right now:
 1. **Get up to date and stay up to date** (§2). Do not build anything new yet.
 2. **N-1 first version is built locally (D-036, PRD v2.1); owner review is next.** Five separate screens, restrained yellow/charcoal styling. 106 Python / 42 browser-module tests pass. A–D screen replays use simulated extraction/AI and real calculations, not fresh live OCR tests. No push/deployment. See parent work/11_N1_UI_FIRST_VERSION.md. N-2/N-3 remain unbuilt; don't restart N-1 or change hosting without permission.
 
+Latest follow-up D-037 / PRD v2.2: expected amount is required in the main UI (including both readers and payload preparation). Unknown-expectation core test C remains valid but can no longer be replayed unchanged through main UI. 106 Python / 44 browser-module tests pass. Parent work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md maps all five sketches and six questions to code, including crop storage and missing promise/history/chat features. No push/deployment or storage changes.
+
 ---
 
 ## 1. Working with the owner (read first)
@@ -101,7 +103,7 @@ docs/PRD.md, docs/DECISIONS.md authoritative requirements and decision log
 - **Amounts:** never silently insert decimal marks; never drop a leading "2" as a misread ₹; never flip signs; ambiguous values are rejected or flagged, not repaired.
 - **Roles:** only charge/discount/adjustment are summed; subtotal/total are checked; row columns are checked; a discount inside a row must not be counted again.
 - **Evidence precision:** `exact` (box around the amount), `table` (region), `page`. Never fabricate coordinates; never present a table area as an exact location.
-- **Privacy:** no bill images or OCR text stored or sent to Python routes; Groq receives only an area the person previewed and approved; database stores confirmed structured lines and results; sent texts are blanked (e-mails, IBANs, ≥7-digit numbers); the server uses only the **publishable** Supabase key and each user's token (secret keys are refused by code); row level security is the access control.
+- **Privacy:** no full bill images or OCR text sent to analysis/storage routes. The approved crop does pass through Python /api/groq-extract in memory to Groq, but is not saved by the app. Local response cache stores extracted information, not request images; separate benchmark scripts save masked test crops. Groq retention and OneDrive sync are not verified. Database stores confirmed structured lines and results; sent texts are blanked (e-mails, IBANs, ≥7-digit numbers); server uses only the **publishable** Supabase key and each user's token; row level security is the access control.
 - **Scope out:** provider contact lookup, automatic sending, payment actions, legal judgements.
 
 ## 6. Gotchas learned the hard way

@@ -1,5 +1,12 @@
 export const STEPS = ["Provide", "Confirm", "Understand", "Draft", "Finish"];
 
+// Presence only: Python still parses money and owns every comparison.
+export function requireExpectedAmount(value) {
+  const amount = value == null ? "" : String(value).trim();
+  if (!amount) throw new Error("Enter what you expected to pay before reviewing the bill. Don’t guess if you don’t know.");
+  return amount;
+}
+
 // A completed result is required before exposing a draft; edits revoke it.
 export function canVisit(step, { opened, complete, busy }) {
   return Number.isInteger(step) && step >= 0 && step < STEPS.length &&
@@ -114,6 +121,7 @@ export function createFlow() {
   }
   paint();
   return {
+    provide() { go(0, true); },
     opened() { state.opened = true; go(1); },
     invalidated() { state.complete = false; state.busy = false; if (current > 1) go(state.opened ? 1 : 0, true); else paint(); },
     reset() { state.opened = false; state.complete = false; state.busy = false; $("#finish-state").textContent = "Your message is ready. Copying does not mean it has been sent."; go(0, true); },

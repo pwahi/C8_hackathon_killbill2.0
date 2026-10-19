@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-037 — Expected amount required in comparison UI; sketch/privacy audit
+
+Date: 2026-10-19. Status: Owner-directed change implemented and locally verified; not pushed/deployed.
+
+Owner requires "What did you expect to pay?" rather than optional input. All UI reading routes and payload preparation block blank/whitespace; explicit zero and printed decimal strings remain unchanged. Python retains money parsing/comparison authority. Main UI does not invent an expectation for someone who does not know it. Reusable calculation API still supports unknown expectation for arithmetic-only historical tests (C); that path is no longer available through the main UI. Supersedes D-036/PRD v2.1 optional UI input and no-expectation C screen acceptance, not past test results or the no-issue verdict.
+
+Owner also asked about saving crops and alignment with the paper sketches. Audited, not changed: app-generated crops are browser/request memory → server → Groq, no app image persistence or Supabase file link; local provider responses are cached (not image requests), hosted cache off. Existing benchmark script separately saves two masked test crops. Groq retention/settings and OneDrive sync not verified; no zero-retention promise. Smaller schema, chat/history/promise gaps are explicit in [audit](../../work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md).
+
+**Affected:** frontend/index.html, review-app.mjs, ui-flow.mjs, test/ui-flow.test.mjs; PRD v2.2, HANDOFF, README, parent PROJECT/audit. **Verification:** 106 Python / 44 browser-module tests; blank main/local/Groq actions blocked; explicit zero passes expectation guard. No live model or database writes; no storage policy, cloud or image-retention changes.
+
 ## D-036 — First sequential UI, local owner-review checkpoint
 
 Date: 2026-10-19. Status: Owner approved implementation; first version implemented and locally verified; owner acceptance and deployment pending.

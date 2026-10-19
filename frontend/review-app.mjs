@@ -5,7 +5,7 @@ import { extractPdfTokens } from "./extraction/pdf-client.mjs";
 import { buildServerPayload } from "./extraction/privacy.mjs";
 import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion } from "./extraction/bulk-confirm.mjs";
-import { createFlow } from "./ui-flow.mjs";
+import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
 
 const elements = {
   files: document.querySelector("#bill-files"),
@@ -747,6 +747,7 @@ function showCandidates(tokens, extractor) {
 }
 
 async function processSelection() {
+  if (!checkExpectedAmount()) return;
   resetReview({ keepFiles: true });
   elements.process.disabled = true;
   try {
@@ -781,6 +782,7 @@ function confirmedCandidates() {
 
 function previewPayload() {
   elements.payloadError.textContent = "";
+  if (!checkExpectedAmount()) return false;
   try {
     const lines = confirmedCandidates();
     if (!lines.length) throw new Error("Confirm at least one relevant line first.");
@@ -1056,6 +1058,18 @@ elements.markSent.addEventListener("click", async () => {
 });
 
 elements.process.addEventListener("click", processSelection);
+function checkExpectedAmount() {
+  try {
+    requireExpectedAmount(elements.expectedAmount.value);
+    return true;
+  } catch (error) {
+    flow.provide();
+    setStatus(error.message, "failure");
+    elements.expectedAmount.focus();
+    elements.expectedAmount.reportValidity();
+    return false;
+  }
+}
 document.querySelector("#start-review").addEventListener("click", () => {
   const files = Array.from(elements.files.files || []);
   const photos = files.length && files.every((file) => /^image\/(jpeg|png)$/.test(file.type));
@@ -1069,6 +1083,7 @@ document.querySelector("#confirm-and-check").addEventListener("click", async (ev
   finally { button.disabled = false; }
 });
 document.querySelector("#open-vision").addEventListener("click", async () => {
+  if (!checkExpectedAmount()) return;
   resetReview({ keepFiles: true });
   const button = document.querySelector("#open-vision");
   button.disabled = true;
