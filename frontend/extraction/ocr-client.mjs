@@ -5,7 +5,7 @@ export async function extractImageTokens(image, options = {}) {
   }
   let createWorker = options.createWorker;
   if (!createWorker) {
-    const tesseract = (await import("../node_modules/tesseract.js/dist/tesseract.esm.min.js")).default;
+    const tesseract = (await import("../vendor/tesseract/tesseract.esm.min.js")).default;
     createWorker = tesseract.createWorker;
   }
   const language = options.language || "eng";

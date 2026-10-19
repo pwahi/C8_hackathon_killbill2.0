@@ -2,7 +2,7 @@ export async function extractPdfTokens(data, options = {}) {
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer());
   const maxBytes = options.maxBytes ?? 4_000_000;
   if (bytes.byteLength > maxBytes) throw new Error(`PDF is too large; limit is ${maxBytes} bytes`);
-  const loadPdfJs = options.loadPdfJs || (() => import("../node_modules/pdfjs-dist/build/pdf.mjs"));
+  const loadPdfJs = options.loadPdfJs || (() => import("../vendor/pdfjs/pdf.mjs"));
   const pdfjs = await loadPdfJs();
   const pdf = await pdfjs.getDocument({ data: bytes }).promise;
   const maxPages = options.maxPages ?? 10;

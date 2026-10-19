@@ -8,6 +8,8 @@ First deployment (https://c8-hackathon-killbill2-0.vercel.app, commit d88e253) w
 
 **Affected:** app.py, pyproject.toml, scripts/vendor_assets.py (new), frontend/vendor/ (new), tests/test_api.py. **Verification:** full Python suite passes, including a test that all six tool paths return 200 locally. D-031's first commit: d88e253.
 
+**Follow-up (same day):** after the redeploy, health showed `accessCodeRequired: true` (an earlier `false` was a cached answer) and POSTs without or with a wrong code returned 401. Tool files inside folders named `build/` and `dist/` still returned 404, while files in other folders loaded: Vercel leaves such folders out of a deployment. The vendor copies now use short folder names (`vendor/pdfjs`, `vendor/tesseract`, `vendor/tesseract-core`, `vendor/tesseract-eng`), the page loads them from /vendor/..., the separate /node_modules mount was removed, and a test forbids build/ or dist/ folders under vendor. Locally, D (Tesseract) and B (PDF.js) were read through the page again.
+
 ## D-031 — Vercel preparation, access code and public repository export
 
 Date: 2026-10-19. Status: Implemented locally; push and deployment pending owner approval.

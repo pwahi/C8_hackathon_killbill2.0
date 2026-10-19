@@ -237,8 +237,8 @@ function validSelection(files) {
 }
 
 async function pdfLibrary() {
-  const pdfjs = await import("./node_modules/pdfjs-dist/build/pdf.mjs");
-  pdfjs.GlobalWorkerOptions.workerSrc = "/node_modules/pdfjs-dist/build/pdf.worker.mjs";
+  const pdfjs = await import("./vendor/pdfjs/pdf.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.mjs";
   return pdfjs;
 }
 
@@ -400,11 +400,11 @@ async function renderImages(files) {
 
 function localOcrWorker(progress) {
   return async (language) => {
-    const { createWorker, OEM } = (await import("./node_modules/tesseract.js/dist/tesseract.esm.min.js")).default;
+    const { createWorker, OEM } = (await import("./vendor/tesseract/tesseract.esm.min.js")).default;
     return createWorker(language, OEM.LSTM_ONLY, {
-      workerPath: "/node_modules/tesseract.js/dist/worker.min.js",
-      corePath: "/node_modules/tesseract.js-core",
-      langPath: "/node_modules/@tesseract.js-data/eng/4.0.0_best_int",
+      workerPath: "/vendor/tesseract/worker.min.js",
+      corePath: "/vendor/tesseract-core",
+      langPath: "/vendor/tesseract-eng",
       logger: progress,
     });
   };

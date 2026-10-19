@@ -111,12 +111,13 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(self.client.post("/api/analyze", json=fixture("BS-002"), headers=ORIGIN).status_code, 503)
 
     def test_reading_tools_are_served_from_the_pinned_copies(self):
-        for path in ("/node_modules/pdfjs-dist/build/pdf.mjs", "/node_modules/pdfjs-dist/build/pdf.worker.mjs",
-                     "/node_modules/tesseract.js/dist/tesseract.esm.min.js", "/node_modules/tesseract.js/dist/worker.min.js",
-                     "/node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm",
-                     "/node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz"):
+        for path in ("/vendor/pdfjs/pdf.mjs", "/vendor/pdfjs/pdf.worker.mjs", "/vendor/tesseract/tesseract.esm.min.js",
+                     "/vendor/tesseract/worker.min.js", "/vendor/tesseract-core/tesseract-core-simd-lstm.wasm",
+                     "/vendor/tesseract-eng/eng.traineddata.gz"):
             self.assertEqual(self.client.get(path).status_code, 200, path)
-        self.assertTrue((APP_ROOT / "frontend" / "vendor" / "pdfjs-dist" / "LICENSE").is_file())
+        self.assertTrue((APP_ROOT / "frontend" / "vendor" / "pdfjs" / "LICENSE").is_file())
+        # Vercel drops folders named build/ or dist/ from deployments.
+        self.assertFalse([p for p in (APP_ROOT / "frontend" / "vendor").rglob("*") if p.name in ("build", "dist")])
 
     def test_api_docs_are_available(self):
         self.assertEqual(self.client.get("/docs").status_code, 200)
