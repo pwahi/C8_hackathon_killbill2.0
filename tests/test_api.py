@@ -160,9 +160,11 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(self.client.post("/api/analyze", json=fixture("BS-002"), headers=right).status_code, 200)
             self.assertTrue(self.client.get("/api/health").json()["accessCodeRequired"])
 
-    def test_hosted_server_without_code_refuses_work(self):
+    def test_hosted_server_without_code_is_open(self):
+        # D-063 (owner, for the submission): without a code the hosted app works for anyone with the link.
         with patch.object(api, "HOSTED", True), patch.object(api, "ACCESS_CODE", ""):
-            self.assertEqual(self.client.post("/api/analyze", json=fixture("BS-002"), headers=ORIGIN).status_code, 503)
+            self.assertEqual(self.client.post("/api/analyze", json=fixture("BS-002"), headers=ORIGIN).status_code, 200)
+            self.assertFalse(self.client.get("/api/health").json()["accessCodeRequired"])
 
     def test_reading_tools_are_served_from_the_pinned_copies(self):
         for path in ("/vendor/pdfjs/pdf.mjs", "/vendor/pdfjs/pdf.worker.mjs", "/vendor/tesseract/tesseract.esm.min.js",

@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-063 — The hosted app can run without an access code (submission)
+
+Date: 2026-10-19. Status: Implemented and tested locally; push and the Vercel setting pending owner.
+
+**Decision (owner):** the app is submitted publicly, so it must open without an access code. The server no longer refuses work when the hosted app has no code; when BILLSHIELD_ACCESS_CODE is set it is still required, when the owner removes it in Vercel anyone with the link can use the app and the code box disappears.
+
+**Risk accepted by the owner:** anyone with the link can spend the AI keys' credit (OpenRouter for reading, Groq for explanations and messages). The one-request-at-a-time lock and the provider's own limits remain; a spending limit on the OpenRouter key is advised.
+
 ## D-062 — Identifier words block a label only when a number follows; Looks right never drops a line silently
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

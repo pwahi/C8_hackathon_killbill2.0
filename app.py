@@ -52,7 +52,7 @@ ALLOWED_ORIGINS = {origin.strip() for origin in os.environ.get("BILLSHIELD_ALLOW
 for variable in ("VERCEL_PROJECT_PRODUCTION_URL", "VERCEL_BRANCH_URL", "VERCEL_URL"):
     if os.environ.get(variable):
         ALLOWED_ORIGINS.add(f"https://{os.environ[variable]}")
-# Testers must enter this code before anything can use the server's Groq key. Required when hosted.
+# Optional: when set, people must enter this code before anything can use the server's AI keys.
 ACCESS_CODE = os.environ.get("BILLSHIELD_ACCESS_CODE", "")
 # Provider responses are cached only on a developer machine; never on a hosted server.
 CACHE_DIR = None if HOSTED else ROOT / "private" / "groq-cache"
@@ -79,8 +79,8 @@ async def read_json(request: Request, limit: int) -> dict | JSONResponse:
     """Shared guard: allowed page origin, JSON content type, bounded body."""
     if request.headers.get("origin") not in ALLOWED_ORIGINS:
         return error(403, "Open this review from the Kill Bill page.")
-    if HOSTED and not ACCESS_CODE:
-        return error(503, "This test server has no access code configured yet.")
+    # Owner decision (D-063, submission): the hosted app may run without an access code. When the code is set in
+    # Vercel it is still required; when it is removed, anyone with the link can use the app.
     if ACCESS_CODE and not hmac.compare_digest(request.headers.get("x-billshield-access", ""), ACCESS_CODE):
         return error(401, "Enter the access code you received for this test (top of the page).")
     if not request.headers.get("content-type", "").startswith("application/json"):
