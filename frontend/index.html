@@ -66,6 +66,15 @@
         <div id="status" class="status" role="status" aria-live="polite">Ready. No file has been opened.</div>
       </section>
 
+      <section id="saved-checks" class="saved-checks" data-flow-panel="0" aria-labelledby="saved-title" hidden>
+        <div class="saved-head">
+          <h2 id="saved-title">Your earlier checks</h2>
+          <p class="hint">Saved in this browser only. Clearing your browser or using another device starts a fresh list.</p>
+        </div>
+        <p id="saved-empty" class="hint"></p>
+        <ul id="saved-list" class="saved-list"></ul>
+      </section>
+
       <section id="review" class="review-layout" hidden>
         <div class="panel document-panel">
           <div class="section-heading">
@@ -201,6 +210,8 @@
       <label class="confirm-control"><input id="groq-redacted" type="checkbox">I checked this image and it contains no personal identifiers.</label>
       <div class="actions"><button id="groq-send" class="primary" disabled>Read this area</button><button id="groq-cancel" class="secondary">Choose a different area</button></div>
     </dialog>
+
+    <dialog id="saved-dialog" class="saved-dialog" aria-label="Saved check"><div id="saved-dialog-body"></div></dialog>
 
     <script type="module" src="./review-app.mjs"></script>
   </body>

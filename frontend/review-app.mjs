@@ -11,6 +11,7 @@ import { lineTreeRows, STATUS_TEXT } from "./line-tree.mjs";
 import { locateAmounts } from "./extraction/locate.mjs";
 import { applyTone } from "./tone.mjs";
 import { pagesToRead, readButtonText } from "./read-flow.mjs";
+import { createSavedChecks } from "./saved-checks.mjs";
 import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, assignSection, suggestSection, sectionMembers, sectionReviewKey, sectionAccepted, acceptVerifiedSections } from "./extraction/page-review.mjs";
 
 const elements = {
@@ -517,10 +518,27 @@ async function ensureSession() {
   try { localStorage.setItem("billshield-session", JSON.stringify(session)); } catch { /* storage unavailable */ }
 }
 
+// "Your earlier checks" (Chapter 1). Only a browser that has saved before has a session; listing never creates one.
+function storedSession() {
+  try { return session || JSON.parse(localStorage.getItem("billshield-session") || "null"); } catch { return null; }
+}
+const savedChecks = createSavedChecks({
+  hasSession: () => Boolean(storedSession()?.refreshToken),
+  accessMissing: () => !elements.accessBox.hidden && !elements.accessCode.value.trim(),
+  api: async (path, body) => {
+    await ensureSession();
+    const response = await fetch(path, { method: "POST", headers: apiHeaders("saved-checks"), body: JSON.stringify(body) });
+    const answer = await response.json();
+    if (!response.ok) throw new Error(answer.error || "Request failed.");
+    return answer;
+  },
+});
+
 function showSaved(output) {
   savedMessageId = output.saved?.messageId || null;
   elements.sentNote.textContent = "";
   elements.markSent.disabled = !savedMessageId;
+  if (savedMessageId) savedChecks.load();
   if (savedMessageId) elements.saveNote.textContent = "✓ Saved to your private history (this browser only): the checked lines, the result and this draft. No bill image or OCR text is stored.";
   else if (output.saveError) elements.saveNote.textContent = output.saveError;
   else elements.saveNote.textContent = savingAvailable ? "" : "Saving is not switched on for this server.";
@@ -1996,5 +2014,6 @@ for (const input of [elements.expectedAmount, elements.decimalSeparator, element
 elements.accessCode.addEventListener("input", () => {
   try { sessionStorage.setItem("billshield-access", elements.accessCode.value.trim()); } catch { /* storage unavailable */ }
 });
-showAccessBoxIfNeeded();
+elements.accessCode.addEventListener("change", () => savedChecks.load());
+showAccessBoxIfNeeded().then(() => savedChecks.load());
 window.addEventListener("beforeunload", clearObjectUrls);

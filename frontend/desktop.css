@@ -287,3 +287,49 @@ body[data-ui-step='2'] .page-read-toolbar, body[data-ui-step='2'] .page-options 
 .page-choice legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
 .page-choice #page-choice-boxes { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .page-choice label { font-size: 15px; cursor: pointer; }
+
+/* Chapter 1: "Your earlier checks" — this browser's saved reviews, newest first. */
+.saved-checks { max-width: 920px; gap: 12px; margin-top: 40px; padding-top: 28px; border-top: 1px solid #E3E1DA; }
+.saved-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 24px; }
+.saved-head h2 { margin: 0; font-size: 20px; }
+.saved-head .hint, #saved-empty { margin: 0; font-size: 14px; }
+.saved-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.saved-row { width: 100%; display: grid; grid-template-columns: 150px minmax(0, 1fr) 110px 190px 140px; gap: 14px; align-items: center;
+  padding: 12px 16px; text-align: left; background: #fff; border: 1px solid #E3E1DA; border-radius: 6px; color: #202124; font: inherit; font-size: 14px; cursor: pointer; }
+.saved-row:hover, .saved-row:focus-visible { border-color: #202124; }
+.saved-when, .saved-message { color: #5f6368; }
+.saved-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-total { font-variant-numeric: tabular-nums; text-align: right; }
+.saved-outcome.ok { color: #1E7B3A; } .saved-outcome.warn { color: #8A6D00; } .saved-outcome.bad { color: #C8102E; }
+@media (max-width: 760px) {
+  .saved-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .saved-when, .saved-message { font-size: 13px; }
+  .saved-name { grid-column: 1 / -1; white-space: normal; }
+}
+
+/* The saved check, read-only, in a wide dialog. */
+dialog.saved-dialog { width: min(860px, calc(100vw - 32px)); max-height: 88vh; overflow: auto; margin: 6vh auto auto; padding: 28px; }
+.saved-dialog-head { position: relative; display: grid; gap: 6px; padding-right: 80px; }
+.saved-dialog-head h2 { margin: 0; font-size: 22px; line-height: 1.3; }
+.saved-dialog-head p { margin: 0; }
+.saved-close { position: absolute; top: 0; right: 0; }
+.saved-dialog h3 { margin: 24px 0 8px; font-size: 15px; }
+.saved-maths { display: grid; grid-template-columns: max-content max-content; gap: 6px 28px; margin: 18px 0 0; padding: 14px 16px; background: #F7F6F2; border-radius: 6px; }
+.saved-maths dt { color: #5f6368; } .saved-maths dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.saved-lines { width: 100%; border-collapse: collapse; font-size: 14px; }
+.saved-lines th { text-align: left; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #5f6368; padding: 6px 8px; border-bottom: 1px solid #E3E1DA; }
+.saved-lines td { padding: 8px; border-bottom: 1px solid #F0EFEA; }
+.saved-lines td.amount, .saved-lines th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.saved-lines tr.printed td { font-weight: 600; background: #FAFAF7; }
+.saved-unknown { margin: 0; padding-left: 20px; line-height: 1.6; }
+.saved-message-text { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; line-height: 1.5; padding: 12px; border: 1px solid #E3E1DA; border-radius: 6px; }
+.saved-dialog .actions { display: flex; gap: 12px; margin-top: 12px; }
+.saved-message-note { margin: 8px 0 0; }
+.saved-lines td.amount { white-space: nowrap; }
+@media (max-width: 600px) {
+  dialog.saved-dialog { padding: 18px 16px; margin-top: 3vh; }
+  .saved-dialog-head { padding-right: 64px; }
+  .saved-dialog-head h2 { font-size: 19px; }
+  .saved-lines th:nth-child(3), .saved-lines td:nth-child(3) { display: none; }  /* page column */
+  .saved-lines td { padding: 8px 4px; }
+}

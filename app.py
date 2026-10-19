@@ -163,6 +163,38 @@ async def message_event(message_id: str, request: Request):
     return JSONResponse(recorded, headers={"cache-control": "no-store"})
 
 
+@app.post("/api/reviews")
+async def saved_reviews(request: Request):
+    """This browser's earlier checks, newest first. Read-only; row level security limits it to the caller's rows."""
+    data = await read_json(request, 2_000)
+    if isinstance(data, JSONResponse):
+        return data
+    token = user_token(request)
+    if not token:
+        return error(401, "No session: nothing has been saved in this browser yet.")
+    try:
+        reviews = await run_in_threadpool(store.list_reviews, token)
+    except store.StoreError as problem:
+        return error(502, str(problem))
+    return JSONResponse({"reviews": reviews}, headers={"cache-control": "no-store"})
+
+
+@app.post("/api/reviews/open")
+async def saved_review(request: Request):
+    """One earlier check in full (lines, result, message and what happened to it), read-only."""
+    data = await read_json(request, 2_000)
+    if isinstance(data, JSONResponse):
+        return data
+    token = user_token(request)
+    if not token:
+        return error(401, "No session: nothing has been saved in this browser yet.")
+    try:
+        review = await run_in_threadpool(store.open_review, token, str(data.get("billId", "")))
+    except store.StoreError as problem:
+        return error(404, str(problem))
+    return JSONResponse({"review": review}, headers={"cache-control": "no-store"})
+
+
 @app.post("/api/analyze")
 async def analyze(request: Request):
     """Confirmed lines -> Python calculations, checks and the required draft. No provider call."""
