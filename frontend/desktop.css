@@ -408,8 +408,12 @@ body[data-ui-step='how'] #status, body[data-ui-step='how'] .chapter-heading, bod
 body[data-ui-step='0'] .privacy-note, body[data-ui-step='0'] .reading-options { display: none; }
 .chapter-count { letter-spacing: .16em; }
 .count-slash { color: #E5512A; font-weight: 700; margin: 0 .12em; }
-.history-button { justify-self: center; background: none; border: 0; padding: 6px 4px; font-size: 15px; color: #3c4043; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.history-button:hover { color: #111; }
+/* Read my bill (left) and My previous bills (right), side by side. */
+.main-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.main-actions button { min-height: 56px; font-size: 16px; font-weight: 600; }
+.history-button { background: #fff; color: #111; border: 1px solid #111; }
+.main-actions .history-button:disabled { border-color: #D5D3CC; color: #9AA0A6 !important; background: #fff; cursor: default; opacity: 1; }
+@media (max-width: 520px) { .main-actions { grid-template-columns: minmax(0, 1fr); } }
 
 /* My previous bills: list on the left, the chosen bill on the right (wider). */
 dialog.history-dialog { width: min(1100px, calc(100vw - 32px)); height: min(84vh, 820px); max-height: none; margin: 6vh auto auto; padding: 0; overflow: hidden; }

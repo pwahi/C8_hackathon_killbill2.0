@@ -114,8 +114,10 @@
           <input id="access-code" type="password" autocomplete="off">
         </label>
         <div class="actions">
-          <button id="start-review" class="primary" type="button">Read my bill</button>
-          <button id="open-history" class="history-button" type="button" hidden>My previous bills</button>
+          <div class="main-actions">
+            <button id="start-review" class="primary" type="button">Read my bill</button>
+            <button id="open-history" class="secondary history-button" type="button" disabled>My previous bills</button>
+          </div>
           <details class="reading-options"><summary>Reading options</summary><div class="actions">
           <button id="open-vision" class="secondary" type="button">Choose an area to read</button>
           <button id="process" class="secondary" type="button">Read on this device</button></div></details>

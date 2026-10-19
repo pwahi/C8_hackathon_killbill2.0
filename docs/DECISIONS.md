@@ -4,7 +4,7 @@
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
 
-**Decision (owner):** chapter labels read "CHAPTER 1/5" with the slash in the logo's orange. The earlier-checks side column is removed as too clunky; a quiet "My previous bills (n)" link under Read my bill (hidden when there are none) opens a window with a narrow list on the left — one line per bill: name, date, total, difference or result, message status — and the chosen bill in a wider pane on the right (result, maths, lines, still unknown, message with Copy / I sent it). On a phone the list sits above the bill. Supersedes D-049's list placement; routes and storage are unchanged.
+**Decision (owner):** chapter labels read "CHAPTER 1/5" with the slash in the logo's orange. The earlier-checks side column is removed as too clunky; "Read my bill" (left, yellow) and "My previous bills (n)" (right, outlined, greyed out until a bill is saved) sit side by side; the latter opens a window with a narrow list on the left — one line per bill: name, date, total, difference or result, message status — and the chosen bill in a wider pane on the right (result, maths, lines, still unknown, message with Copy / I sent it). On a phone the list sits above the bill. Supersedes D-049's list placement; routes and storage are unchanged.
 
 **Limits:** a bill's name is its largest charge label (e.g. "September subscription"), not the company; showing "Vodafone" would need the provider saved (database function change). Two more masked test checks were saved in the real database for the screenshots.
 

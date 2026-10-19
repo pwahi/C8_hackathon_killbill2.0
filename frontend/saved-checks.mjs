@@ -53,8 +53,10 @@ export function createSavedChecks({ api, hasSession, accessMissing }) {
     if (hasSession() && !accessMissing()) {
       try { reviews = (await api("/api/reviews", {})).reviews; } catch { reviews = []; }
     }
-    button.hidden = !reviews.length;
-    button.textContent = `My previous bills (${reviews.length})`;
+    // Always visible next to Read my bill; greyed out until this browser has a saved bill.
+    button.disabled = !reviews.length;
+    button.textContent = reviews.length ? `My previous bills (${reviews.length})` : "My previous bills";
+    button.title = reviews.length ? "" : "Bills you check are saved here, in this browser only.";
     if (dialog.open) renderList();
   }
 
