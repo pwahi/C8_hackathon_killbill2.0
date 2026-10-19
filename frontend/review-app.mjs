@@ -87,7 +87,7 @@ const groqSend = document.querySelector("#groq-send");
 const groqRedacted = document.querySelector("#groq-redacted");
 
 function emptyState() {
-  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), skippedPages: new Set(), pageSelectError: null, removedLines: [], tree: null, toggles: new Map(), zoom: false };
+  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), skippedPages: new Set(), pageSelectError: null, removedLines: [], tree: null, toggles: new Map(), zoom: false, areaReads: new Map() };
 }
 
 // One shape for every candidate, whatever produced it. Evidence precision is never upgraded silently.
@@ -351,6 +351,31 @@ groqSend.addEventListener("click", async () => {
       elements.currency.dispatchEvent(new Event("change"));
     }
     useBillDecimalMark(result.decimalMark);
+    // Same table as reading the whole bill (owner): the areas read so far (the latest per page) go through the same
+    // Python check of sections and totals, so the lines appear in the bill's hierarchy. Not when a whole-bill
+    // reading is already there; then the area's lines are added below it as before.
+    const hasWhole = reviewState.candidates.some(line => String(line.extractionSourceKey || "").startsWith("whole:"));
+    let linked = null;
+    if (!hasWhole) {
+      reviewState.areaReads.set(selection.page, { output: result.output, model: result.model, bounds: selection.bounds });
+      linked = await linkAreas(selection.generation);
+      if (selection.generation !== reviewGeneration) return;
+    }
+    if (linked) {
+      // The checked areas are rebuilt as one set; typed lines and older unchecked area lines stay.
+      const kept = reviewState.candidates.filter(line => !String(line.extractionSourceKey || "").startsWith("area:"));
+      reviewState.candidates = acceptVerifiedSections([...kept, ...linked.added], linked.added.map(line => line.id));
+      reviewState.tree = linked.plan.status === "invalid" ? null : linked.plan.tree || null;
+      reviewState.toggles = new Map();
+      renderLines();
+      invalidatePayload("Area read. Review the lines and check them.");
+      drawHighlights();
+      refreshPageControls();
+      flow.extracted(true);
+      setStatus(`${wholeBillNote(linked.plan, linked.added.length, reviewState.areaReads.size).replace(/ The pages were connected[^.]*\./, "")} To add another part of the bill, select an area on another page.`,
+        ["mismatch", "invalid"].includes(linked.plan.status) ? "failure" : "");
+      return;
+    }
     const plan = result.structure && result.structure.status !== "invalid" ? result.structure.lines : {};
     const added = result.output.lines.map((line) => visionCandidate(line, {
       page: selection.page, area: selection.bounds, sourceKey: regionKey(selection.page, selection.bounds),
@@ -372,6 +397,28 @@ groqSend.addEventListener("click", async () => {
     if (selection.generation === reviewGeneration) { flow.reading("select", selection.page); setStatus(error.message, "failure"); }
   } finally { groqRequestRunning = false; pendingGroq = null; refreshPageControls(); }
 });
+
+// The areas read so far (latest per page) -> the same Python-verified plan as a whole-bill reading, or null if the
+// check could not run (the area's lines are then added the old way).
+async function linkAreas(generation) {
+  const reads = [...reviewState.areaReads.entries()].sort(([a], [b]) => a - b);
+  try {
+    const response = await fetch("/api/link-pages", {
+      method: "POST", headers: apiHeaders("area-bill"),
+      body: JSON.stringify({ decimalSeparator: elements.decimalSeparator.value, currency: elements.currency.value,
+        pages: reads.map(([page, read]) => ({ page, output: read.output })) }),
+    });
+    const answer = await response.json();
+    if (!response.ok || answer.error || generation !== reviewGeneration) return null;
+    const plan = answer.plan;
+    const added = reads.flatMap(([page, read]) => read.output.lines.map(line => {
+      const gid = plan.ids[`${page}:${line.id}`];
+      return visionCandidate(line, { page, area: read.bounds, sourceKey: `area:${regionKey(page, read.bounds)}`,
+        outputCurrency: read.output.currency, placed: plan.lines[gid], model: read.model, id: `area-${gid}`, gid });
+    }));
+    return { plan, added };
+  } catch { return null; }
+}
 
 // ---- Whole-bill reading: every page, then one linking pass; Python checks every section. ----
 
@@ -499,7 +546,9 @@ async function readWholeBill() {
         warning: line.warning.replace(/Model source box is unverified\. Inspect it before confirming\.|Read from the whole page;[^.]*\.[^.]*\.|Read from the highlighted row[^.]*\.[^.]*\./, "Located in the PDF text.") });
     }
     // A new whole-bill reading replaces the previous one; drawn areas and typed lines are kept.
-    const kept = reviewState.candidates.filter(line => !String(line.extractionSourceKey || "").startsWith("whole:"));
+    const kept = reviewState.candidates.filter(line => !String(line.extractionSourceKey || "").startsWith("whole:"))
+      .map(line => String(line.extractionSourceKey || "").startsWith("area:") ? { ...line, gid: null, structureVerified: false } : line);
+    reviewState.areaReads = new Map();
     reviewState.candidates = acceptVerifiedSections([...kept, ...added], added.map(line => line.id));
     reviewState.tree = plan.status === "invalid" ? null : plan.tree || null;
     reviewState.toggles = new Map();
