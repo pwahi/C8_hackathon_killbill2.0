@@ -92,3 +92,47 @@ export function assignSection(lines, subtotalId, memberIds) {
     return line;
   });
 }
+
+const sectionName = value => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+
+export function sectionMembers(lines, subtotalId) {
+  const subtotal = lines.find(line => line.id === subtotalId && line.role === "subtotal");
+  if (!subtotal?.group?.trim()) return [];
+  return lines.filter(line => ["charge", "discount", "adjustment"].includes(line.role) && sectionName(line.group) === sectionName(subtotal.group));
+}
+
+// Suggest printed row order, not an amount match. A person must accept the suggestion.
+export function suggestSection(lines, subtotalId) {
+  const end = lines.findIndex(line => line.id === subtotalId && line.role === "subtotal");
+  if (end < 0) return [];
+  const subtotal = lines[end], nearby = [];
+  if (subtotal.extractionSourceKey) for (let i = end - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (line.page !== subtotal.page || line.extractionSourceKey !== subtotal.extractionSourceKey || !["charge", "discount", "adjustment"].includes(line.role)) break;
+    nearby.unshift(line);
+  }
+  if (nearby.length) {
+    // Respect consistent explicit names: a neighbouring standalone charge can
+    // precede a section without belonging to its subtotal.
+    if (subtotal.group?.trim() && nearby.some(line => sectionName(line.group) === sectionName(subtotal.group))) {
+      return nearby.filter(line => sectionName(line.group) === sectionName(subtotal.group));
+    }
+    return nearby; // Conflicting model names are only a proposal until accepted.
+  }
+  return sectionMembers(lines, subtotalId);
+}
+
+export function sectionReviewKey(lines, subtotalId) {
+  const subtotal = lines.find(line => line.id === subtotalId && line.role === "subtotal");
+  if (!subtotal) return null;
+  const members = sectionMembers(lines, subtotalId);
+  if (!members.length) return null;
+  const fields = line => [line.id, line.role, line.group, line.page, line.description, line.rawAmount, line.extractionSourceKey];
+  return JSON.stringify([fields(subtotal), members.map(fields)]);
+}
+
+export function sectionAccepted(lines, subtotalId) {
+  const subtotal = lines.find(line => line.id === subtotalId);
+  const key = sectionReviewKey(lines, subtotalId);
+  return !!key && subtotal?.sectionAcceptedKey === key;
+}

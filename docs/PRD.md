@@ -1,12 +1,12 @@
 # BillShield — Product requirements
 
-Version 2.5 · 2026-10-19 · Owner: Prateek Wahi
+Version 2.6 · 2026-10-19 · Owner: Prateek Wahi
 
 This PRD describes **what is required now** and **what exists now**. It was rebased on 2026-10-19 (D-035): outdated directions and superseded proposals were removed. The reasons behind every choice, including superseded ones, stay in [DECISIONS.md](DECISIONS.md) (D-006 to D-035); earlier PRD versions remain in the Git history. When this PRD and the code disagree about what *exists*, the code wins; about what is *required*, this PRD wins — record the difference in DECISIONS.md.
 
 **Status:** Stages 0–2 accepted; FastAPI backend live on Vercel (access code required); Supabase saving, smaller version, live and owner-verified. N-1 sequential UI first version is implemented locally (D-036), awaiting owner review and deployment approval. N-2 server OCR evaluation and N-3 chat/database remain planned. No real-user test beyond the owner yet; classmate and stranger tests planned for 2026-10-20.
 
-Latest N-1 update: D-040 repairs section linking and summary/detail double counting on top of D-038/D-039 controls; 114 Python / 63 browser-module tests pass. Visible subtotal row picker handles unclear links. Python keeps uniquely matching cross-page summaries as references, not additional charges; incomplete detail still needs re-check. [Design reference](DESIGN.md); owner acceptance and deployment still pending. Offline flow checks are not new OCR accuracy evidence. No new model, storage or hosting changes.
+Latest N-1 update: D-041 simplifies reading to five visible steps and section membership to a quick Yes/Change confirmation; D-040 Python summary/detail rules retained. 114 Python / 70 browser-module tests pass. [Design reference](DESIGN.md); owner acceptance and deployment still pending. Offline flow checks are not new OCR accuracy evidence. No new model, storage or hosting changes.
 
 ---
 
@@ -49,6 +49,8 @@ Conceptual flow remains Provide → Confirm → Understand → Draft → Finish.
 Multi-page/recovery requirements (D-039): per-page reading/reselection and last-area preview; append without clearing corrections; exact same-area repeat suppression preserving multiplicity; Add a line, remove/Undo; explicit manual printed total/subtotal, never inferred; edits/removal invalidate results; subtle reduced-motion reveal; ask before local OCR reset.
 
 Section and summary requirements (D-040): subtotals and their members use identical section names; structurally link only unassigned contiguous same-area rows without conflicting groups. Offer a visible checkbox picker for each subtotal rather than requiring repeated section typing. Python may exclude a unique cross-page reference summary from summation only when label/section and parsed printed amount match uniquely and detail members exist (full rule in D-040/work/15). Retain references visibly, explain their exclusion, and do not offer them as additional charges to AI. Ambiguity or missing details must not become a false pass; prompt for review. Amounts and evidence are never invented.
+
+D-041 presentation/confirmation override: show Choose page → Select prices → Check preview → Read → Review lines with current step highlighted and one short instruction. Use plain-language actions, one selected page at a time, and explicit Review lines after reading; preserve other pages' lines. Approved-crop consent/provider/privacy stay explicit. Suggest subtotal membership from consistent labels/table order, not amounts; show proposed rows and ask Yes/Change before normal checking. Do not silently apply the old automatic membership mutator. Hide section naming/full picker behind Change; accepted grouping is not verified arithmetic, and edits/removal/reassignment require acceptance again. Python's D-040 summary exclusion and re-check rules are unchanged.
 
 | Outcome | When | Result |
 |---|---|---|
@@ -238,6 +240,7 @@ Priority order (D-034). Keep time for the user tests before the deadline (Tue 20
 | 2.3 | 2026-10-19 | Working UI adapted to owner's desktop HTML mock-up, Finish inside Your message; 107 Python / 47 browser-module tests | D-038 |
 | 2.4 | 2026-10-19 | Multi-page append, area recovery, conservative repeat suppression, manual lines/printed total, remove/Undo, reduced-motion row reveal; 107 Python / 58 browser-module tests | D-039 |
 | 2.5 | 2026-10-19 | Section membership suggestions/picker and Python-owned reference summary exclusion; incomplete details still re-check; 114 Python / 63 browser-module tests | D-040 |
+| 2.6 | 2026-10-19 | Five-step plain-language reading; one active page; explicit review; quick Yes/Change grouping instead of exposed technical editor or silent mutation; 114 Python / 70 browser-module tests | D-041 |
 
 ## Sources checked
 

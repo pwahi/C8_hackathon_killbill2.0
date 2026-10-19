@@ -7,7 +7,7 @@ import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion } from "./extraction/bulk-confirm.mjs";
 import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
 import { resultHeadline, mathRows } from "./result-display.mjs";
-import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, linkUnassignedSections, assignSection } from "./extraction/page-review.mjs";
+import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, assignSection, suggestSection, sectionMembers, sectionReviewKey, sectionAccepted } from "./extraction/page-review.mjs";
 
 const elements = {
   files: document.querySelector("#bill-files"),
@@ -111,18 +111,26 @@ function previewGroqArea(page, bounds) {
   document.querySelector("#groq-crop-preview").src = dataUrl;
   groqRedacted.checked = false;
   groqSend.disabled = true;
+  flow.reading("preview", page);
   groqDialog.showModal();
 }
 
 groqRedacted.addEventListener("change", () => { groqSend.disabled = !groqRedacted.checked || groqRequestRunning; });
-document.querySelector("#groq-cancel").addEventListener("click", () => { pendingGroq = null; groqDialog.close(); });
+document.querySelector("#groq-cancel").addEventListener("click", () => {
+  const page = pendingGroq?.page || reviewState.activePage;
+  pendingGroq = null; groqDialog.close();
+  reviewState.pageElements.get(page)?.startGroqSelection();
+});
+groqDialog.addEventListener("cancel", () => { pendingGroq = null; flow.reading("select", reviewState.activePage); });
 groqSend.addEventListener("click", async () => {
   if (!pendingGroq || !groqRedacted.checked || groqRequestRunning) return;
   const selection = pendingGroq;
   groqRequestRunning = true;
   groqSend.disabled = true;
   groqDialog.close();
-  setStatus("Sending the previewed charge area to Groq. Please wait; no automatic retries.", "busy");
+  flow.reading("reading", selection.page);
+  refreshPageControls();
+  setStatus("Reading your approved area. Please wait; we will not send it again automatically.", "busy");
   try {
     const response = await fetch("/api/groq-extract", {
       method: "POST",
@@ -176,19 +184,19 @@ groqSend.addEventListener("click", async () => {
       });
     });
     const previousIds = new Set(reviewState.candidates.map(line => line.id));
-    reviewState.candidates = appendPageCandidates(reviewState.candidates, linkUnassignedSections(added), selection.page);
+    reviewState.candidates = appendPageCandidates(reviewState.candidates, added, selection.page);
     const fresh = reviewState.candidates.filter(line => !previousIds.has(line.id));
     elements.candidateList.append(...fresh.map(animatedCandidateCard));
     elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
     invalidatePayload("Vision suggestions added. Review them and rebuild the safe preview.");
     drawHighlights();
     refreshPageControls();
-    flow.extracted();
+    flow.extracted(true);
     const repeated = added.length - fresh.length;
     setStatus(`Added ${fresh.length} lines from page ${selection.page}.${repeated ? ` Kept ${repeated} identical earlier line(s) instead of adding them twice.` : ""} Earlier lines and your corrections are kept. Use the page buttons above the bill to read another relevant page, or check the combined lines.`);
   } catch (error) {
-    if (selection.generation === reviewGeneration) setStatus(error.message, "failure");
-  } finally { groqRequestRunning = false; pendingGroq = null; }
+    if (selection.generation === reviewGeneration) { flow.reading("select", selection.page); setStatus(error.message, "failure"); }
+  } finally { groqRequestRunning = false; pendingGroq = null; refreshPageControls(); }
 });
 
 // The access code is kept only for this browser tab (sessionStorage); it protects the server's Groq key.
@@ -344,7 +352,8 @@ function pageShell(pageNumber) {
   const vision = document.createElement("button");
   vision.type = "button";
   vision.className = "primary";
-  vision.textContent = `Read page ${pageNumber} with Groq`;
+  vision.textContent = "Select area to read";
+  vision.dataset.selectArea = String(pageNumber);
   tools.append(manual, typed);
   const pageToolbar = document.createElement("div");
   pageToolbar.className = "page-read-toolbar";
@@ -353,7 +362,7 @@ function pageShell(pageNumber) {
   retryArea.type = "button";
   retryArea.className = "secondary retry-area";
   retryArea.dataset.page = String(pageNumber);
-  retryArea.textContent = "Preview last area again";
+  retryArea.textContent = "Use last selection";
   retryArea.disabled = true;
   retryArea.addEventListener("click", () => {
     if (groqRequestRunning) { setStatus("Wait for the current reading to finish."); return; }
@@ -364,8 +373,9 @@ function pageShell(pageNumber) {
   elements.pages.append(pageToolbar);
   const pageOptions = document.createElement("details");
   pageOptions.className = "page-options";
+  pageOptions.dataset.page = String(pageNumber);
   const optionsTitle = document.createElement("summary");
-  optionsTitle.textContent = `Page ${pageNumber} · Add a line or read another area`;
+  optionsTitle.textContent = "More options · add a missed line";
   pageOptions.append(optionsTitle, tools);
   elements.pages.append(pageOptions);
   const shell = document.createElement("div");
@@ -382,6 +392,8 @@ function pageShell(pageNumber) {
   let sourceCandidateId = null;
   shell.startGroqSelection = () => vision.click();
   shell.selectSource = (candidateId) => {
+    reviewState.activePage = pageNumber;
+    refreshPageControls();
     selectionMode = "source";
     sourceCandidateId = candidateId;
     selecting = true;
@@ -413,9 +425,11 @@ function pageShell(pageNumber) {
     if (groqRequestRunning) { setStatus("Wait for the current vision request to finish."); return; }
     selectionMode = "groq";
     reviewState.activePage = pageNumber;
+    refreshPageControls();
+    flow.reading("select", pageNumber);
     selecting = true;
     shell.classList.add("selecting");
-    setStatus(`Page ${pageNumber}: draw around the charge table, including labels and prices. New lines will be added to the existing list after you approve the crop. Avoid reading the same amounts twice.`);
+    setStatus(`Page ${pageNumber}: draw a box around the charge labels and prices. Next, check the preview before reading.`);
   });
   shell.addEventListener("pointerdown", (event) => {
     if (!selecting) return;
@@ -585,6 +599,8 @@ function focusCandidate(candidateId) {
   document.querySelectorAll(".highlight.active, .table-area.active, .page-shell.active").forEach((node) => node.classList.remove("active"));
   const candidate = reviewState.candidates.find((item) => item.id === candidateId);
   if (!candidate) return;
+  reviewState.activePage = candidate.page;
+  refreshPageControls();
   let target;
   if (candidate.precision === "exact") target = document.querySelector(`.highlight[data-candidate-id="${CSS.escape(candidateId)}"]`);
   else if (candidate.precision === "table") target = document.querySelector(`.table-area[data-region-key="${CSS.escape(regionKey(candidate.page, candidate.region))}"]`);
@@ -714,25 +730,34 @@ function candidateCard(candidate) {
   role.addEventListener("change", () => updateCandidate(candidate.id, "role", role.value));
   roleLabel.append(role);
   const groupLabel = document.createElement("label");
-  groupLabel.append(document.createTextNode("Section / period (needed for subtotals)"));
+  groupLabel.append(document.createTextNode("Section name (advanced)"));
   const group = document.createElement("input");
   group.placeholder = "For example: September";
   group.value = candidate.group || "";
   group.addEventListener("input", () => updateCandidate(candidate.id, "group", group.value));
   groupLabel.append(group);
-  fields.append(amountLabel, descriptionLabel, roleLabel, groupLabel);
+  fields.append(amountLabel, descriptionLabel, roleLabel);
+  const sectionEditor = document.createElement("details");
+  sectionEditor.className = "section-editor";
+  const sectionTitle = document.createElement("summary");
+  sectionTitle.textContent = candidate.role === "subtotal" ? "Change which lines belong together" : "Section (advanced)";
+  sectionEditor.append(sectionTitle, groupLabel);
+  fields.append(sectionEditor);
   if (candidate.role === "subtotal") {
     const picker = document.createElement("fieldset");
     const legend = document.createElement("legend");
-    legend.textContent = "Which rows does this subtotal cover?";
+    legend.textContent = "Choose the charges and discounts in this part of the bill";
     picker.append(legend);
     const choices = [];
+    const suggestedIds = new Set(suggestSection(reviewState.candidates, candidate.id).map(line => line.id));
     for (const line of reviewState.candidates.filter(line => ["charge", "discount", "adjustment"].includes(line.role))) {
       const label = document.createElement("label");
       label.className = "confirm-control";
       const box = document.createElement("input");
       box.type = "checkbox";
-      box.checked = !!candidate.group?.trim() && line.group?.trim().toLowerCase() === candidate.group.trim().toLowerCase();
+      box.checked = sectionAccepted(reviewState.candidates, candidate.id)
+        ? sectionMembers(reviewState.candidates, candidate.id).some(member => member.id === line.id)
+        : suggestedIds.has(line.id);
       choices.push({box, id: line.id});
       label.append(box, document.createTextNode(`Page ${line.page}: ${line.description} — ${line.rawAmount}`));
       picker.append(label);
@@ -740,18 +765,14 @@ function candidateCard(candidate) {
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "secondary";
-    apply.textContent = "Use these rows for this section";
+    apply.textContent = "Save these lines";
     apply.addEventListener("click", () => {
       try {
-        reviewState.candidates = assignSection(reviewState.candidates, candidate.id, choices.filter(choice => choice.box.checked).map(choice => choice.id));
-        invalidatePayload("Section links changed. Check the rows again.");
-        elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
-        refreshPageControls();
-        setStatus("Section linked. Check the selected rows against the bill, then choose Looks right — check it.");
+        acceptSection(candidate.id, choices.filter(choice => choice.box.checked).map(choice => choice.id));
       } catch (error) { setStatus(error.message, "failure"); }
     });
     picker.append(apply);
-    fields.append(picker);
+    sectionEditor.append(picker);
   }
   const questioned = document.createElement("label");
   questioned.className = "confirm-control";
@@ -879,29 +900,46 @@ function refreshPageControls() {
   progress.replaceChildren();
   const pages = [...reviewState.pageElements.keys()];
   const hint = document.createElement("p");
-  hint.textContent = pages.length > 1
-    ? `${pages.length} pages loaded. Read each relevant charge page; its lines are added to the same list.`
-    : "Read another area if needed. New lines are added to the same list.";
+  hint.textContent = pages.length > 1 ? "1 · Choose a page" : "Your page";
   progress.append(hint);
+  flow.linesChanged(reviewState.candidates.length);
   elements.candidateCount.textContent = `${reviewState.candidates.length} lines`;
   document.querySelectorAll(".retry-area").forEach(button => {
-    button.disabled = !reviewState.lastAreas.has(Number(button.dataset.page));
+    button.disabled = groqRequestRunning || !reviewState.lastAreas.has(Number(button.dataset.page));
   });
+  document.querySelectorAll("[data-select-area]").forEach(button => { button.disabled = groqRequestRunning; });
+  for (const child of elements.pages.children) {
+    if (child.dataset.page) child.hidden = Number(child.dataset.page) !== reviewState.activePage;
+  }
   for (const {page, count} of pageLineCounts(pages, reviewState.candidates)) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "secondary";
-    button.textContent = `Read page ${page} · ${count} line${count === 1 ? "" : "s"} added`;
+    button.textContent = `Page ${page} · ${count} line${count === 1 ? "" : "s"}`;
+    button.setAttribute("aria-pressed", String(page === reviewState.activePage));
+    button.disabled = groqRequestRunning;
     button.addEventListener("click", () => {
       if (groqRequestRunning) { setStatus("Wait for the current reading to finish."); return; }
       flow.read();
+      reviewState.activePage = page;
+      refreshPageControls();
+      flow.reading("select", page);
       const shell = reviewState.pageElements.get(page);
-      shell?.startGroqSelection();
       shell?.scrollIntoView({behavior: "instant", block: "nearest"});
     });
     progress.append(button);
   }
   refreshPrintedCheck();
+}
+
+function acceptSection(subtotalId, memberIds) {
+  reviewState.candidates = assignSection(reviewState.candidates, subtotalId, memberIds);
+  const subtotal = reviewState.candidates.find(line => line.id === subtotalId);
+  subtotal.sectionAcceptedKey = sectionReviewKey(reviewState.candidates, subtotalId);
+  invalidatePayload("Lines linked. Check the printed amounts before calculating.");
+  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  refreshPageControls();
+  setStatus("These lines are linked. Python will check their amounts when you choose Looks right — check it.");
 }
 
 function refreshPrintedCheck() {
@@ -916,18 +954,55 @@ function refreshPrintedCheck() {
   document.querySelector(".printed-check-prompt").classList.toggle("missing-check", state === "missing" || state === "needs_details");
   document.querySelector("#add-printed-total").textContent = state === "missing" ? "+ Add printed total" : "Review printed total / subtotal";
   document.querySelector("#section-links").replaceChildren(...reviewState.candidates.filter(line => line.role === "subtotal").map(line => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "text-button";
-    button.textContent = `Choose rows for ${line.group || line.description} (page ${line.page})`;
-    button.addEventListener("click", () => {
+    const accepted = sectionAccepted(reviewState.candidates, line.id);
+    const members = accepted ? sectionMembers(reviewState.candidates, line.id) : suggestSection(reviewState.candidates, line.id);
+    const section = document.createElement("section");
+    section.className = "section-review";
+    section.dataset.subtotalId = line.id;
+    const title = document.createElement("h3");
+    title.textContent = accepted ? "✓ These lines are linked" : "Do these lines belong together?";
+    const context = document.createElement("p");
+    context.textContent = `Printed subtotal · page ${line.page} · ${line.rawAmount || "amount missing"}`;
+    const details = document.createElement("details");
+    details.open = !accepted;
+    const summary = document.createElement("summary");
+    summary.textContent = `${members.length} suggested line${members.length === 1 ? "" : "s"}${accepted ? " · view" : " · check against your bill"}`;
+    const list = document.createElement("ul");
+    for (const member of members) {
+      const item = document.createElement("li");
+      item.textContent = `Page ${member.page}: ${member.description} — ${member.rawAmount}`;
+      list.append(item);
+    }
+    details.append(summary, list);
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = accepted ? "This confirms the grouping, not the calculation. Python checks the amounts next."
+      : members.length ? "Suggested from the table layout or section labels—not from adding the amounts."
+      : "We could not suggest the lines safely. Choose Change to select them.";
+    const yes = document.createElement("button");
+    yes.type = "button";
+    yes.className = "secondary";
+    yes.textContent = "Yes, these belong together";
+    yes.hidden = accepted || !members.length || !line.group?.trim();
+    yes.addEventListener("click", () => {
+      try { acceptSection(line.id, members.map(member => member.id)); }
+      catch (error) { setStatus(error.message, "failure"); }
+    });
+    const change = document.createElement("button");
+    change.type = "button";
+    change.className = "text-button";
+    change.textContent = "Change";
+    change.setAttribute("aria-label", `Change lines for subtotal on page ${line.page}: ${line.description}`);
+    change.addEventListener("click", () => {
       // Rebuild the editor so choices include rows added on later pages.
       elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
       const card = document.querySelector(`[data-card-id="${CSS.escape(line.id)}"]`);
       card.querySelector(".line-editor").open = true;
+      card.querySelector(".section-editor").open = true;
       card.scrollIntoView({block: "center", behavior: "smooth"});
     });
-    return button;
+    section.append(title, context, details, note, yes, change);
+    return section;
   }));
 }
 
@@ -1364,8 +1439,14 @@ document.querySelector("#start-review").addEventListener("click", () => {
   (photos ? elements.openVision : elements.process).click();
 });
 document.querySelector("#confirm-and-check").addEventListener("click", async (event) => {
-  reviewState.candidates = linkUnassignedSections(reviewState.candidates);
   elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  const pendingSection = reviewState.candidates.find(line => line.role === "subtotal" && !sectionAccepted(reviewState.candidates, line.id));
+  if (pendingSection) {
+    refreshPrintedCheck();
+    document.querySelector(`[data-subtotal-id="${CSS.escape(pendingSection.id)}"]`)?.scrollIntoView({block: "center", behavior: "smooth"});
+    setStatus("First confirm which lines belong together below. Choose Yes, or Change if the suggested lines are wrong.", "failure");
+    return;
+  }
   if (["missing", "needs_details"].includes(printedCheckPresence(reviewState.candidates))) {
     refreshPrintedCheck();
     document.querySelector("#add-printed-total").focus();
@@ -1393,9 +1474,8 @@ document.querySelector("#open-vision").addEventListener("click", async () => {
       await renderPdf(files[0], pdfjs);
     } else { await renderImages(files); }
     showCandidates([], kind === "pdf" ? "pdf_text" : "local_ocr");
-    reviewState.pageElements.get(1)?.startGroqSelection();
-    const more = reviewState.pageElements.size > 1 ? " Afterwards, use the Groq button above each other page that has charges." : "";
-    setStatus(`Bill opened locally. Draw one box around the charge table on page 1 (labels and prices). You will see the exact image before anything is sent.${more}`);
+    flow.reading("select", 1);
+    setStatus("Choose a page, then Select area to read. You will check the picture before anything is sent.");
   } catch (error) { resetReview({ keepFiles: true }); setStatus(error.message, "failure"); }
   finally { button.disabled = false; }
 });

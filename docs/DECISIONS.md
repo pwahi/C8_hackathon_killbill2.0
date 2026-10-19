@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-041 — Plain-language five-step reading and quick grouping confirmation
+
+Date: 2026-10-19. Status: Owner-approved direction implemented and locally verified; owner acceptance/deployment pending.
+
+Replace provider-labelled page-reading actions and long instructions with a visible five-step reading sequence: Choose page → Select prices → Check preview → Read → Review lines. Show one selected page with persistent selection/reselection; approved crop and provider/privacy disclosures remain. Reading stays on Read until the person chooses Review lines or another page. Empty/busy states do not enable premature review.
+
+Subtotal proposals ask Do these lines belong together? with Yes/Change. Advanced naming/picker is collapsed behind Change. Explicit acceptance changes membership; edits/removal invalidate acceptance. Suggestions use existing consistent names before table order; never money comparison. Supersedes D-040's app-side automatic membership mutation and exposed picker as the normal route, not Python summary/reference arithmetic rules or fallback availability.
+
+**Affected:** frontend read-flow/ui-flow/review-app/page-review/index/desktop.css and tests; PRD v2.6, DESIGN/HANDOFF/AGENTS/README; parent work/16 and PROJECT. **Verification:** 114 Python / 70 browser-module tests; offline two-page selection/preview/reselection/read/review/group acceptance/Change/Python/draft/edit-invalidation replay, desktop and narrow-screen checks. [Work record](../../work/16_SIMPLE_READING_AND_SECTION_CONFIRMATION.md). No live model accuracy, owner acceptance, new data storage, push or deployment claimed.
+
 ## D-040 — Repair section membership and count summary/detail once
 
 Date: 2026-10-19. Status: Owner-requested fix implemented and verified locally; owner acceptance/deployment pending.

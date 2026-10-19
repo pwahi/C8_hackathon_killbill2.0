@@ -1,3 +1,4 @@
+import { readingProgress, readingInstruction } from "./read-flow.mjs";
 export const STEPS = ["Your bill", "Read", "Check the lines", "What we found", "Your message"];
 
 // Presence only: Python still parses money and owns every comparison.
@@ -35,16 +36,33 @@ export function createFlow() {
   settings.append(controls, $("#access-box"), $(".privacy-note"), $(".setup .actions"));
   $(".setup").replaceChildren(intro, settings);
 
-  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">CHAPTER 2</p><h2>Choose the page, then the part to read</h2><p>Use the page buttons above the bill. Draw around the charge labels and prices; include the printed total where relevant. Each approved area adds lines without replacing earlier pages.</p><p>Check the exact cut-out in the preview. Exclude names, account numbers and other personal details.</p><p class="hint">Only your approved cut-out passes through our server to Groq. It is not saved as an image by the app.</p>');
+  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">READ YOUR BILL</p><h2>One step at a time</h2><ol id="reading-steps" class="reading-steps" aria-label="Reading steps"></ol><p id="reading-guidance" role="status" aria-live="polite"></p><details class="reading-privacy"><summary>What leaves my device?</summary><p>Only the area you preview and approve passes through our server to Groq, our AI reader. Exclude names and personal details. The app does not save this as an image.</p></details>');
   const locally = make("button", "secondary", "Read it on this device instead");
   locally.addEventListener("click", () => {
     if (state.hasLines && !window.confirm("Local reading starts a new extraction of all selected pages and clears the current lines and corrections. Start over?")) return;
     $("#process").click();
   });
-  const toCheck = make("button", "text-button", "Review the current lines →");
+  const toCheck = make("button", "primary", "Review lines →");
+  toCheck.id = "review-read-lines";
+  toCheck.disabled = true;
   toCheck.addEventListener("click", () => go(2));
   readAside.append(locally, toCheck);
   $("#review").append(readAside);
+  let readingStage = "choose", readingPage = 1, readingCount = 0;
+  function paintReading() {
+    $("#reading-steps").replaceChildren(...readingProgress(readingStage).map(({label, state}, index) => {
+      const item = make("li", state);
+      const number = make("span", "reading-number");
+      number.textContent = String(index + 1);
+      item.append(number, document.createTextNode(label));
+      if (state === "current") item.setAttribute("aria-current", "step");
+      return item;
+    }));
+    $("#reading-guidance").textContent = readingInstruction(readingStage, readingPage);
+    toCheck.textContent = readingCount ? `Review ${readingCount} line${readingCount === 1 ? "" : "s"} →` : "Review lines →";
+    toCheck.disabled = !readingCount || readingStage === "reading";
+  }
+  paintReading();
 
   const heading = make("div", "chapter-heading", '<p class="eyebrow" id="chapter-number"></p><h1 id="chapter-title" tabindex="-1"></h1><p id="chapter-description"></p>');
   $("main").insertBefore(heading, $("#review"));
@@ -99,7 +117,7 @@ export function createFlow() {
     $("#flow-nav").append(button);
     return button;
   });
-  const descriptions = ["", "Drag a box around the prices.", "Do these match your bill? Open a line to change it.", "", "Review the message before you copy or send it."];
+  const descriptions = ["", "Choose a page and follow the steps.", "Do these match your bill? Open a line to change it.", "", "Review the message before you copy or send it."];
   function paint() {
     document.body.dataset.uiStep = String(current);
     heading.hidden = current === 0;
@@ -128,10 +146,12 @@ export function createFlow() {
   return {
     provide() { go(0, true); },
     read() { go(1); },
-    opened(hasLines = false) { state.opened = true; state.hasLines = hasLines; go(hasLines ? 2 : 1); },
-    extracted() { state.opened = true; state.hasLines = true; go(2); },
+    reading(stage, page = readingPage) { readingStage = stage; readingPage = page; paintReading(); },
+    linesChanged(count) { readingCount = count; state.hasLines = count > 0; paintReading(); },
+    opened(hasLines = false) { state.opened = true; state.hasLines = hasLines; readingStage = hasLines ? "review" : "select"; paintReading(); go(hasLines ? 2 : 1); },
+    extracted(stayReading = false) { state.opened = true; state.hasLines = readingCount > 0; if (stayReading) { readingStage = readingCount ? "review" : "select"; paintReading(); } go(stayReading ? 1 : 2); },
     invalidated() { state.complete = false; state.busy = false; if (current > 2) go(state.opened ? 2 : 0, true); else paint(); },
-    reset() { state.opened = false; state.hasLines = false; state.complete = false; state.busy = false; $("#finish-state").textContent = "BillShield never sends anything. You choose where and when to send."; go(0, true); },
+    reset() { state.opened = false; state.hasLines = false; state.complete = false; state.busy = false; readingStage = "choose"; readingPage = 1; readingCount = 0; paintReading(); $("#finish-state").textContent = "BillShield never sends anything. You choose where and when to send."; go(0, true); },
     result(result, pending = false) {
       state.complete = result.status === "complete"; state.busy = pending;
       $("#result-gap").hidden = !state.complete; unknown.hidden = !state.complete; go(3, true);

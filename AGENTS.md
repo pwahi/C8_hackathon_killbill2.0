@@ -1,5 +1,7 @@
 # Instructions for coding agents (Codex and others)
 
+Latest D-041 / PRD v2.6: five-step plain-language Read flow, one active page, explicit Review lines, Yes/Change subtotal proposals and hidden advanced editor. No automatic app-side membership mutation; explicit acceptance required on main checking path. 114 Python / 70 browser-module tests; offline flow proof only. See parent work/16_SIMPLE_READING_AND_SECTION_CONFIRMATION.md. Local, owner review pending; no push/deployment.
+
 Latest D-040 / PRD v2.5: section membership suggestions and subtotal checkbox picker; Python counts unique matching cross-page summary/detail once, retaining references. Incomplete details still needs_recheck. 114 Python / 63 browser-module tests pass; offline browser check only, not fresh Groq accuracy. Restart local Python server before owner retest. See parent work/15_SECTION_LINKS_AND_SUMMARY_COUNTING.md. No push/deployment.
 
 Latest checkpoint D-039 / PRD v2.4: multi-page append, visible Groq area recovery, manual lines/printed-total prompt, exact same-area repeat suppression, remove/Undo and row fade implemented locally. 107 Python / 58 browser-module tests pass; offline flow verification, not new model accuracy. Owner review/deployment pending. See parent work/14_MULTI_PAGE_AND_REVIEW_RECOVERY.md.

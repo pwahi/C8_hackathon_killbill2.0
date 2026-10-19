@@ -1,6 +1,44 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, linkUnassignedSections, assignSection } from "../extraction/page-review.mjs";
+import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, linkUnassignedSections, assignSection, suggestSection, sectionReviewKey, sectionAccepted } from "../extraction/page-review.mjs";
+
+test("nearby section suggestion never chooses cross-page summary or changes conflicting groups", () => {
+  const lines = [{id:"summary", role:"charge", page:1, group:"Monthly", extractionSourceKey:"first"},
+    {id:"detail", role:"charge", page:2, group:"Different model label", extractionSourceKey:"second", rawAmount:"20,54"},
+    {id:"discount", role:"discount", page:2, extractionSourceKey:"second", rawAmount:"-4,19"},
+    {id:"s", role:"subtotal", page:2, group:"Monthly", extractionSourceKey:"second", rawAmount:"31,25"}];
+  assert.deepEqual(suggestSection(lines, "s").map(line => line.id), ["detail", "discount"]);
+  assert.equal(lines[1].group, "Different model label");
+  assert.equal(sectionAccepted(lines, "s"), false);
+});
+
+test("section suggestions stop at earlier subtotals and cannot jump across read areas", () => {
+  const lines = [{id:"a", role:"charge", page:2, extractionSourceKey:"area"},
+    {id:"s1", role:"subtotal", page:2, extractionSourceKey:"area", group:"First"},
+    {id:"b", role:"charge", page:2, extractionSourceKey:"area"},
+    {id:"s2", role:"subtotal", page:2, extractionSourceKey:"area", group:"Second"}];
+  assert.deepEqual(suggestSection(lines,"s2").map(line=>line.id),["b"]);
+  lines[2].extractionSourceKey = "other";
+  assert.deepEqual(suggestSection(lines,"s2"),[]);
+});
+
+test("section suggestion respects consistent names rather than absorbing a neighbouring charge", () => {
+  const lines = [{id:"standalone",role:"charge",page:1,extractionSourceKey:"area",group:"Separate"},
+    {id:"detail",role:"charge",page:1,extractionSourceKey:"area",group:"Monthly"},
+    {id:"discount",role:"discount",page:1,extractionSourceKey:"area"},
+    {id:"s",role:"subtotal",page:1,extractionSourceKey:"area",group:"Monthly"}];
+  assert.deepEqual(suggestSection(lines,"s").map(line=>line.id),["detail"]);
+});
+
+test("accepted section becomes pending after a member amount, label or membership changes", () => {
+  const lines = [{id:"a", role:"charge", page:2, group:"Monthly", rawAmount:"20,54", description:"Plan"},
+    {id:"s", role:"subtotal", page:2, group:"Monthly", rawAmount:"20,54"}];
+  lines[1].sectionAcceptedKey = sectionReviewKey(lines,"s");
+  assert.equal(sectionAccepted(lines,"s"),true);
+  for (const change of [{rawAmount:"21,00"},{description:"Corrected plan"},{group:"Other"}]) {
+    assert.equal(sectionAccepted([{...lines[0],...change},lines[1]],"s"),false);
+  }
+});
 
 test("subtotal links preceding unassigned rows in the same read area without changing amounts", () => {
   const lines = [{id:"a", page:2, role:"charge", rawAmount:"20,54", confirmed:true, extractionSourceKey:"crop"},

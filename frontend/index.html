@@ -57,7 +57,7 @@
         <div class="actions">
           <button id="start-review" class="primary" type="button">Read my bill</button>
           <details class="reading-options"><summary>Reading options</summary><div class="actions">
-          <button id="open-vision" class="secondary" type="button">Read a charge table with Groq</button>
+          <button id="open-vision" class="secondary" type="button">Choose an area to read</button>
           <button id="process" class="secondary" type="button">Read on this device</button></div></details>
           <button id="reset" class="secondary" type="button">Clear this review</button>
         </div>
@@ -186,12 +186,13 @@
     </dialog>
 
     <dialog id="groq-dialog">
-      <h2>Check the area before sending</h2>
-      <p>This exact image goes to Groq’s Qwen model. Include charge labels and prices. Exclude names, phone/account numbers and other personal details.</p>
-      <img id="groq-crop-preview" alt="Selected area to send to Groq">
-      <p>Only this approved area is sent. Every extracted amount still needs your confirmation. Local development may reuse a private response cache; the hosted app does not.</p>
+      <p class="eyebrow">STEP 3 OF 5</p>
+      <h2>Check your selected area</h2>
+      <p>Can you see the charge labels and prices? If this is the wrong area, choose a different one.</p>
+      <img id="groq-crop-preview" alt="Your selected charge area, not yet sent">
+      <p>Only this approved picture goes to our AI reader (Groq). Every amount still needs checking.</p>
       <label class="confirm-control"><input id="groq-redacted" type="checkbox">I checked this image and it contains no personal identifiers.</label>
-      <div class="actions"><button id="groq-send" class="primary" disabled>Send this area to Groq</button><button id="groq-cancel" class="secondary">Cancel</button></div>
+      <div class="actions"><button id="groq-send" class="primary" disabled>Read this area</button><button id="groq-cancel" class="secondary">Choose a different area</button></div>
     </dialog>
 
     <script type="module" src="./review-app.mjs"></script>

@@ -76,6 +76,27 @@ body[data-ui-step='0'] #status:not(.busy):not(.failure) { display: none; }
 .manual-section small { font-size: 12px; }
 .candidate-panel > .hint { font-size: 13px; line-height: 1.5; }
 .read-instructions { display: grid; gap: 16px; padding: 24px; }
+.reading-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.reading-steps li { position: relative; display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 14px; color: var(--muted); }
+.reading-steps li:not(:last-child)::after { content: '↓'; position: absolute; left: 9px; top: 36px; color: #b7b9b2; font-size: 12px; line-height: 12px; }
+.reading-number { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: var(--bg, #fafaf7); }
+.reading-steps .current { font-weight: 600; color: #111; }
+.reading-steps .current .reading-number { background: var(--accent); border-color: var(--accent); }
+.reading-steps .done .reading-number { border-color: #66745e; color: #3b5238; }
+.reading-privacy { font-size: 12px; color: var(--muted); }
+.reading-privacy p { margin-top: 10px !important; font-size: 13px !important; }
+#reading-guidance { border-top: 1px solid var(--line); padding-top: 14px; }
+#document-pages > [hidden] { display: none !important; }
+#page-progress button[aria-pressed='true'] { border-color: #111; background: #fff8d6; }
+.section-review { width: 100%; padding-top: 14px; border-top: 1px solid var(--line); }
+.section-review h3 { margin: 0 0 6px; font-size: 14px; }
+.section-review details { margin: 8px 0; }
+.section-review ul { padding-left: 18px; margin: 10px 0; }
+.section-review li { margin: 5px 0; overflow-wrap: anywhere; }
+.section-review .hint { font-size: 12px; color: var(--muted); }
+.section-review .text-button { margin-left: 8px; }
+.section-editor { grid-column: 1 / -1; font-size: 13px; }
+.section-editor > label { display: grid; gap: 6px; margin: 12px 0; }
 .read-instructions p { margin: 0; line-height: 1.6; font-size: 15px; color: #3c4043; }
 .page-tools button { font-size: 12px; }
 .page-shell { box-shadow: none; }
