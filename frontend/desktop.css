@@ -579,3 +579,4 @@ body[data-ui-step='2'] .line-actions { margin-top: 0; }
 /* The ✓ of a checked line sits in front of its title, not on a row of its own. */
 .confirmed .line-name::before { content: none !important; }
 .confirmed .line-title::before { content: '✓ '; color: var(--green); }
+.ai-unavailable .secondary { margin-top: 10px; }

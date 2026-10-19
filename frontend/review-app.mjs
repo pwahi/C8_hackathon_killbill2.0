@@ -1650,8 +1650,28 @@ function renderGap(result, ai) {
   if (result.gap.ambiguous) list.append(listItem("Several combinations fit, so the numbers alone cannot show which one it is."));
   nodes.push(list, paragraph("Checked by Python. This shows where the amount is on the bill, not why it was charged.", "hint"));
 
-  // A failed or rejected AI answer is simply not shown: the Python facts above are complete on their own.
-  if (ai.state === "error") { elements.resultGap.replaceChildren(...nodes); return; }
+  // A failed or rejected AI answer is said plainly, with a retry (owner: an empty space looked like a bug). The Python
+  // facts above are complete on their own.
+  if (ai.state === "error") {
+    const note = document.createElement("section");
+    note.className = "ai-reason ai-unavailable";
+    note.append(paragraph("Possible reason (AI suggestion)", "gap-heading"),
+      paragraph(`The AI suggestion is not available right now: ${ai.message || "no answer"} Everything above was checked by Python and is complete.`, "hint"));
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "secondary";
+    retry.textContent = "Try the AI again";
+    retry.addEventListener("click", () => {
+      retry.disabled = true;
+      if (reviewState.payload) explainDifference(reviewState.payload, reviewGeneration);
+    });
+    note.append(retry);
+    const facts = document.createElement("section");
+    facts.className = "python-facts";
+    facts.append(...nodes);
+    elements.resultGap.replaceChildren(facts, note);
+    return;
+  }
   nodes.push(paragraph("Possible reason (AI suggestion, not verified)", "gap-heading"));
   if (ai.state === "done") nodes.push(paragraph("Written by AI. It can be wrong, so check it against your bill. The amounts in The maths come from Python.", "ai-disclaimer"));
   if (ai.state === "asking") nodes.push(paragraph("Looking for a likely reason… Only the checked lines and amounts are sent, no picture of your bill.", "hint"));

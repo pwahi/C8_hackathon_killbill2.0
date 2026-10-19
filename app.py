@@ -248,6 +248,8 @@ async def explain(request: Request):
             output = await run_in_threadpool(explain_review, data, read_api_key(ROOT), CACHE_DIR)
         except ReviewError as problem:
             return error(422, str(problem))
+    if not HOSTED and output.get("explanationError"):
+        print(f"AI explanation not used: {output['explanationError']}", flush=True)  # developer machine only
     output.update(await try_save(request, data, output["result"], output.get("explanation")))
     return JSONResponse(output, headers={"cache-control": "no-store"})
 

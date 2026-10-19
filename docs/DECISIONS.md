@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-060 — A missing AI explanation is said plainly, with a retry
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Problem (owner, energy bill):** the bill checked fine, but What we found showed no AI section and no reason. The server had returned the result without an explanation (most likely a provider limit after many quick requests; failed requests are not cached, so the exact cause is not recorded), and the screen silently hid the AI section.
+
+**Decision:** when the AI step fails or its answer is not used, What we found says "The AI suggestion is not available right now: <reason>. Everything above was checked by Python and is complete." with a "Try the AI again" button. On a developer machine the server logs the reason. Python's result and the message are unaffected either way.
+
+**Verification:** tests pass; page loads without errors. The failure itself was not reproduced (the same flow with the masked Vodafone bill, above and below the expected amount, returned an explanation).
+
 ## D-059 — Bills with several parts (electricity and gas): one rounding line per figure; part totals not sent as extra grand totals
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
