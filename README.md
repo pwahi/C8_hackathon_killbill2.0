@@ -2,9 +2,9 @@
 
 Check a bill against the expected payment, verify amounts with Python and prepare one grounded editable message. The user sends it; the app never contacts a provider.
 
-**Current checkpoint, 2026-10-19:** implementation through db71a4e pushed with owner approval (D-043). Updated UI assets/health verified on [the hosted app](https://c8-hackathon-killbill2-0.vercel.app). Fresh hosted end-to-end/owner acceptance remains pending. **114 Python / 73 browser-module tests pass.** Offline browser checks are not new model accuracy or send evidence.
+**Current checkpoint, 2026-10-19 (evening):** main through 431a7c9 is live on [the hosted app](https://c8-hackathon-killbill2-0.vercel.app): whole-bill reading with Claude Haiku (OpenRouter) and page choice, a Python-verified bill structure, AI messages in three tones and **Your earlier checks**. **218 Python / 92 browser-module tests pass.** One stranger test done (~80% independent, self-reported). Use the main address; per-deployment URLs are older versions.
 
-Continue with [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md), [PRD](docs/PRD.md) and [decisions](docs/DECISIONS.md). Full structure-first hierarchy is a proposal, **not built or approved**.
+Continue with [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md), [PRD](docs/PRD.md) v3.0 and [decisions](docs/DECISIONS.md) through D-049.
 
 ## Run locally
 
@@ -28,12 +28,11 @@ Local configuration is ignored .env.local; names only: GROQ_API_KEY, SUPABASE_UR
 
 ## Use the current flow
 
-1. Upload masked PDF/image pages and enter the real expected amount, currency and decimal format. Unknown is not invented.
-2. Follow **Choose page → Select prices → Check preview → Read → Review lines**. Only approved personal-detail-free crop goes to AI; local PDF.js/Tesseract remains.
-3. Check/edit rows; **I checked all ready lines against the bill** selects complete rows, not arithmetic verification. Add/remove/Undo and repeat-area recovery are available.
-4. Confirm subtotal proposals with **Yes / Change**. Summary/detail matching is limited, not general bill understanding.
-5. **Looks right — check it** runs Python. Bad arithmetic gives re-check; matching expectation gives no issue; remembered-price differences stay unexplained, not proof of error.
-6. Review/edit required message, Copy and send yourself. Only report I sent it after sending. Completed data can be saved, but history loading/continuation after reload and deletion are not built.
+1. **Your bill:** upload PDF/image pages, enter the expected amount; currency sets the decimal mark. Earlier checks from this browser are listed below and open read-only.
+2. **Read:** tick the pages to send and press **Read the whole bill** (the pages go to Claude Haiku; you confirm first). Fallbacks: draw an area, read on this device, or add a line.
+3. **Check the lines:** the bill's sections, ✓ where Python verified them; open a row to fix it. **Looks right — check it** runs Python.
+4. **What we found:** Python's result and maths; an AI story with a disclaimer for differences.
+5. **Your message:** pick Warm / Neutral / Direct, edit, Copy, send it yourself, then **I sent it**.
 
 ## Verify without live model/database writes
 
@@ -54,6 +53,6 @@ Open http://127.0.0.1:4180/. Model/storage stubbed; Python real. Not production,
 
 ## Privacy and limits
 
-No full bill images/OCR text in analysis/storage. Approved crop passes through server to Groq in memory; app does not save request images. Local response cache/separate masked benchmark crops exist; provider retention and OneDrive sync unverified. No zero-retention promise.
+No file storage: bill images are never saved by the app. With whole-bill reading, the ticked pages pass through the server in memory to OpenRouter/Claude Haiku (retention requested off, not verified). Only confirmed lines and results are saved, per browser. Local response cache exists on developer machines only. No zero-retention promise.
 
-EUR/INR; ten pages maximum, 4,000,000 bytes per file. Wrong digits/columns/groups, partial periods and repeated summaries still need review. Exact same-area retries suppressed; overlapping/different crops may duplicate. No full hierarchy, chat, contacts, automatic sending, legal judgement, history retrieval/deletion or cross-device continuity. See PRD for precise current/proposed status.
+Configuration names: GROQ_API_KEY, OPEN_ROUTER_KEY, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, BILLSHIELD_ACCESS_CODE (hosted). EUR/INR; ten pages maximum, 4,000,000 bytes per file. Reader mistakes still need review. No chat, contacts, automatic sending, legal judgement, delete or cross-device history. See the PRD for precise status.

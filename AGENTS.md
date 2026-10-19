@@ -1,12 +1,12 @@
 # BillShield coding-agent instructions
 
-## Current checkpoint — 2026-10-19
+## Current checkpoint — 2026-10-19 (evening)
 
-- Authoritative requirements: docs/PRD.md v2.8; append-only decisions through D-043 in docs/DECISIONS.md.
-- Detailed receiving-agent context: **read CLAUDE.md fully**. It applies to Codex/Claude/other coding agents, not just one tool.
-- Implementation through db71a4e pushed with owner approval; Vercel health/current UI assets verified. Fresh hosted end-to-end/model accuracy and owner UX acceptance remain pending.
-- Baseline: 114 Python / 73 browser-module tests. Rerun; do not assume this count proves a new run.
-- Full structure-first bill hierarchy is a **proposal**, not built or approved. Current roles/free-text groups, explicit Yes/Change and limited Python summary/reference matching are not a full hierarchy.
+- Authoritative requirements: docs/PRD.md v3.0; append-only decisions through D-049 in docs/DECISIONS.md.
+- Detailed receiving-agent context: **read CLAUDE.md fully**. It applies to any coding agent.
+- Live on Vercel (main through 431a7c9): whole-bill reading with Claude Haiku via OpenRouter, Python-verified structure, AI messages in three tones, Your earlier checks. One stranger test recorded; known-user send evidence pending.
+- Baseline: 218 Python / 92 browser-module tests. Rerun; do not assume this count proves a new run.
+- Owner waived the crop-only privacy rule for whole-bill reading (D-046); no image storage is still a hard rule.
 
 ## Session start
 

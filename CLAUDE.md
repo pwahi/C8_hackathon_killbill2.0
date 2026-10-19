@@ -1,20 +1,18 @@
 # BillShield — detailed Claude Code handoff
 
-Updated 2026-10-19 · PRD v2.8 · decisions through D-043. Read this before proposing or changing code. This is continuation context, not permission to implement every proposal.
+Updated 2026-10-19 (evening) · PRD v3.0 · decisions through D-049. Read this before proposing or changing code. This is continuation context, not permission to implement every proposal.
 
 ## 1. Start here: outcome and current checkpoint
 
 BillShield helps a person check a real bill against what they expected and prepare one accurate complaint or clarification message. It is not a generic bill summarizer. A message is required after every completed review, including a truthful no-issue message. The app never finds provider contacts or sends messages automatically.
 
-**Built:** deterministic Python checks/drafts; browser-local PDF/OCR plus approved-crop Groq reading; FastAPI; smaller Supabase saving implementation; Vercel hosting; five-chapter UI with multi-page reading/recovery, editable lines, section Yes/Change, limited summary/detail exclusion and accept-all-ready checkbox.
+**Built and live (main through 431a7c9, Vercel):** deterministic Python checks/drafts; **Read the whole bill** with Claude Haiku via OpenRouter (Groq Qwen fallback) and page checkboxes; Python-verified bill structure (invoices → sections → rows, summary links) with a cross-page linking pass; hierarchical "Check the lines"; AI explanation as a story with a disclaimer (gpt-oss-120b); AI-written message in Warm/Neutral/Direct with Python-filled placeholders; Supabase saving; **Your earlier checks** (list + read-only view per browser). Area drawing, local PDF.js/Tesseract, manual lines, Yes/Change and the ready-line checkbox remain as fallbacks/corrections.
 
-**Delivery:** owner explicitly authorized pushing all completed changes on 2026-10-19. Seven implementation commits were pushed from fbb050e through db71a4e. Public Vercel health and current UI assets were verified after push. This handoff/documentation is a subsequent commit; inspect Git for its final SHA/remote state. Do not treat earlier decisions' local-only status as current delivery status.
+**Verification:** 218 Python / 92 browser-module tests pass. Owner live runs (Vodafone two pages, IndiGo, Anthropic invoice). Claude's live save → list → open → second-browser isolation test on the real database. Owner saved and reopened a check after a browser restart on Vercel (parent evidence E-111). One stranger test (E-210): self-reported ~80% independent; barriers: goal unclear at first, UI overwhelming in parts, next step unclear.
 
-**Verification:** 114 Python tests and 73 browser-module tests pass on 2026-10-19. Recent browser acceptance used masked source carriers and simulated model output with real Python calculations. This is not new OCR/vision accuracy or an observed user send. Prior owner live-app acceptance and database checks are historical; current hosted end-to-end acceptance is still pending.
+**Not built:** chat; delete; cross-device history; persisting the hierarchy; provider name in saved list; finding_lines/message_lines tables; alternate OCR.
 
-**Not built:** full model-understood bill hierarchy/cross-page semantic linking; general summary-versus-detail understanding; chat; loading saved reviews; cross-device history; full expectation/promise chronology; deletion; finding_lines/message_lines join-table migrations; alternate OCR host/evaluation.
-
-**Next checkpoint:** summarize current status and up to three next actions for the owner. Recommend a masked hosted regression and ask whether to implement the proposed structure-first extraction design. The owner's latest request was push + documentation + handoff, NOT approval to build the hierarchy or run new model calls.
+**Next checkpoint:** UI clarity from the stranger test (purpose line, one next action per screen, less at once, fix the outdated "Nothing is uploaded" status); hosted A–D regression with Haiku and dense-page timing; known-user test with an observed send. Deadline 2026-10-20 22:17 Europe/Amsterdam.
 
 ## 2. Working agreement with the owner
 
@@ -60,11 +58,13 @@ npm --prefix frontend test
 
 Read PRD current status, §3–5, §10–12, §16–17; newest decisions; parent PROJECT if present; this guide. Report stage/status, tests, dirty work, missing context, delivery versus acceptance and up to three next actions before starting changes. If remote sync fails, say so; do not reset/rebase/overwrite to conceal it. A failed network command is not a failed application test.
 
-Expected baseline 114 Python / 73 browser-module tests; rerun, do not copy this count as evidence. Do not run benchmark scripts that call Groq or write the real database as a routine startup action.
+Expected baseline 218 Python / 92 browser-module tests; rerun, do not copy this count as evidence. Do not run benchmark scripts that call Groq or write the real database as a routine startup action.
 
 ## 5. What the person sees now
 
 Five chapters: **Your bill → Read → Check the lines → What we found → Your message**. Finish/self-reported send stays beside the message, not an extra hidden stage.
+
+**Current main route (D-044–D-049), above the older detail below:** Chapter 1 has upload, expected amount, currency (sets the decimal mark) and **Your earlier checks**. Read shows one page at a time with Previous/Next, page checkboxes and **Read the whole bill** (confirmation names the pages). Check the lines shows the verified hierarchy with ✓ sections, indented breakdowns, one explanation under a section that does not add up, and reference lines folded away. What we found adds the AI story with a disclaimer. Your message has a Warm/Neutral/Direct picker. The subsections below describe the area-drawing fallback and correction tools, which still exist.
 
 ### Your bill
 
@@ -133,7 +133,10 @@ Results expose `summaryOf` and `countedInTotal`; maths respects them and gap-mod
 | store.py, edits.py | Supabase operations as user, transactional saves, event blanking and word-diff count |
 | frontend/index.html | Base controls/dialogs and script entry |
 | frontend/ui-flow.mjs, read-flow.mjs | Chapters, reading sequence/state and main page composition |
-| frontend/review-app.mjs | Page/crop/confirmation/recovery/API orchestration; not the financial engine |
+| frontend/review-app.mjs | Page/crop/whole-bill/confirmation/recovery/API orchestration; not the financial engine |
+| backend/billshield_core/structure.py, structure_flat.py, structure_proposal.py, whole_bill.py | Bill structure model, Python verification, single-crop plan, cross-page linking (D-044) |
+| backend/billshield_core/message_ai.py, tone.py | AI messages in three tones with placeholders; template tone fallback (D-048) |
+| frontend/line-tree.mjs, saved-checks.mjs, tone.mjs, extraction/locate.mjs | Hierarchical line rows; earlier checks list/dialog; tone display; PDF-text amount positions |
 | frontend/extraction/page-review.mjs | Candidate append/repeat rules, manual fields, remove/Undo metadata, section proposal/acceptance bookkeeping |
 | frontend/extraction/bulk-confirm.mjs | Readiness, accept-all state, raw-format tidying; not money verification |
 | frontend/extraction/contracts.mjs, privacy.mjs | Confirmed contract and allowlisted least-data payload; excludes image/OCR/internal UI state |
@@ -146,18 +149,18 @@ Results expose `summaryOf` and `countedInTotal`; maths respects them and gap-mod
 
 ## 8. Models, privacy and API
 
-Configured code model IDs: vision `qwen/qwen3.8-27b`, text explanation `openai/gpt-oss-20b`, both through Groq. These are inspected configuration, not a guarantee of current provider availability/quota. No OpenAI-hosted adapter is required for these current routes. Do not silently change model/provider.
+Configured models: vision `anthropic/claude-haiku-5.5` via OpenRouter when `OPEN_ROUTER_KEY` is set (request includes `provider: {data_collection: "deny"}`, medium reasoning), otherwise Groq `qwen/qwen3.8-27b`; `VISION_PROVIDER` can force one. Text: Groq `openai/gpt-oss-120b` for the explanation and the three-tone message. Health reports `visionReader`. Do not silently change model/provider.
 
-- Local PDF.js/Tesseract receives bill bytes on the device. Only the approved redacted crop passes browser → Python → Groq in memory; app does not save request images or upload full bills to Supabase.
-- Confirmed structured lines → Python; for unexplained differences only, relevant labels/amounts/results → text model. No raw OCR dump/full bill image in analysis/storage.
-- Local cache stores provider responses, not request-image files; hosted cache disabled. Separate benchmark scripts may save masked crops under ignored private/. Groq's own retention and OneDrive sync are not verified. Never promise zero retention.
-- Ignored `.env.local` contains credentials; never print/request/commit them. Names only: GROQ_API_KEY, BILLSHIELD_ACCESS_CODE, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, optional BILLSHIELD_ALLOWED_ORIGINS.
-- Supabase server uses publishable key plus the person's token; secret keys refused. Anonymous user per browser with row-level security. No full account/sign-in UX or cross-device continuity.
-- Saved: confirmed structured rows, expectation, results/messages/events. Sent text is blanked for private patterns after counting changed words. No retrieval/delete UI/API yet; unsaved browser rows clear on reload. Repeated saves may duplicate records; stale result/history rehydration not implemented.
+- Owner decision D-046: whole pages the person ticks go browser → Python (memory only) → OpenRouter after a confirmation that names the pages and says personal details on them are sent. The crop-only rule is waived for now; area drawing remains the least-data route. No file storage anywhere; images are never written to disk or Supabase.
+- Confirmed structured lines → Python; relevant labels/amounts/results → text model. Python fills every amount in messages; explanation text is shown with a disclaimer (D-047).
+- Local cache (`private/groq-cache`, developer machine only) stores provider responses, not images; hosted cache disabled. Provider retention and OneDrive sync are not verified. Never promise zero retention.
+- Ignored `.env.local` holds credentials; never print/request/commit them. Names only: GROQ_API_KEY, OPEN_ROUTER_KEY, BILLSHIELD_ACCESS_CODE (Vercel only), SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, optional BILLSHIELD_ALLOWED_ORIGINS, VISION_PROVIDER.
+- Supabase: publishable key plus the person's token; secret keys refused. One anonymous user per browser, stored as a signed pass in localStorage (`billshield-session`). `/api/session` returns 410 only when the refresh token is rejected; other failures keep the pass (D-049).
+- Saved: confirmed rows (role/group, not the hierarchy), expectation, finding, message, events. Saved checks are read-only; no delete.
 
-Routes: GET /api/health; POST /api/groq-extract; POST /api/analyze; POST /api/explain; POST /api/session; POST /api/messages/{id}/events; /docs. Access/origin/JSON/size guards apply. Health flags show configured readiness, never credential values or proof a model/save works.
+Routes: GET /api/health; POST /api/read-page, /api/link-pages, /api/groq-extract, /api/analyze, /api/explain, /api/draft-message, /api/session, /api/messages/{id}/events, /api/reviews, /api/reviews/open; /docs. Access/origin/JSON/size guards apply to every POST.
 
-Vercel entrypoint is root app.py, maxDuration 60 in vercel.json. Do not create root api/ or serve node_modules. Reading vendor assets live outside directories named build/dist; regenerate via scripts/vendor_assets.py only when needed. Crop HTTP body guard is 4.4 MB (function platform limit separate); decoded image ≤4,000,000 bytes. Confirmed JSON payload ≤200 KB. Per-process crop locking is not a global hosted quota manager.
+Vercel entrypoint is root app.py, maxDuration 60 per request (each page and the link pass are separate requests). Do not create root api/ or serve node_modules. Crop/page HTTP body guard 4.4 MB; decoded image ≤ 4,000,000 bytes. Use the main address https://c8-hackathon-killbill2-0.vercel.app — per-deployment URLs are older versions with separate browser storage.
 
 ## 9. Exact local commands and common recovery
 
@@ -206,25 +209,19 @@ Important regressions: summary+detail counted once only under conservative rule;
 
 ## 11. Known gaps — do not mark them built
 
-- Flat role/group candidates are not a full hierarchy. Wrong headings/periods, missing rows, renamed summaries, duplicate group names and multi-invoice boundaries still need review. No automatic structure investigation across all pages.
-- ₹ versus 2, decimal loss and wrong price columns remain extraction risks. Do not hardcode repairs or promise model output is correct because tests pass.
-- Overlapping/different crops can duplicate rows. Exact same-area repeat suppression is intentionally narrower.
-- Saved reviews exist but cannot currently be loaded/continued/deleted in UI; no unsaved-state persistence or reliable cross-device identity. Full promise source/effective-date/history/versioning incomplete.
-- Chat, join tables and alternate OCR comparison are planned; no GPU resources or new processor approved.
-- Required user evidence (known user and stranger, actual send/edit outcome) remains missing in records. Owner testing and scripted replays are not a substitute.
-- Original hand-drawn architecture/schema photos must be participant-made and linked in final submission. App arrays/smaller schema differ from original sketches. Original brief's file-storage/link expectation conflicts with current no-image-storage choice and needs honest submission review, not a silent privacy reversal.
+- Haiku boxes are row-accurate but horizontally offset; shown as row bands with an AI legend. Exact boxes only from the PDF text layer (untested live).
+- Structure verification is exact but depends on the reader: missing rows, wrong periods or multi-invoice bundles still need review. The hierarchy is not saved.
+- Dense pages are not timed against Vercel's 60 s limit.
+- History is per browser; site-data wiping or another device starts a fresh list. No delete, edit or provider name.
+- Outdated status text: "PDF selected … Nothing is uploaded." Stranger found the goal unclear, the UI overwhelming in parts and the next step unclear.
+- Test rows and one builder-created "sent" event (anonymous user 183d914c…) are in the real database; not user evidence.
+- Known-user test with an observed send and changed-word count is missing.
 
-## 12. Proposed next technical work — requires explicit owner approval
+## 12. Next technical work — owner approval per stage
 
-Detailed proposal: PRD §16; original local analysis ../work/17_ACCEPT_ALL_AND_STRUCTURE_FIRST_PROPOSAL.md if available. Do not train/change models by default. Improve the extraction output contract and deterministic validation instead.
-
-1. Agree a small example of bill/invoice → total → sections → detailed rows, plus separate summary/reference links and exact source provenance. Stable IDs, not group-name strings alone. Unknown periods/columns/links stay unknown.
-2. Design Python graph verifiers first: existing IDs, correct invoice/period scope, no cycles/orphans/multiple counted paths, summary/reference not an extra charge, sums exact. Test missing/ambiguous data cannot force checks_passed.
-3. Consider a structured cross-page reconciliation pass using already-approved candidate context rather than more full images. Exact payload/consent/token/rate/cost policy and persisted representation are open choices. Do not call it live while still a proposal.
-4. Show compact proposed breakdown for confirmation; use code-checked structure to investigate sections then supporting rows. AI may suggest grounded explanations/evidence requests, never compute or decide a charge is wrong.
-5. Offline acceptance first on four fixtures and synthetic duplicates/periods/tax included/missing pages/multiple invoices/renamed headings/bad graph links; stop for owner review before limited masked live testing.
-
-Definition of done: schema and ownership agreed; deterministic verifiers reject invalid graphs; printed values preserved; no double counting; uncertainty visible; current verdict/draft/privacy tests retained; usable Yes/Change interaction; measured masked test results separated from scripted success; no unapproved storage/deployment changes. Do not silently reprioritise real-user testing to build a broad new architecture.
+1. UI clarity from E-210: one-line purpose, one clear next action per chapter, fold away secondary controls, fix outdated texts.
+2. Hosted regression A–D with Haiku; time the slowest page.
+3. Optional: provider name in saved list (needs a `save_review` change — migration, ask first), delete a saved check, chat (N-3).
 
 ## 13. Product evidence and records to maintain
 

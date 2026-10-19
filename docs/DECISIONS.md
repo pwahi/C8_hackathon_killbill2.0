@@ -1,5 +1,53 @@
 # BillShield — Decision log
 
+## D-049 — Reopen saved checks; keep the browser's pass; stranger test recorded
+
+Date: 2026-10-19. Status: Implemented, pushed (490b2fc, 431a7c9) and served on Vercel; owner verified on the main link.
+
+**Decision (owner):** a person can see their earlier checks again. Chapter 1 lists this browser's saved checks (date, two largest charges, total, outcome, message status). A saved check opens read-only: result and maths, checked lines, still unknown, the message or the sent text; Copy and I sent it still work. Saved checks are never edited: checking again saves a new one. No delete yet.
+
+**How:** `/api/reviews` and `/api/reviews/open` read with the browser's own token, so row level security limits them to its rows; no migration. A failed session renewal no longer wipes the stored pass: `/api/session` answers 410 only when the database rejects the refresh token, and only then does the browser start a new identity.
+
+**Verification:** 7 + 2 new Python tests and 3 browser-module tests; live round trip through the local server on the real database (save, list, open, I sent it, reopen; second browser 0 rows / not found); owner saw the check listed after a browser restart on the main link (E-111). Test rows and one builder-created "sent" event remain in the database and are not user evidence.
+
+**Stranger test (owner-supplied evidence, E-210):** completed the flow on the live link; self-reported ~80% independent; barriers: goal not clear at first, parts of the UI overwhelming, next step unclear. Check-in 5 posted Yellow (owner report).
+
+**Limits:** history is per browser (site-data wiping or another device starts a fresh list); bill name is derived from charges, not the provider.
+
+## D-048 — AI-written message in three tones with Python-filled placeholders
+
+Date: 2026-10-19. Status: Implemented and pushed (3845f5f). Owner request: messages written by AI from a fact sheet, all three tones in one request so there is no waiting.
+
+**Decision:** `/api/draft-message` sends Python's fact sheet (verdict, lines and sections as placeholders, the strongest exact match, still-unknown items, the controlled draft with amounts replaced by placeholders) to `openai/gpt-oss-120b`. It returns warm, neutral and direct versions. Python accepts a version only if every placeholder is known, no number appears outside placeholders or confirmed labels, there is no accusation, and at least one placeholder is used; then Python fills in the amounts. A failing tone falls back to the controlled template rewritten in that tone (`tone.py`). Words changed are counted against the version shown. Supersedes the single fixed template as the only message source; the template remains the reference and fallback.
+
+## D-047 — AI explanation shown as a story with a disclaimer
+
+Date: 2026-10-19. Status: Implemented and pushed (3845f5f).
+
+**Decision (owner):** the explanation model becomes `openai/gpt-oss-120b` and writes a short narrative. The Python check that blocked explanation text from being displayed is removed at the owner's request and replaced by a visible disclaimer that the text is AI-generated and may contain errors. Unknown line references are still dropped. Text that enters the sendable message (the appended question) is still checked: no numbers, no accusations. Python's result and verdict are never affected by the explanation. Supersedes the display part of D-027's rejection rules; their message-side rules remain.
+
+## D-046 — Claude Haiku via OpenRouter reads whole pages; the person chooses which pages
+
+Date: 2026-10-19. Status: Implemented and pushed (3845f5f); `OPEN_ROUTER_KEY` added on Vercel by the owner and confirmed by health.
+
+**Decision (owner):** vision reading uses OpenRouter `anthropic/claude-haiku-5.5` when `OPEN_ROUTER_KEY` is set (request asks `provider.data_collection: deny`); Groq `qwen/qwen3.8-27b` stays as fallback. "Read the whole bill" sends each ticked page (with the PDF text layer when available) and is the main route; drawing an area is the fallback. Checkboxes let the person send only some pages. The owner explicitly waived the crop-only privacy rule for now ("i do not care about privacy for now"); the confirmation dialog still states that the pages, including personal details on them, go to the reader. Bill images are still not stored by the app.
+
+**Reason:** Qwen hit Groq's 8K tokens/minute limit and confused sections; local PDF.js/Tesseract reading and manual area drawing were too error-prone and confusing.
+
+**Limits:** OpenRouter/Anthropic retention is requested off, not verified. Haiku boxes are row-accurate but horizontally offset, so they are shown as row bands with an "AI-generated, may contain errors" legend. Vercel's 60 s limit applies per page request; dense pages are not timed on Vercel. Supersedes D-022/D-023/D-026's crop-only/Groq-first reading route and the corresponding privacy wording in D-037; local reading remains available.
+
+## D-045 — Hierarchical "Check the lines" and reading fixes
+
+Date: 2026-10-19. Status: Implemented and pushed (3845f5f).
+
+**Decision (owner UI requests):** Chapter 1 shows upload first, then expected amount, currency and decimal mark (the mark follows the currency; the reader's detected mark wins). Chapter 2 shows one page at a time with Previous/Next. Chapter 3 shows the bill's hierarchy: what you pay, sections that add up collapsed with ✓, breakdown rows indented; the rows must total the paid amount, subtotals are information. A section that does not add up shows one plain explanation under its header and names a line equal to the gap. "Changed" appears only after a real edit; "✓ adds up — but a section below does not" when only an inner section fails. All labels in English with the original label kept; periods in brackets. A tax line printed after a subtotal is outside that subtotal (prompt rule). "Mobile"/"phone" are product words unless followed by number/no/nr/id or digits. Supersedes D-041's Yes/Change grouping as the main route when a verified structure exists.
+
+## D-044 — Structure-first extraction approved and built
+
+Date: 2026-10-19. Status: Owner approved ("go for it", then H2/H4); implemented and pushed (3845f5f). Supersedes the "proposal only" status of PRD §16 and D-042/D-043.
+
+**Decision:** the reader returns structure, not just lines: invoices → optional sections (up to three levels) → rows, plus summary links that repeat a section or invoice. Python verifies it (`structure.py`): every row counted once, subtotals and totals checked exactly; statuses ok / mismatch / incomplete / invalid. Links to unknown or uncountable lines are dropped before verifying. Multi-page bills get a text-only linking pass (`whole_bill.py`), with a deterministic merge as fallback. Python-verified sections are pre-accepted; reference lines (summaries, zero or nested subtotals) are shown but not counted. The flat role/group payload to `/api/analyze` is unchanged, so verdicts, drafts and storage keep working. Not persisted: the hierarchy itself (saved lines keep role/group only).
+
 ## D-043 — Push approved implementation; consolidate requirements and Claude handoff
 
 Date: 2026-10-19. Status: Owner explicitly authorized push and documentation/handoff updates; implementation pushed and public serving verified. Final documentation delivery is established by its Git commit/push, not assumed from this entry.
