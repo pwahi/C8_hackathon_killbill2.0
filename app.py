@@ -152,7 +152,11 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-# The review page and its locally installed PDF/OCR assets. Mounted last so /api and /docs win.
+# Browser reading tools (PDF.js, Tesseract.js) at the paths the page uses. Hosting serves the pinned copies
+# kept in frontend/vendor (scripts/vendor_assets.py); a developer machine may fall back to node_modules.
+TOOLS = ROOT / "frontend" / "vendor"
+app.mount("/node_modules", StaticFiles(directory=TOOLS if TOOLS.is_dir() else ROOT / "frontend" / "node_modules"), name="tools")
+# The review page. Mounted last so /api, /docs and the tools win.
 app.mount("/", StaticFiles(directory=ROOT / "frontend", html=True), name="page")
 
 

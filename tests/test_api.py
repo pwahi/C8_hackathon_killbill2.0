@@ -110,6 +110,14 @@ class ApiTests(unittest.TestCase):
         with patch.object(api, "HOSTED", True), patch.object(api, "ACCESS_CODE", ""):
             self.assertEqual(self.client.post("/api/analyze", json=fixture("BS-002"), headers=ORIGIN).status_code, 503)
 
+    def test_reading_tools_are_served_from_the_pinned_copies(self):
+        for path in ("/node_modules/pdfjs-dist/build/pdf.mjs", "/node_modules/pdfjs-dist/build/pdf.worker.mjs",
+                     "/node_modules/tesseract.js/dist/tesseract.esm.min.js", "/node_modules/tesseract.js/dist/worker.min.js",
+                     "/node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm",
+                     "/node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz"):
+            self.assertEqual(self.client.get(path).status_code, 200, path)
+        self.assertTrue((APP_ROOT / "frontend" / "vendor" / "pdfjs-dist" / "LICENSE").is_file())
+
     def test_api_docs_are_available(self):
         self.assertEqual(self.client.get("/docs").status_code, 200)
         paths = self.client.get("/openapi.json").json()["paths"]

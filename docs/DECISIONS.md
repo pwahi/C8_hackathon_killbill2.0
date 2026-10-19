@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-032 — Serve pinned reading tools from frontend/vendor
+
+Date: 2026-10-19. Status: Implemented; hosted check pending redeploy.
+
+First deployment (https://c8-hackathon-killbill2-0.vercel.app, commit d88e253) was healthy and the Groq key was configured, but every /node_modules/... file (PDF.js, Tesseract.js) returned 404, so the page could not open bills; the build-step approach of D-031 did not deliver them. The access code was not active (`accessCodeRequired: false`); the server correctly refused all work with 503 and refused foreign origins with 403. Fix: `scripts/vendor_assets.py` copies exactly the 18 files the page loads (PDF.js main and worker; Tesseract.js ESM and worker; LSTM core variants only; English data; licence files) into `frontend/vendor` (26.8 MB, kept in Git), and app.py serves them at the unchanged /node_modules/... paths, falling back to node_modules on a developer machine. The Vercel build step and `scripts/vercel_build.py` were removed. Owner still needs to set `BILLSHIELD_ACCESS_CODE` in Vercel and redeploy.
+
+**Affected:** app.py, pyproject.toml, scripts/vendor_assets.py (new), frontend/vendor/ (new), tests/test_api.py. **Verification:** full Python suite passes, including a test that all six tool paths return 200 locally. D-031's first commit: d88e253.
+
 ## D-031 — Vercel preparation, access code and public repository export
 
 Date: 2026-10-19. Status: Implemented locally; push and deployment pending owner approval.

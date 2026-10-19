@@ -19,7 +19,3 @@ package-dir = {"" = "backend"}
 [tool.setuptools.packages.find]
 where = ["backend"]
 
-# Vercel (D-031): FastAPI entrypoint app.py is found automatically. The build step installs the
-# browser reading tools (PDF.js, Tesseract.js) from the pinned lockfile so they are not stored in Git.
-[tool.vercel.scripts]
-build = "python scripts/vercel_build.py"
