@@ -64,8 +64,9 @@ export function confirmedLine(input) {
   if (input.questioned && !["charge", "discount"].includes(input.role)) {
     throw new Error(`"${label}": only charges or discounts can be asked about`);
   }
-  const breakdown = rowBreakdown(input.breakdown);
-  if (breakdown && input.role !== "charge") throw new Error(`"${label}": row details belong to a charge line`);
+  // Row columns are checked on lines that are added up (charges, discounts such as an energy tax reduction, and
+  // adjustments); on a printed subtotal or total they mean nothing and are left out instead of blocking the check.
+  const breakdown = ["charge", "discount", "adjustment"].includes(input.role) ? rowBreakdown(input.breakdown) : null;
   return Object.freeze({
     id: String(input.id),
     role: input.role,

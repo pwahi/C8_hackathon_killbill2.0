@@ -74,7 +74,8 @@ test("row columns travel as printed strings, only on charge lines", () => {
   const line = confirmedLine({ ...base, source, breakdown: { quantity: "1", unitPrice: "1,499.00", discount: "-200,00", taxableValue: "", taxes: ["", "21.00"] } });
   assert.deepEqual(line.breakdown, { quantity: "1", unitPrice: "1,499.00", discount: "-200,00", taxableValue: null, taxes: ["21.00"] });
   assert.equal("breakdown" in confirmedLine({ ...base, source, breakdown: { quantity: " ", taxes: [] } }), false);
-  assert.throws(() => confirmedLine({ ...base, role: "total", source, breakdown: { unitPrice: "5" } }), /row details/);
+  assert.equal(confirmedLine({ ...base, role: "total", source, breakdown: { unitPrice: "5" } }).breakdown, undefined);
+  assert.ok(confirmedLine({ ...base, role: "discount", rawAmount: "-5,00", source, breakdown: { quantity: "1", unitPrice: "5,00" } }).breakdown);
   const payload = buildServerPayload({ currency: "INR", printedFiguresRechecked: true, lines: [{ ...base, role: "adjustment", rawAmount: "-0.40", source }] });
   assert.equal(payload.printedFiguresRechecked, true);
   assert.equal(payload.lines[0].role, "adjustment");

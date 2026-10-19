@@ -434,3 +434,29 @@ class ReductionRows(unittest.TestCase):
         data, discount = self.payload("9,99")
         result = analyze_confirmed_review(data)
         self.assertEqual(result["status"], "needs_recheck")
+
+
+class EnergyRates(unittest.TestCase):
+    """Seen live 2026-10-19: energy bills print rates with five decimals (EUR 0,11640 per kWh)."""
+
+    def payload(self, rate, quantity):
+        data = json.loads((Path(__file__).parent / "fixtures/confirmed/BS-001.confirmed.json").read_text(encoding="utf-8"))
+        data["messageType"] = "automatic"
+        for line in data["lines"]:
+            line["questioned"] = False
+        charge = next(line for line in data["lines"] if line["role"] == "charge")
+        charge["breakdown"] = {"quantity": quantity, "unitPrice": rate}
+        return data, charge
+
+    def test_a_five_decimal_rate_times_kwh_is_rounded_once_to_cents(self):
+        data, charge = self.payload("€0,11640", "176.46")
+        # 176.46 kWh x 0.11640 = 20.539944 -> 20.54, the printed amount of this fixture's first charge
+        self.assertEqual(charge["rawAmount"], "20,54")
+        result = analyze_confirmed_review(data)
+        row = next(check for check in result["rowChecks"] if check["lineId"] == charge["id"])
+        self.assertTrue(row["matches"], row)
+
+    def test_an_unreadable_rate_is_refused_not_guessed(self):
+        data, _ = self.payload("0,11.640", "1")
+        with self.assertRaisesRegex(ReviewError, "unit price"):
+            analyze_confirmed_review(data)

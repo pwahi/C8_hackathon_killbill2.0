@@ -10,6 +10,8 @@ Date: 2026-10-19. Status: Implemented and tested locally; push pending owner app
 
 **Verification:** 3 Python tests (reduction checked by size; wrong multiplication on a reduction caught; columns on a total do not block). Not yet re-run on the owner's energy bill.
 
+**Follow-up (owner retest, same day):** the screen had its own copy of the charge-only rule (contracts.mjs); it now matches Python. Energy bills print unit prices with up to five decimals (EUR 0,11640 per kWh): unit prices may have up to six decimals; quantity × rate is computed exactly and only the row result is rounded to cents, as bills do. Money amounts still need exactly two decimals; an unreadable rate is refused, never repaired. 2 more Python tests, 1 browser-module test updated.
+
 ## D-056 — A 1–2 cent gap is named rounding and settled only by a visible line
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

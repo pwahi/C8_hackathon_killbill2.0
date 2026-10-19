@@ -157,6 +157,32 @@ def parse_confirmed_amount(raw: str, *, decimal_separator: str, currency: str) -
     return -amount if negative else amount
 
 
+RATE = {".": re.compile(r"\d+(?:\.\d{1,6})?"), ",": re.compile(r"\d+(?:,\d{1,6})?")}
+
+
+def parse_rate(raw: str, *, decimal_separator: str, currency: str) -> Decimal:
+    """A printed unit price in major units, with up to six decimals (energy bills print rates like 0,11640 per kWh).
+    Strict like amounts: only a currency mark and a sign are removed; anything else is refused, never repaired."""
+    text = raw.strip().replace("−", "-")
+    negative = text.startswith("-")
+    text = text.lstrip("-").strip()
+    for mark in CURRENCY_MARKS[currency]:
+        if text.startswith(mark):
+            text = text[len(mark):].strip()
+        elif text.endswith(mark):
+            text = text[: -len(mark)].strip()
+    if text.startswith("-"):
+        negative, text = True, text[1:].strip()
+    if not RATE[decimal_separator].fullmatch(text):
+        try:  # a normal money amount such as 1.499,00 with thousands separators
+            return Decimal(parse_confirmed_amount(raw, decimal_separator=decimal_separator, currency=currency)) / 100
+        except ReviewError:
+            raise ReviewError(f"unit price {raw!r} does not match the selected decimal mark {decimal_separator!r}. "
+                              "Check the digits on the bill and correct it; Kill Bill will not guess.") from None
+    value = Decimal(text.replace(",", "."))
+    return -value if negative else value
+
+
 def _check_label(text: str, what: str) -> str:
     cleaned = " ".join(text.split())
     if any(pattern.search(cleaned) for pattern in PRIVATE_PATTERNS):
@@ -348,13 +374,15 @@ def row_checks(review: ConfirmedReview, amounts: dict[str, int]) -> list[RowChec
         value: int | None = None
         text = ""
         if details.unit_price and details.unit_price.strip():
-            price = parse(details.unit_price)
+            # The rate may have more than two decimals; only the row result is rounded to cents, as bills do.
+            rate = parse_rate(details.unit_price, decimal_separator=review.decimal_separator, currency=review.currency)
+            rate_text = f"{review.currency} {format(rate.normalize(), 'f')}" if rate.as_tuple().exponent < -2 else money(int(rate * 100))
             if details.quantity and details.quantity.strip():
                 quantity = _quantity(details.quantity)
-                value = int((Decimal(price) * quantity).to_integral_value(ROUND_HALF_UP))
-                text = f"{format(quantity.normalize(), 'f')} × {money(price)}"
+                value = int((rate * 100 * quantity).to_integral_value(ROUND_HALF_UP))
+                text = f"{format(quantity.normalize(), 'f')} × {rate_text}"
             else:
-                value, text = price, money(price)
+                value, text = int((rate * 100).to_integral_value(ROUND_HALF_UP)), rate_text
             if details.discount and details.discount.strip():
                 # A discount column always reduces the row; its printed sign is not needed to know that.
                 discount = abs(parse(details.discount))
