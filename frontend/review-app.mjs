@@ -1665,25 +1665,18 @@ function paragraph(text, className = "") {
 
 // ai: { state: "asking" | "done" | "error" | "skipped", explanation?, message? }
 function renderGap(result, ai) {
-  const nodes = [];
   if (!result.gap.needsExplanation) {
     elements.resultGap.replaceChildren(paragraph("Nothing to explain: the bill matches what you expected."));
     return;
   }
-  nodes.push(paragraph("Python's check: where the difference sits", "gap-heading"));
-  const exact = result.gap.exactMatches.map((match) => listItem(`${match.groupLabel ? match.groupLabel : match.labels.join(" + ")} = ${match.amount}, ${MATCH_TEXT[match.kind]}.`));
-  const list = document.createElement("ul");
-  list.replaceChildren(...(exact.length ? exact : [listItem("No line or section on the bill equals the difference exactly. The reason may be outside this bill, for example a different price you were quoted.")]));
-  if (result.gap.ambiguous) list.append(listItem("Several combinations fit, so the numbers alone cannot show which one it is."));
-  nodes.push(list, paragraph("Checked by Python. This shows where the amount is on the bill, not why it was charged.", "hint"));
-
-  // A failed or rejected AI answer is said plainly, with a retry (owner: an empty space looked like a bug). The Python
-  // facts above are complete on their own.
+  // Owner layout (chapter 4): one box "Checked by maths, explained by AI" with the AI's short story and what is still
+  // unknown; Python's facts fold away under a small "Math explanation" below it. The retry shows only on an error.
+  const box = document.createElement("section");
+  box.className = "ai-reason";
+  box.append(paragraph("Checked by maths, explained by AI", "gap-heading"));
   if (ai.state === "error") {
-    const note = document.createElement("section");
-    note.className = "ai-reason ai-unavailable";
-    note.append(paragraph("AI-powered explanation", "gap-heading"),
-      paragraph(`The AI suggestion is not available right now: ${ai.message || "no answer"} Everything above was checked by Python and is complete.`, "hint"));
+    box.classList.add("ai-unavailable");
+    box.append(paragraph(`The AI explanation is not available right now: ${ai.message || "no answer"} The maths is checked and complete.`, "hint"));
     const retry = document.createElement("button");
     retry.type = "button";
     retry.className = "secondary";
@@ -1692,41 +1685,31 @@ function renderGap(result, ai) {
       retry.disabled = true;
       if (reviewState.payload) explainDifference(reviewState.payload, reviewGeneration);
     });
-    note.append(retry);
-    const facts = document.createElement("section");
-    facts.className = "python-facts";
-    facts.append(...nodes);
-    elements.resultGap.replaceChildren(note, facts);
-    return;
-  }
-  nodes.push(paragraph("AI-powered explanation (not verified)", "gap-heading"));
-  if (ai.state === "done") nodes.push(paragraph("Written by AI. It can be wrong, so check it against your bill. The amounts in The maths come from Python.", "ai-disclaimer"));
-  if (ai.state === "asking") nodes.push(paragraph("Looking for a likely reason… Only the checked lines and amounts are sent, no picture of your bill.", "hint"));
-  if (ai.state === "done" && ai.explanation.story) {
-    // A short story first; the question and the evidence follow as plain sentences.
-    nodes.push(paragraph(ai.explanation.story, "ai-story"));
-    if (ai.explanation.question) nodes.push(paragraph(`You could ask: “${ai.explanation.question}”`));
-    if (ai.explanation.evidenceToRequest.length) nodes.push(paragraph(`What would settle it: ${ai.explanation.evidenceToRequest.join("; ")}.`, "hint"));
+    box.append(retry);
+  } else if (ai.state === "asking") {
+    box.append(paragraph("Looking for a likely reason… Only the checked lines and amounts are sent, no picture of your bill.", "hint"));
   } else if (ai.state === "done") {
-    const labels = Object.fromEntries(result.lines.map((line) => [line.id, line.description]));
-    const causes = document.createElement("ul");
-    causes.replaceChildren(...ai.explanation.likelyCauses.map((cause) => listItem(`${cause.lineIds.map((id) => labels[id]).join(" + ")} — ${cause.likelihood} likelihood — ${cause.reason}`)));
-    nodes.push(causes);
-    if (ai.explanation.unexplained) nodes.push(paragraph(`Still unexplained: ${ai.explanation.unexplained}`));
-    if (ai.explanation.evidenceToRequest.length) nodes.push(paragraph(`Evidence that would settle it: ${ai.explanation.evidenceToRequest.join("; ")}`));
-    nodes.push(paragraph("Every number on this page comes from Python, not from the AI.", "hint"));
+    if (ai.explanation.story) box.append(paragraph(ai.explanation.story, "ai-story"));
+    else {
+      const labels = Object.fromEntries(result.lines.map((line) => [line.id, line.description]));
+      const causes = document.createElement("ul");
+      causes.replaceChildren(...ai.explanation.likelyCauses.map((cause) => listItem(`${cause.lineIds.map((id) => labels[id]).join(" + ")} — ${cause.reason}`)));
+      box.append(causes);
+    }
+    box.append(paragraph("Written by AI and can be wrong. Every amount comes from Python.", "ai-disclaimer"));
   }
-  const facts = document.createElement("section");
-  facts.className = "python-facts";
-  const suggestion = document.createElement("section");
-  suggestion.className = "ai-reason";
-  let target = facts;
-  for (const node of nodes) {
-    if (node.classList.contains("gap-heading") && node.textContent.includes("AI-powered")) target = suggestion;
-    target.append(node);
-  }
-  // AI explanation first, Python's facts in a smaller box under it (owner sketch, chapter 4).
-  elements.resultGap.replaceChildren(suggestion, facts);
+  if (result.missingEvidence?.length) box.append(paragraph(`Still unknown: ${result.missingEvidence.join("; ")}.`, "hint unknown-line"));
+
+  const exact = result.gap.exactMatches.map((match) => listItem(`${match.groupLabel ? match.groupLabel : match.labels.join(" + ")} = ${match.amount}, ${MATCH_TEXT[match.kind]}.`));
+  const list = document.createElement("ul");
+  list.replaceChildren(...(exact.length ? exact : [listItem("No line or section on the bill equals the difference exactly. The reason may be outside this bill, for example a different price you were quoted.")]));
+  if (result.gap.ambiguous) list.append(listItem("Several combinations fit, so the numbers alone cannot show which one it is."));
+  const facts = document.createElement("details");
+  facts.className = "python-facts math-explanation";
+  const summary = document.createElement("summary");
+  summary.textContent = "Math explanation";
+  facts.append(summary, list, paragraph("Checked by Python. This shows where the amount is on the bill, not why it was charged.", "hint"));
+  elements.resultGap.replaceChildren(box, facts);
 }
 
 // One re-check problem with the two ways to fix it: look at the lines, or read the page again.

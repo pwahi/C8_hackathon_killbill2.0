@@ -195,7 +195,8 @@ export function createFlow() {
       guidance.forEach(text => { const item = document.createElement("li"); item.textContent = text; points.append(item); });
       $("#chapter-description").replaceChildren(points);
     } else $("#chapter-description").textContent = guidance;
-    if (current === 3) resultBody.prepend(heading);
+    // Above both columns, so "Your bill adds up" and The maths start on the same line (owner 2026-10-19).
+    if (current === 3) $("#result-panel").before(heading);
     else if (current === 4) draft.prepend(heading);
     else $("main").insertBefore(heading, $("#review"));
     navButtons.forEach((button, index) => {
@@ -226,7 +227,8 @@ export function createFlow() {
     reset() { state.opened = false; state.hasLines = false; state.complete = false; state.busy = false; readingStage = "choose"; readingPage = 1; readingCount = 0; paintReading(); $("#finish-state").textContent = "Kill Bill never sends anything. You choose where and when to send."; go(0, true); },
     result(result, pending = false) {
       state.complete = result.status === "complete"; state.busy = pending;
-      $("#result-gap").hidden = !state.complete; unknown.hidden = !state.complete; go(3, true);
+      $("#result-gap").hidden = !state.complete; // With a difference, "Still unknown" sits inside the explanation box instead.
+      unknown.hidden = !state.complete || Boolean(result.gap?.needsExplanation); go(3, true);
     },
     settled() { state.busy = false; paint(); },
     copied() { $("#finish-state").textContent = "Message copied. It has not been sent by Kill Bill."; },
