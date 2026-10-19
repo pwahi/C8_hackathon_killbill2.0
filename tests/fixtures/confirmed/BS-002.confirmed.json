@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "currency": "EUR",
+  "decimalSeparator": ".",
+  "expectedAmount": "1299.00",
+  "messageType": "fee_disclosure",
+  "earlierPeriodGroup": null,
+  "lines": [
+    {
+      "id": "bicycle",
+      "role": "charge",
+      "group": null,
+      "description": "bicycle list price",
+      "rawAmount": "1,499.00",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "discount",
+      "role": "discount",
+      "group": null,
+      "description": "discount",
+      "rawAmount": "-200.00",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "packaging",
+      "role": "charge",
+      "group": null,
+      "description": "packaging",
+      "rawAmount": "19.90",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": true,
+      "currency": "EUR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "delivery",
+      "role": "charge",
+      "group": null,
+      "description": "delivery",
+      "rawAmount": "59.90",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": true,
+      "currency": "EUR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "order_total",
+      "role": "total",
+      "group": null,
+      "description": "Order total",
+      "rawAmount": "1,378.80",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    }
+  ],
+  "printedFiguresRechecked": false
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "case_id": "BS-003",
+  "provider": "Flipkart",
+  "document_kind": "invoice_bundle",
+  "currency": "INR",
+  "displayed_total_minor": 2182800,
+  "expected_minor": null,
+  "expectation_source": null,
+  "comparison_evidence_verified": false,
+  "lines": [
+    {"id": "protection_base", "label": "Protect Promise Fee before tax", "amount_minor": 3305, "source_ref": "page-1:protection-base"},
+    {"id": "protection_tax", "label": "Protect Promise Fee tax", "amount_minor": 595, "source_ref": "page-1:protection-tax"},
+    {"id": "transport_supply", "label": "goods transport bill of supply", "amount_minor": 21200, "source_ref": "pages-2-3:transport-supply"},
+    {"id": "transport_invoice_base", "label": "goods transport invoice before tax", "amount_minor": 19746, "source_ref": "page-4:transport-base"},
+    {"id": "transport_tax_1", "label": "goods transport tax component 1", "amount_minor": 1777, "source_ref": "page-4:transport-tax-1"},
+    {"id": "transport_tax_2", "label": "goods transport tax component 2", "amount_minor": 1777, "source_ref": "page-4:transport-tax-2"},
+    {"id": "controller_base", "label": "controller before tax", "amount_minor": 473475, "source_ref": "page-5:controller-base"},
+    {"id": "controller_tax", "label": "controller tax", "amount_minor": 85225, "source_ref": "page-5:controller-tax"},
+    {"id": "monitor_base", "label": "monitor before tax", "amount_minor": 1335339, "source_ref": "page-6:monitor-base"},
+    {"id": "monitor_tax", "label": "monitor tax", "amount_minor": 240361, "source_ref": "page-6:monitor-tax"}
+  ],
+  "total_line_ids": ["protection_base", "protection_tax", "transport_supply", "transport_invoice_base", "transport_tax_1", "transport_tax_2", "controller_base", "controller_tax", "monitor_base", "monitor_tax"],
+  "reconciliations": [
+    {"id": "protection", "label": "Protect Promise Fee", "line_ids": ["protection_base", "protection_tax"], "expected_minor": 3900},
+    {"id": "transport_invoice", "label": "transport tax invoice", "line_ids": ["transport_invoice_base", "transport_tax_1", "transport_tax_2"], "expected_minor": 23300},
+    {"id": "controller", "label": "controller", "line_ids": ["controller_base", "controller_tax"], "expected_minor": 558700},
+    {"id": "monitor", "label": "monitor", "line_ids": ["monitor_base", "monitor_tax"], "expected_minor": 1575700}
+  ],
+  "missing_evidence": ["expected checkout total", "checkout disclosure or authorization evidence", "independent payment record"],
+  "draft": {"template": "checks_passed_summary", "bindings": {}}
+}

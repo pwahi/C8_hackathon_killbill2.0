@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "case_id": "BS-001",
+  "provider": "Vodafone",
+  "document_kind": "invoice",
+  "currency": "EUR",
+  "displayed_total_minor": 3375,
+  "expected_minor": 1950,
+  "expectation_source": "remembered phone offer; written terms not inspected",
+  "comparison_evidence_verified": false,
+  "lines": [
+    {"id": "aug_subscription", "label": "6-31 August subscription", "amount_minor": 2054, "source_ref": "page-2:august-subscription", "period": "2026-08-06/2026-08-31"},
+    {"id": "aug_discount_1", "label": "August discount 1", "amount_minor": -419, "source_ref": "page-2:august-discount-1", "period": "2026-08-06/2026-08-31"},
+    {"id": "aug_discount_2", "label": "August discount 2", "amount_minor": -210, "source_ref": "page-2:august-discount-2", "period": "2026-08-06/2026-08-31"},
+    {"id": "sep_subscription", "label": "September subscription", "amount_minor": 2450, "source_ref": "page-2:september-subscription", "period": "2026-09-01/2026-09-30"},
+    {"id": "sep_discount_1", "label": "September discount 1", "amount_minor": -500, "source_ref": "page-2:september-discount-1", "period": "2026-09-01/2026-09-30"},
+    {"id": "sep_discount_2", "label": "September discount 2", "amount_minor": -250, "source_ref": "page-2:september-discount-2", "period": "2026-09-01/2026-09-30"},
+    {"id": "sep_calling", "label": "September unlimited calling option", "amount_minor": 250, "source_ref": "page-2:september-calling-option", "period": "2026-09-01/2026-09-30"}
+  ],
+  "total_line_ids": ["aug_subscription", "aug_discount_1", "aug_discount_2", "sep_subscription", "sep_discount_1", "sep_discount_2", "sep_calling"],
+  "reconciliations": [
+    {"id": "august", "label": "6-31 August", "line_ids": ["aug_subscription", "aug_discount_1", "aug_discount_2"], "expected_minor": 1425},
+    {"id": "september", "label": "September", "line_ids": ["sep_subscription", "sep_discount_1", "sep_discount_2", "sep_calling"], "expected_minor": 1950}
+  ],
+  "missing_evidence": ["previous invoice or payment covering 6-31 August", "written offer terms"],
+  "draft": {
+    "template": "period_clarification",
+    "bindings": {
+      "current_period_group": "september",
+      "current_period_label": "September",
+      "prior_period_group": "august",
+      "prior_period_label": "6-31 August"
+    }
+  }
+}

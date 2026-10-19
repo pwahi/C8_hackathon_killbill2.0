@@ -1,0 +1,44 @@
+# Local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Frontend/build/deployment
+node_modules/
+dist/
+build/
+.next/
+.vercel/
+
+# Private inputs and generated local data
+uploads/
+private/
+local-data/
+tmp/
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+# Workspace evidence must never be copied into the app repository
+evidence/
+recordings/
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.idea/

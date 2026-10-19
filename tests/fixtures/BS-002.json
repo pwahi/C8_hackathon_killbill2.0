@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "case_id": "BS-002",
+  "provider": "Canyon",
+  "document_kind": "order_confirmation",
+  "currency": "EUR",
+  "displayed_total_minor": 137880,
+  "expected_minor": 129900,
+  "expectation_source": "user-reported expected bicycle price; checkout evidence not inspected",
+  "comparison_evidence_verified": false,
+  "lines": [
+    {"id": "bicycle", "label": "bicycle list price", "amount_minor": 149900, "source_ref": "page-1:bicycle"},
+    {"id": "discount", "label": "discount", "amount_minor": -20000, "source_ref": "page-1:discount"},
+    {"id": "packaging", "label": "packaging", "amount_minor": 1990, "source_ref": "page-1:packaging"},
+    {"id": "delivery", "label": "delivery", "amount_minor": 5990, "source_ref": "page-1:delivery"}
+  ],
+  "total_line_ids": ["bicycle", "discount", "packaging", "delivery"],
+  "reconciliations": [
+    {"id": "bicycle_after_discount", "label": "bicycle after discount", "line_ids": ["bicycle", "discount"], "expected_minor": 129900},
+    {"id": "additional_fees", "label": "packaging and delivery", "line_ids": ["packaging", "delivery"], "expected_minor": 7980}
+  ],
+  "missing_evidence": ["offer or checkout disclosure evidence", "settled payment record"],
+  "draft": {"template": "fee_disclosure", "bindings": {"fee_line_ids": ["packaging", "delivery"]}}
+}

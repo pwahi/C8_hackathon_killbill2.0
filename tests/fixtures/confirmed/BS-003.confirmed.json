@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 2,
+  "currency": "INR",
+  "decimalSeparator": ".",
+  "expectedAmount": null,
+  "messageType": "automatic",
+  "earlierPeriodGroup": null,
+  "lines": [
+    {
+      "id": "protection_base",
+      "role": "charge",
+      "group": "Protect Promise Fee",
+      "description": "Protect Promise Fee before tax",
+      "rawAmount": "33.05",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "protection_tax",
+      "role": "charge",
+      "group": "Protect Promise Fee",
+      "description": "Protect Promise Fee tax",
+      "rawAmount": "5.95",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "protection_total",
+      "role": "subtotal",
+      "group": "Protect Promise Fee",
+      "description": "Protect Promise Fee invoice total",
+      "rawAmount": "39.00",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "transport_supply",
+      "role": "charge",
+      "group": null,
+      "description": "goods transport bill of supply",
+      "rawAmount": "212.00",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 2,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "transport_invoice_base",
+      "role": "charge",
+      "group": "transport tax invoice",
+      "description": "goods transport invoice before tax",
+      "rawAmount": "197.46",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 4,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "transport_tax_1",
+      "role": "charge",
+      "group": "transport tax invoice",
+      "description": "goods transport tax component 1",
+      "rawAmount": "17.77",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 4,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "transport_tax_2",
+      "role": "charge",
+      "group": "transport tax invoice",
+      "description": "goods transport tax component 2",
+      "rawAmount": "17.77",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 4,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "transport_invoice_total",
+      "role": "subtotal",
+      "group": "transport tax invoice",
+      "description": "transport tax invoice total",
+      "rawAmount": "233.00",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 4,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "controller_base",
+      "role": "charge",
+      "group": "controller",
+      "description": "controller before tax",
+      "rawAmount": "4,734.75",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 5,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "controller_tax",
+      "role": "charge",
+      "group": "controller",
+      "description": "controller tax",
+      "rawAmount": "852.25",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 5,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "controller_total",
+      "role": "subtotal",
+      "group": "controller",
+      "description": "controller invoice total",
+      "rawAmount": "5,587.00",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 5,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "monitor_base",
+      "role": "charge",
+      "group": "monitor",
+      "description": "monitor before tax",
+      "rawAmount": "13,353.39",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 6,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "monitor_tax",
+      "role": "charge",
+      "group": "monitor",
+      "description": "monitor tax",
+      "rawAmount": "2,403.61",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 6,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "monitor_total",
+      "role": "subtotal",
+      "group": "monitor",
+      "description": "monitor invoice total",
+      "rawAmount": "15,757.00",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 6,
+        "precision": "page"
+      }
+    }
+  ],
+  "printedFiguresRechecked": false
+}

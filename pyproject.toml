@@ -1,0 +1,25 @@
+[project]
+name = "billshield-core"
+version = "0.1.0"
+description = "Deterministic calculation core for the BillShield hackathon MVP"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi==0.146.0",
+  "pdfplumber==0.11.10",
+  "pydantic==2.14.1",
+  "uvicorn==0.54.0",
+]
+
+[project.optional-dependencies]
+test = ["httpx==0.28.1"]
+
+[tool.setuptools]
+package-dir = {"" = "backend"}
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+# Vercel (D-031): FastAPI entrypoint app.py is found automatically. The build step installs the
+# browser reading tools (PDF.js, Tesseract.js) from the pinned lockfile so they are not stored in Git.
+[tool.vercel.scripts]
+build = "python scripts/vercel_build.py"

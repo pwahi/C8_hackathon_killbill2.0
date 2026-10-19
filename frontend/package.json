@@ -1,0 +1,15 @@
+{
+  "name": "billshield-client-extraction",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node local-server.mjs",
+    "test": "node --test --test-isolation=none"
+  },
+  "dependencies": {
+    "@tesseract.js-data/eng": "1.0.0",
+    "pdfjs-dist": "6.4.299",
+    "tesseract.js": "7.0.0"
+  }
+}

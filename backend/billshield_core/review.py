@@ -1,0 +1,619 @@
+"""Confirmed browser review (payload schema 2) -> deterministic case -> analysis and draft.
+
+The browser sends only lines a person explicitly confirmed beside visible source
+evidence. This module re-validates everything, owns every amount conversion, and
+never guesses decimal marks, signs, roles, or source coordinates (D-024/D-025).
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import asdict, dataclass, replace
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic.alias_generators import to_camel
+
+from .drafting import DraftError
+from .engine import analyze_case, calculate
+from .gap import find_exact_explanations
+from .extraction import Bounds
+from .models import BillCase, DraftSpec, LineItem, Reconciliation
+from .money import format_minor, parse_major_to_minor
+
+Role = Literal["charge", "discount", "adjustment", "subtotal", "total"]
+Precision = Literal["exact", "table", "page"]
+MessageType = Literal[
+    "automatic", "quote_difference", "fee_disclosure", "period_clarification", "checks_passed_summary"
+]
+# Adjustments are printed corrections such as a round-off line; they may be positive or negative.
+SUMMED_ROLES = {"charge", "discount", "adjustment"}
+QUESTIONABLE_ROLES = {"charge", "discount"}
+CURRENCY_MARKS = {"EUR": ("€", "EUR"), "INR": ("₹", "INR")}
+
+# Same patterns as frontend/extraction/privacy.mjs; Python re-checks rather than trusting the browser.
+PRIVATE_PATTERNS = (
+    re.compile(r"\b(?:\d[ -]?){13,19}\b"),
+    re.compile(r"\b(?:account|customer|booking|reference|phone|mobile|address)\b", re.IGNORECASE),
+    re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b", re.IGNORECASE),
+    re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b"),
+)
+# Labels are copied into the message, so they must not smuggle in amounts code did not check.
+# A currency word on its own ("TOTAL EUR") is harmless; a currency next to a number is an amount.
+AMOUNT_IN_LABEL = re.compile(
+    r"[€₹$]\s*\d|\d\s*[€₹$]|\b(?:EUR|INR|Rs)\.?\s*\d|\d\s*(?:EUR|INR|Rs)\b|\d[.,]\d|\d{3,}", re.IGNORECASE
+)
+YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+# Grouping must be consistent with the declared decimal mark; anything else is rejected, not guessed.
+DOT_DECIMAL = re.compile(r"^(?:\d{1,3}(?:,\d{3})+|\d{1,2}(?:,\d{2})+,\d{3}|\d+)(?:\.\d{1,2})?$")
+COMMA_DECIMAL = re.compile(r"^(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?$")
+# One separator followed by exactly one or two final digits can only be a decimal mark (a thousands
+# group always has three digits), so "200,00" on an otherwise point-decimal bill is not a guess.
+UNAMBIGUOUS_DECIMAL = re.compile(r"^\d+([.,])\d{1,2}$")
+# A number, optionally followed by a printed unit word such as PC, pcs, Nos or kg (the unit is not used).
+QUANTITY = re.compile(r"^(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:[A-Za-z]{1,6}\.?)?$")
+
+
+class ReviewError(ValueError):
+    """A confirmed review cannot be analyzed; the message is safe to show the user."""
+
+
+class _Model(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, alias_generator=to_camel, populate_by_name=True
+    )
+
+
+class SourceEvidence(_Model):
+    page: int = Field(ge=1, le=10)
+    precision: Precision
+    located_by: Literal["pdf_text", "local_ocr", "groq", "user"] | None = None
+    # Exact location of this amount. Never a table area.
+    bounds: Bounds | None = None
+    # Table area the amount was read from. Never presented as the amount's location.
+    region: Bounds | None = None
+
+    @model_validator(mode="after")
+    def honest_precision(self) -> "SourceEvidence":
+        if self.precision == "exact" and (self.bounds is None or self.region is not None):
+            raise ValueError("exact evidence needs bounds and no table region")
+        if self.precision == "table" and (self.region is None or self.bounds is not None):
+            raise ValueError("table evidence needs a region and no exact bounds")
+        if self.precision == "page" and (self.bounds is not None or self.region is not None):
+            raise ValueError("page evidence cannot carry coordinates")
+        if (self.precision == "page") != (self.located_by is None):
+            raise ValueError("located_by is required for exact/table evidence and absent for page evidence")
+        return self
+
+
+class RowBreakdown(_Model):
+    """Printed columns of one invoice row (all optional). Inspired by EN 16931 and the Indian GST e-invoice:
+    quantity x unit price - discount = taxable value; taxable value + taxes = row amount."""
+
+    quantity: str | None = Field(default=None, max_length=20)
+    unit_price: str | None = Field(default=None, max_length=40)
+    discount: str | None = Field(default=None, max_length=40)
+    taxable_value: str | None = Field(default=None, max_length=40)
+    taxes: tuple[str, ...] = Field(default=(), max_length=4)
+
+
+class ConfirmedReviewLine(_Model):
+    id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")
+    role: Role
+    group: str | None = Field(default=None, max_length=60)
+    description: str = Field(min_length=1, max_length=120)
+    raw_amount: str = Field(min_length=1, max_length=40)
+    extracted_raw_amount: str | None = Field(default=None, max_length=40)
+    extractor: Literal["pdf_text", "local_ocr", "groq", "manual"]
+    questioned: bool = False
+    currency: str = Field(min_length=3, max_length=3)
+    source: SourceEvidence
+    breakdown: RowBreakdown | None = None
+
+
+class ConfirmedReview(_Model):
+    schema_version: Literal[2]
+    currency: Literal["EUR", "INR"]
+    decimal_separator: Literal[".", ","]
+    expected_amount: str | None = Field(default=None, max_length=40)
+    message_type: MessageType = "automatic"
+    earlier_period_group: str | None = Field(default=None, max_length=60)
+    lines: tuple[ConfirmedReviewLine, ...] = Field(min_length=1, max_length=200)
+    # Set only after the person has re-checked printed figures that do not add up.
+    printed_figures_rechecked: bool = False
+
+
+def parse_confirmed_amount(raw: str, *, decimal_separator: str, currency: str) -> int:
+    """Strictly parse a confirmed amount. Only a literal currency mark is removed."""
+
+    text = raw.strip().replace("−", "-")
+    negative = False
+    if text.startswith("(") and text.endswith(")"):
+        negative, text = True, text[1:-1].strip()
+    if text.startswith("-"):
+        negative, text = not negative, text[1:].strip()
+    for mark in CURRENCY_MARKS[currency]:
+        if text.startswith(mark):
+            text = text[len(mark):].strip()
+        elif text.endswith(mark):
+            text = text[: -len(mark)].strip()
+    if text.startswith("-") and not negative:
+        negative, text = True, text[1:].strip()
+    pattern = DOT_DECIMAL if decimal_separator == "." else COMMA_DECIMAL
+    alternative = UNAMBIGUOUS_DECIMAL.fullmatch(text)
+    if not pattern.fullmatch(text) and alternative:
+        amount = parse_major_to_minor(text, decimal_separator=alternative.group(1))
+        return -amount if negative else amount
+    if not pattern.fullmatch(text):
+        raise ReviewError(
+            f"amount {raw!r} does not match the selected decimal mark {decimal_separator!r}. "
+            "Check the digits and decimal mark on the bill and correct it; BillShield will not guess."
+        )
+    amount = parse_major_to_minor(text, decimal_separator=decimal_separator)
+    return -amount if negative else amount
+
+
+def _check_label(text: str, what: str) -> str:
+    cleaned = " ".join(text.split())
+    if any(pattern.search(cleaned) for pattern in PRIVATE_PATTERNS):
+        raise ReviewError(f"{what} {cleaned!r} may contain private data; use a short charge label")
+    if AMOUNT_IN_LABEL.search(YEAR.sub("", cleaned)):
+        raise ReviewError(
+            f"{what} {cleaned!r} contains an amount or currency; labels must be words only "
+            "(write dates as words, for example '6-31 August')"
+        )
+    return cleaned
+
+
+def build_case(review: ConfirmedReview) -> tuple[BillCase, dict[str, int]]:
+    """Validate roles and structure, then build a calculation case. Returns amounts by line ID."""
+
+    ids = [line.id for line in review.lines]
+    if len(ids) != len(set(ids)):
+        raise ReviewError("line IDs must be unique")
+    amounts: dict[str, int] = {}
+    groups: dict[str, str] = {}  # normalized key -> first display label
+    line_groups: dict[str, str | None] = {}
+    for line in review.lines:
+        if line.currency.upper() != review.currency:
+            raise ReviewError(f"line {line.id} currency differs from the review currency; currencies are never combined")
+        _check_label(line.description, "label")
+        amount = parse_confirmed_amount(line.raw_amount, decimal_separator=review.decimal_separator, currency=review.currency)
+        if line.role == "discount" and amount >= 0:
+            raise ReviewError(
+                f"discount {line.description!r} must be entered as a negative amount (for example -200.00); "
+                "BillShield does not flip signs for you"
+            )
+        if line.role == "charge" and amount < 0:
+            raise ReviewError(f"charge {line.description!r} is negative; mark it as a discount if it reduces the bill")
+        if line.questioned and line.role not in QUESTIONABLE_ROLES:
+            raise ReviewError("only charge or discount lines can be asked about in the message")
+        amounts[line.id] = amount
+        key = None
+        if line.group and line.group.strip():
+            label = _check_label(line.group, "group")
+            key = label.casefold()
+            groups.setdefault(key, label)
+        line_groups[line.id] = key
+
+    summed = [line for line in review.lines if line.role in SUMMED_ROLES]
+    totals = [line for line in review.lines if line.role == "total"]
+    subtotals = [line for line in review.lines if line.role == "subtotal"]
+    if not summed:
+        raise ReviewError("confirm at least one charge, discount or adjustment line")
+    if len(totals) > 1:
+        raise ReviewError("confirm at most one printed grand total; mark the others as subtotals or leave them out")
+    if not totals and not subtotals:
+        raise ReviewError("confirm the printed total (or a printed subtotal) so the arithmetic can be checked")
+
+    printed_by_group: dict[str, ConfirmedReviewLine] = {}
+    for line in subtotals:
+        key = line_groups[line.id]
+        if key is None:
+            raise ReviewError(f"subtotal {line.description!r} needs a group naming the lines it covers")
+        if key in printed_by_group:
+            raise ReviewError(f"group {groups[key]!r} has more than one subtotal")
+        printed_by_group[key] = line
+
+    reconciliations = []
+    for index, (key, label) in enumerate(groups.items(), start=1):
+        members = tuple(line.id for line in summed if line_groups[line.id] == key)
+        printed = printed_by_group.get(key)
+        if not members:
+            raise ReviewError(f"group {label!r} has a subtotal but no charge or discount lines")
+        reconciliations.append(
+            Reconciliation(
+                id=f"group-{index}",
+                label=label,
+                line_ids=members,
+                expected_minor=None if printed is None else amounts[printed.id],
+                printed_line_id=None if printed is None else printed.id,
+            )
+        )
+
+    expected = None
+    if review.expected_amount and review.expected_amount.strip():
+        expected = parse_confirmed_amount(
+            review.expected_amount, decimal_separator=review.decimal_separator, currency=review.currency
+        )
+
+    case = BillCase(
+        schema_version=1,
+        case_id="confirmed-review",
+        provider="not recorded",
+        document_kind="confirmed_review",
+        currency=review.currency,
+        displayed_total_minor=amounts[totals[0].id] if totals else None,
+        expected_minor=expected,
+        expectation_source="user-entered expectation; supporting evidence not verified" if expected is not None else None,
+        # A remembered or typed price is never treated as verified evidence in this flow.
+        comparison_evidence_verified=False,
+        lines=tuple(
+            LineItem(
+                id=line.id,
+                label=" ".join(line.description.split()),
+                amount_minor=amounts[line.id],
+                currency=review.currency,
+                source_ref=f"page-{line.source.page}:{line.source.precision}",
+            )
+            for line in review.lines
+        ),
+        total_line_ids=tuple(line.id for line in summed),
+        reconciliations=tuple(reconciliations),
+        missing_evidence=(),
+        draft=DraftSpec(template="checks_passed_summary", bindings={}),  # replaced after calculation
+        displayed_total_line_id=totals[0].id if totals else None,
+    )
+    return case, amounts
+
+
+@dataclass(frozen=True)
+class RowCheck:
+    line_id: str
+    label: str
+    what: str  # "row_amount" or "taxable_value"
+    computed_minor: int
+    printed_minor: int
+    formula: str
+
+    @property
+    def matches(self) -> bool:
+        return self.computed_minor == self.printed_minor
+
+
+def _quantity(raw: str) -> Decimal:
+    match = QUANTITY.fullmatch(raw.strip())
+    if not match:
+        raise ReviewError(f"quantity {raw!r} must be a number such as 1 or 2.5 (a unit like PC may follow)")
+    return Decimal(match.group(1).replace(",", "."))
+
+
+def row_checks(review: ConfirmedReview, amounts: dict[str, int]) -> list[RowCheck]:
+    """Check each row's printed columns. Only printed values are used; nothing is filled in."""
+    money = lambda amount: format_minor(amount, review.currency)
+    parse = lambda raw: parse_confirmed_amount(raw, decimal_separator=review.decimal_separator, currency=review.currency)
+    checks: list[RowCheck] = []
+    for line in review.lines:
+        details = line.breakdown
+        if details is None:
+            continue
+        if line.role != "charge":
+            raise ReviewError(f"row details belong to a charge line, not to {line.description!r}")
+        label = " ".join(line.description.split())
+        value: int | None = None
+        text = ""
+        if details.unit_price and details.unit_price.strip():
+            price = parse(details.unit_price)
+            if details.quantity and details.quantity.strip():
+                quantity = _quantity(details.quantity)
+                value = int((Decimal(price) * quantity).to_integral_value(ROUND_HALF_UP))
+                text = f"{format(quantity.normalize(), 'f')} × {money(price)}"
+            else:
+                value, text = price, money(price)
+            if details.discount and details.discount.strip():
+                # A discount column always reduces the row; its printed sign is not needed to know that.
+                discount = abs(parse(details.discount))
+                value -= discount
+                text += f" − {money(discount)}"
+        if details.taxable_value and details.taxable_value.strip():
+            taxable = parse(details.taxable_value)
+            if value is not None:
+                checks.append(RowCheck(line.id, label, "taxable_value", value, taxable, f"{text} = {money(value)}"))
+            value, text = taxable, money(taxable)
+        if value is None:
+            continue  # no price or taxable value printed: nothing to recompute
+        for raw_tax in details.taxes:
+            if raw_tax.strip():
+                tax = parse(raw_tax)
+                value += tax
+                text += f" + {money(tax)}"
+        checks.append(RowCheck(line.id, label, "row_amount", value, amounts[line.id], f"{text} = {money(value)}"))
+    return checks
+
+
+def _choose_template(
+    review: ConfirmedReview, case: BillCase, failed_rows: list[RowCheck]
+) -> tuple[DraftSpec, str | None, tuple[str, ...]]:
+    outcome = calculate(case)
+    questioned = tuple(line.id for line in review.lines if line.questioned)
+    wanted = review.message_type
+    has_difference = outcome.difference_minor not in (None, 0)
+    missing: list[str] = []
+    if case.expected_minor is None:
+        missing.append("expected amount (not entered), so only the bill's own arithmetic was checked")
+    elif has_difference:
+        missing.append("written offer, quote or checkout record showing the expected amount")
+
+    if outcome.arithmetic_status == "mismatch" or failed_rows:
+        note = None
+        if wanted != "automatic":
+            note = "The printed figures do not add up, so the message reports that instead of the type you chose."
+        missing.append("re-check of every confirmed amount against the bill (a typing or reading error has the same effect)")
+        rows = [
+            {"line_id": row.line_id, "label": row.label, "what": row.what,
+             "computed_minor": row.computed_minor, "printed_minor": row.printed_minor, "formula": row.formula}
+            for row in failed_rows
+        ]
+        return DraftSpec("arithmetic_mismatch", {"row_failures": rows}), note, tuple(missing)
+
+    if wanted == "automatic":
+        if not has_difference:
+            wanted = "checks_passed_summary"
+        elif review.earlier_period_group:
+            wanted = "period_clarification"
+        else:
+            wanted = "quote_difference"
+
+    if wanted == "checks_passed_summary":
+        if has_difference:
+            raise ReviewError("a no-issue summary cannot hide the difference from your expected amount; choose another message type")
+        return DraftSpec("checks_passed_summary", {}), None, tuple(missing)
+    if wanted in {"quote_difference", "fee_disclosure"}:
+        if not has_difference:
+            raise ReviewError("this message type needs an expected amount that differs from the calculated total")
+        if wanted == "fee_disclosure":
+            if not questioned:
+                raise ReviewError("tick 'Ask about this line' on at least one fee for this message type")
+            missing.append("evidence of where these fees were shown before payment")
+            return DraftSpec("fee_disclosure", {"fee_line_ids": list(questioned)}), None, tuple(missing)
+        return DraftSpec("quote_difference", {"questioned_line_ids": list(questioned)}), None, tuple(missing)
+    # period_clarification
+    by_label = {group.label.casefold(): group for group in case.reconciliations}
+    earlier = (review.earlier_period_group or "").strip()
+    if len(case.reconciliations) != 2 or earlier.casefold() not in by_label:
+        raise ReviewError("an earlier-period message needs exactly two groups and the earlier group's name")
+    prior = by_label[earlier.casefold()]
+    current = next(group for group in case.reconciliations if group is not prior)
+    missing.append(f"previous invoice or payment record covering {prior.label}")
+    return (
+        DraftSpec(
+            "period_clarification",
+            {
+                "current_period_group": current.id,
+                "current_period_label": current.label,
+                "prior_period_group": prior.id,
+                "prior_period_label": prior.label,
+            },
+        ),
+        None,
+        tuple(missing),
+    )
+
+
+def _display_formula(amounts: tuple[int, ...], result: int, currency: str) -> str:
+    parts = []
+    for index, amount in enumerate(amounts):
+        number = format_minor(abs(amount), currency)
+        parts.append(("- " if amount < 0 else "+ ") + number if index else ("-" if amount < 0 else "") + number)
+    return f"{' '.join(parts)} = {format_minor(result, currency)}"
+
+
+def analyze_confirmed_review(payload: dict, ai_suggestion: dict | None = None) -> dict:
+    """Validate a confirmed browser payload and return calculations plus the required draft.
+
+    ``ai_suggestion`` is an already-validated model explanation (see gap_llm). It may only pre-select
+    which confirmed lines the message asks about and add one digit-free question sentence; it never
+    changes an amount, a calculation or the verdict.
+    """
+
+    try:
+        review = ConfirmedReview.model_validate(payload)
+    except ValueError as exc:  # pydantic.ValidationError subclasses ValueError
+        raise ReviewError(f"confirmed review is invalid: {exc}") from exc
+    questioned_by = "you" if any(line.questioned for line in review.lines) else None
+    if ai_suggestion and questioned_by is None:
+        suggested = set(ai_suggestion.get("line_ids", ()))
+        if suggested:
+            review = review.model_copy(update={"lines": tuple(
+                line.model_copy(update={"questioned": True}) if line.id in suggested and line.role in SUMMED_ROLES else line
+                for line in review.lines
+            )})
+            questioned_by = "ai"
+    case, amounts = build_case(review)
+    rows = row_checks(review, amounts)
+    failed_rows = [row for row in rows if not row.matches]
+    outcome = calculate(case)
+    matches, ambiguous = find_exact_explanations(case, outcome)
+    money = lambda amount: None if amount is None else format_minor(amount, review.currency)
+    lines = {line.id: line for line in review.lines}
+    printed_problem = outcome.arithmetic_status == "mismatch" or bool(failed_rows)
+    if printed_problem and not review.printed_figures_rechecked:
+        # Outcome A: almost always a reading or confirmation mistake. No verdict, no draft, no AI.
+        return _needs_recheck(review, case, outcome, amounts, rows, matches, money, lines)
+
+    spec, note, missing = _choose_template(review, case, failed_rows)
+    case = replace(case, draft=spec, missing_evidence=missing)
+    try:
+        result = analyze_case(case)
+    except DraftError as exc:
+        raise ReviewError(str(exc)) from exc
+    if failed_rows:  # rows are checked here, not in the fixture engine; a failed row is a printed mismatch
+        result = replace(result, verdict="verified_mismatch", arithmetic_status="mismatch")
+
+    draft_text = result.draft.text
+    appended = None
+    if ai_suggestion and ai_suggestion.get("question") and result.verdict != "checks_passed":
+        appended = ai_suggestion["question"]
+        draft_text = f"{draft_text} {appended}"
+    known = set(amounts)
+    support = set(result.draft.supporting_line_ids)
+    if not support or not support <= known:
+        raise ReviewError("draft is not linked to confirmed lines; refusing to show it")
+
+    output = {
+        **_common(review, case, outcome, amounts, rows, matches, ambiguous, money, lines),
+        "status": "complete",
+        "verdict": result.verdict,
+        "arithmeticStatus": result.arithmetic_status,
+        "comparisonStatus": result.comparison_status,
+        "messageType": spec.template,
+        "messageTypeNote": note,
+        "missingEvidence": list(result.missing_evidence),
+        "gap": {
+            # Only outcome C (arithmetic fine, differs from the expectation) is sent for an AI explanation.
+            "needsExplanation": result.comparison_status == "unresolved" and result.arithmetic_status == "checks_passed",
+            "ambiguous": ambiguous,
+            "exactMatches": _match_list(matches, money, lines),
+        },
+        "questionedBy": questioned_by,
+        "aiAppendedQuestion": appended,
+        "draft": {
+            "text": draft_text,
+            "supportingLineIds": list(result.draft.supporting_line_ids),
+            "numericFacts": [
+                {**asdict(fact), "source_line_ids": list(fact.source_line_ids), "display": money(fact.amount_minor)}
+                for fact in result.draft.numeric_facts
+            ],
+        },
+    }
+    for line in output["lines"]:
+        line["inMessage"] = line["id"] in support
+    return output
+
+
+def _match_list(matches, money, lines) -> list[dict]:
+    return [
+        {
+            "kind": match.kind,
+            "amount": money(match.amount_minor),
+            "lineIds": list(match.line_ids),
+            "groupLabel": match.group_label,
+            "labels": [" ".join(lines[line_id].description.split()) for line_id in match.line_ids],
+        }
+        for match in matches
+    ]
+
+
+def _common(review, case, outcome, amounts, rows, matches, ambiguous, money, lines) -> dict:
+    precision_counts = {name: 0 for name in ("exact", "table", "page")}
+    for line in review.lines:
+        precision_counts[line.source.precision] += 1
+    calculations = {calculation.id: calculation for calculation in outcome.calculations}
+    return {
+        "schemaVersion": 2,
+        "currency": review.currency,
+        "amounts": {
+            "calculatedTotal": money(outcome.calculated_total_minor),
+            "printedTotal": money(case.displayed_total_minor),
+            "expected": money(case.expected_minor),
+            "difference": money(outcome.difference_minor),
+        },
+        "minor": {
+            "calculatedTotal": outcome.calculated_total_minor,
+            "printedTotal": case.displayed_total_minor,
+            "expected": case.expected_minor,
+            "difference": outcome.difference_minor,
+        },
+        "totalFormula": _display_formula(
+            tuple(amounts[line_id] for line_id in case.total_line_ids), outcome.calculated_total_minor, review.currency
+        ),
+        "groups": [
+            {
+                "label": calculation.label,
+                "lineIds": list(calculation.operand_line_ids),
+                "formula": _display_formula(calculation.operand_amounts_minor, calculation.result_minor, review.currency),
+                "printed": money(calculation.expected_minor),
+                "checked": calculation.matches is not None,
+                "matches": calculation.matches,
+            }
+            for calculation in calculations.values()
+        ],
+        "rowChecks": [
+            {
+                "lineId": row.line_id, "label": row.label, "what": row.what, "formula": row.formula,
+                "printed": money(row.printed_minor), "matches": row.matches,
+            }
+            for row in rows
+        ],
+        "lines": [
+            {
+                "id": line.id,
+                "role": line.role,
+                "group": line.group,
+                "description": " ".join(line.description.split()),
+                "amount": money(amounts[line.id]),
+                "amountMinor": amounts[line.id],
+                "extractor": line.extractor,
+                # None for manual entries: there was no machine reading to correct.
+                "corrected": None if line.extracted_raw_amount is None else line.extracted_raw_amount.strip() != line.raw_amount.strip(),
+                "source": {"page": line.source.page, "precision": line.source.precision, "locatedBy": line.source.located_by},
+                "rowDetail": next((row.formula for row in rows if row.line_id == line.id and row.what == "row_amount"), None),
+                "inMessage": False,
+            }
+            for line in lines.values()
+        ],
+        "sourcePrecision": precision_counts,
+    }
+
+
+def _needs_recheck(review, case, outcome, amounts, rows, matches, money, lines) -> dict:
+    """Outcome A: the confirmed figures do not add up. Point at the most likely reading mistakes."""
+    suspects: list[dict] = []
+    for row in rows:
+        if not row.matches:
+            what = "taxable value" if row.what == "taxable_value" else "row amount"
+            suspects.append({"lineIds": [row.line_id], "text":
+                f"{row.label}: the printed columns give {row.formula.rsplit(' = ', 1)[-1]} ({row.formula}), "
+                f"but the {what} reads {money(row.printed_minor)}. Check the price, discount, tax and amount on this row."})
+    for calculation in outcome.calculations:
+        if calculation.matches is False:
+            suspects.append({"lineIds": list(calculation.operand_line_ids), "text":
+                f"Group {calculation.label}: the lines add up to {money(calculation.result_minor)}, but its printed subtotal "
+                f"reads {money(calculation.expected_minor)}."})
+    row_discounts = {}
+    for line in review.lines:
+        if line.breakdown and line.breakdown.discount and line.breakdown.discount.strip():
+            row_discounts[abs(parse_confirmed_amount(line.breakdown.discount, decimal_separator=review.decimal_separator,
+                                                     currency=review.currency))] = line
+    for line in review.lines:
+        if line.role == "discount" and abs(amounts[line.id]) in row_discounts:
+            row = row_discounts[abs(amounts[line.id])]
+            suspects.append({"lineIds": [line.id, row.id], "text":
+                f"Discount {' '.join(line.description.split())} ({money(amounts[line.id])}) is the same as the discount "
+                f"already inside the row {' '.join(row.description.split())}. It is probably counted twice: untick it."})
+    for match in matches:
+        if match.kind == "equals_total_gap":
+            names = " + ".join(" ".join(lines[line_id].description.split()) for line_id in match.line_ids)
+            suspects.append({"lineIds": list(match.line_ids), "text":
+                f"{names} adds up to exactly the gap of {money(match.amount_minor)} between the confirmed lines and the "
+                "printed total. It may be counted twice, or already included in another line."})
+    if not suspects and case.displayed_total_minor is not None:
+        suspects.append({"lineIds": [], "text":
+            f"The confirmed lines add up to {money(outcome.calculated_total_minor)}, but the printed total reads "
+            f"{money(case.displayed_total_minor)}. Look for a missing line, a line counted twice, or a misread digit."})
+    return {
+        **_common(review, case, outcome, amounts, rows, matches, False, money, lines),
+        "status": "needs_recheck",
+        "verdict": None,
+        "arithmeticStatus": "mismatch",
+        "comparisonStatus": None,
+        "messageType": None,
+        "messageTypeNote": None,
+        "suspects": suspects,
+        "missingEvidence": [],
+        "gap": {"needsExplanation": False, "ambiguous": False, "exactMatches": _match_list(matches, money, lines)},
+        "questionedBy": None,
+        "aiAppendedQuestion": None,
+        "draft": None,
+    }

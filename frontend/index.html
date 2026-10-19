@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' blob: data:; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <title>BillShield local extraction check</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <header class="hero">
+      <p class="eyebrow">Stage 2 · local review tool</p>
+      <h1>Check what BillShield reads</h1>
+      <p class="lede">Choose local OCR or compare it with Groq vision. Local reading stays on your device. Groq receives only the image area you preview and explicitly send.</p>
+      <div class="privacy-strip" aria-label="Privacy summary">
+        <span>✓ Local PDF reading</span>
+        <span>✓ Local OCR files</span>
+        <span>Optional Groq · redacted crops only</span>
+        <span>✓ You confirm every line</span>
+        <span>✓ Python does every calculation</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel setup" aria-labelledby="setup-title">
+        <div>
+          <p class="step">1</p>
+          <h2 id="setup-title">Choose one participant’s masked bill</h2>
+          <p>Choose one PDF, or all image pages for one participant. For Participant A, select both images together.</p>
+        </div>
+        <div class="control-grid">
+          <label class="file-control">
+            <span>Masked PDF or image pages</span>
+            <input id="bill-files" type="file" accept="application/pdf,image/jpeg,image/png" multiple>
+          </label>
+          <label>
+            <span>Currency</span>
+            <select id="currency">
+              <option value="EUR">EUR · euro</option>
+              <option value="INR">INR · Indian rupee</option>
+            </select>
+          </label>
+          <label>
+            <span>Decimal mark on this bill</span>
+            <select id="decimal-separator">
+              <option value=".">Point · 1,299.00</option>
+              <option value=",">Comma · 1.299,00</option>
+            </select>
+          </label>
+          <label>
+            <span>Expected amount <small>(optional)</small></span>
+            <input id="expected-amount" inputmode="decimal" placeholder="For example 19.50">
+          </label>
+        </div>
+        <label id="access-box" class="access-box" hidden>
+          <span>Access code <small>(you received it with the test link)</small></span>
+          <input id="access-code" type="password" autocomplete="off">
+        </label>
+        <div class="actions">
+          <button id="open-vision" class="primary" type="button">Read with Groq (best for photos)</button>
+          <button id="process" class="secondary" type="button">Read bill locally (no upload)</button>
+          <button id="reset" class="secondary" type="button">Clear this review</button>
+        </div>
+        <div id="status" class="status" role="status" aria-live="polite">Ready. No file has been opened.</div>
+      </section>
+
+      <section id="review" class="review-layout" hidden>
+        <div class="panel document-panel">
+          <div class="section-heading">
+            <div>
+              <p class="step">2</p>
+              <h2>Inspect the source</h2>
+            </div>
+            <p><span class="key candidate-key"></span> Possible amount <span class="key confirmed-key"></span> Confirmed <span class="key table-key"></span> Table area (not exact)</p>
+          </div>
+          <div id="document-pages" class="document-pages"></div>
+        </div>
+
+        <div class="panel candidate-panel">
+          <div class="section-heading">
+            <div>
+              <p class="step">3</p>
+              <h2>Confirm only relevant lines</h2>
+            </div>
+            <span id="candidate-count" class="count"></span>
+          </div>
+          <div class="actions"><button id="confirm-all" class="primary" type="button">Confirm all ready lines</button></div>
+          <p class="hint">Check each amount against the visible page or table, then tick it. An exact box is optional. Give every line a role: only charges and discounts are added; subtotals and the grand total are checked against them, never added. Type discounts with a minus sign. Labels: short words only, no names, account details or amounts.</p>
+          <div id="candidate-list" class="candidate-list"></div>
+        </div>
+      </section>
+
+      <section id="payload-panel" class="panel payload-panel" hidden aria-labelledby="payload-title">
+        <div>
+          <p class="step">4</p>
+          <h2 id="payload-title">Inspect the safe structured data, then calculate</h2>
+          <p>The preview contains only the lines you confirmed: no file, image or OCR text. <strong>Calculate and explain</strong> sends exactly this preview to Python on this computer (127.0.0.1). Only if Python finds a difference are the confirmed labels and amounts, plus Python's results, sent to Groq (gpt-oss-20b) for a suggested explanation. No image or OCR text is sent.</p>
+        </div>
+        <div class="control-grid message-grid">
+          <label>
+            <span>Message type</span>
+            <select id="message-type">
+              <option value="automatic">Automatic (chosen by code from the result)</option>
+              <option value="quote_difference">Ask about the difference from my expected amount</option>
+              <option value="fee_disclosure">Ask where the questioned fees were disclosed</option>
+              <option value="period_clarification">Ask why an earlier period is on this bill</option>
+              <option value="checks_passed_summary">No-issue summary</option>
+            </select>
+          </label>
+          <label>
+            <span>Earlier period group <small>(only for earlier-period messages)</small></span>
+            <input id="earlier-period-group" placeholder="For example: 6-31 August">
+          </label>
+        </div>
+        <div class="actions">
+          <button id="preview-payload" class="secondary" type="button">Build safe preview</button>
+          <button id="analyze" class="primary" type="button" disabled>Calculate and explain</button>
+          <button id="download-payload" class="secondary" type="button" disabled>Download JSON</button>
+        </div>
+        <p id="payload-error" class="error" role="alert"></p>
+        <pre id="payload-output" tabindex="0">Confirm the relevant lines, then build the preview.</pre>
+        <div class="checkpoint">
+          <strong>This page does not decide whether a charge is wrong.</strong>
+          <span>Python does every calculation and comparison after you have checked these lines.</span>
+        </div>
+      </section>
+
+      <section id="result-panel" class="panel result-panel" hidden aria-labelledby="result-title">
+        <div>
+          <p class="step">5</p>
+          <h2 id="result-title">Result and message</h2>
+        </div>
+        <div id="result-summary"></div>
+        <div id="recheck-box" class="recheck-box" hidden>
+          <h3>Check these lines first</h3>
+          <ul id="result-suspects"></ul>
+          <p class="hint">Fix the marked cards on the right (or untick a line that is counted twice), then build the preview and calculate again. If you compared every number with the bill and it really is printed like this, you can still get a careful message:</p>
+          <button id="recheck-confirm" class="secondary" type="button">I re-checked: the bill really shows these numbers</button>
+        </div>
+        <div class="result-grid">
+          <div>
+            <h3>Why is there a difference?</h3>
+            <div id="result-gap" class="result-gap"></div>
+            <h3>What Python checked</h3>
+            <ul id="result-checks"></ul>
+            <h3>Confirmed lines <small>(★ = used in the message)</small></h3>
+            <ul id="result-lines"></ul>
+            <h3>Still unknown</h3>
+            <ul id="result-missing"></ul>
+          </div>
+          <div id="draft-box" class="draft-box">
+            <label for="draft-text">Message draft <small>(edit freely before copying)</small></label>
+            <textarea id="draft-text" rows="9"></textarea>
+            <p id="draft-note" class="hint"></p>
+            <div class="actions">
+              <button id="copy-draft" class="primary" type="button">Copy message</button>
+            </div>
+            <p class="hint">Every number in this draft comes from Python's checked result. If you edit a number, it is no longer checked. BillShield never contacts the provider or sends anything.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="groq-dialog">
+      <h2>Check the area before sending</h2>
+      <p>This exact image goes to Groq’s Qwen model. Include charge labels and prices. Exclude names, phone/account numbers and other personal details.</p>
+      <img id="groq-crop-preview" alt="Selected area to send to Groq">
+      <p>Model responses are cached privately on this computer to avoid repeat requests. Every amount still needs your confirmation.</p>
+      <label class="confirm-control"><input id="groq-redacted" type="checkbox">I checked this image and it contains no personal identifiers.</label>
+      <div class="actions"><button id="groq-send" class="primary" disabled>Send this area to Groq</button><button id="groq-cancel" class="secondary">Cancel</button></div>
+    </dialog>
+
+    <script type="module" src="./review-app.mjs"></script>
+  </body>
+</html>

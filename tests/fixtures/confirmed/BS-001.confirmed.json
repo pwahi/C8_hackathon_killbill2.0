@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "currency": "EUR",
+  "decimalSeparator": ",",
+  "expectedAmount": "19,50",
+  "messageType": "automatic",
+  "earlierPeriodGroup": "6-31 August",
+  "lines": [
+    {
+      "id": "aug_subscription",
+      "role": "charge",
+      "group": "6-31 August",
+      "description": "6-31 August subscription",
+      "rawAmount": "20,54",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 2,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "aug_discount_1",
+      "role": "discount",
+      "group": "6-31 August",
+      "description": "August discount 1",
+      "rawAmount": "-4,19",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 2,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "aug_discount_2",
+      "role": "discount",
+      "group": "6-31 August",
+      "description": "August discount 2",
+      "rawAmount": "-2,10",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 2,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "sep_subscription",
+      "role": "charge",
+      "group": "September",
+      "description": "September subscription",
+      "rawAmount": "24,50",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 2,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "sep_discount_1",
+      "role": "discount",
+      "group": "September",
+      "description": "September discount 1",
+      "rawAmount": "-5,00",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 2,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "sep_discount_2",
+      "role": "discount",
+      "group": "September",
+      "description": "September discount 2",
+      "rawAmount": "-2,50",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 2,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "sep_calling",
+      "role": "charge",
+      "group": "September",
+      "description": "September unlimited calling option",
+      "rawAmount": "2,50",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 2,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "invoice_total",
+      "role": "total",
+      "group": null,
+      "description": "Invoice total",
+      "rawAmount": "33,75",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "EUR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    }
+  ],
+  "printedFiguresRechecked": false
+}

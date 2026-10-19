@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "case_id": "BS-004",
+  "provider": "IndiGo",
+  "document_kind": "payment_breakdown",
+  "currency": "INR",
+  "displayed_total_minor": 2243400,
+  "expected_minor": 1943400,
+  "expectation_source": "user-reported original quote; quote breakdown not supplied",
+  "comparison_evidence_verified": false,
+  "lines": [
+    {"id": "airfare", "label": "airfare charge", "amount_minor": 1580000, "source_ref": "image-1:airfare"},
+    {"id": "convenience", "label": "convenience fee", "amount_minor": 65000, "source_ref": "image-1:convenience"},
+    {"id": "fuel", "label": "fuel charge", "amount_minor": 180000, "source_ref": "image-1:fuel"},
+    {"id": "security", "label": "aviation security fee", "amount_minor": 47200, "source_ref": "image-1:security"},
+    {"id": "udf", "label": "User Development Fee", "amount_minor": 231200, "source_ref": "image-1:udf"},
+    {"id": "arrival_udf", "label": "Arrival User Development Fee", "amount_minor": 52000, "source_ref": "image-1:arrival-udf"},
+    {"id": "gst", "label": "GST", "amount_minor": 88000, "source_ref": "image-1:gst"}
+  ],
+  "total_line_ids": ["airfare", "convenience", "fuel", "security", "udf", "arrival_udf", "gst"],
+  "reconciliations": [
+    {"id": "development_fees", "label": "development fees", "line_ids": ["udf", "arrival_udf"], "expected_minor": 283200}
+  ],
+  "missing_evidence": ["itemized original quote", "journey-specific fee applicability evidence", "actual send proof"],
+  "draft": {"template": "quote_difference", "bindings": {"questioned_line_ids": ["udf", "arrival_udf"]}}
+}

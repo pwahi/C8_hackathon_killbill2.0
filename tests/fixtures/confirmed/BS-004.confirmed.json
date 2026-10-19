@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "currency": "INR",
+  "decimalSeparator": ".",
+  "expectedAmount": "19434",
+  "messageType": "automatic",
+  "earlierPeriodGroup": null,
+  "lines": [
+    {
+      "id": "airfare",
+      "role": "charge",
+      "group": null,
+      "description": "airfare charge",
+      "rawAmount": "₹15,800",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "convenience",
+      "role": "charge",
+      "group": null,
+      "description": "convenience fee",
+      "rawAmount": "₹650",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "fuel",
+      "role": "charge",
+      "group": null,
+      "description": "fuel charge",
+      "rawAmount": "₹1,800",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "security",
+      "role": "charge",
+      "group": null,
+      "description": "aviation security fee",
+      "rawAmount": "₹472",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "udf",
+      "role": "charge",
+      "group": null,
+      "description": "User Development Fee",
+      "rawAmount": "₹2,312",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": true,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "arrival_udf",
+      "role": "charge",
+      "group": null,
+      "description": "Arrival User Development Fee",
+      "rawAmount": "₹520",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": true,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "gst",
+      "role": "charge",
+      "group": null,
+      "description": "GST",
+      "rawAmount": "₹880",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    },
+    {
+      "id": "total_paid",
+      "role": "total",
+      "group": null,
+      "description": "Total amount paid",
+      "rawAmount": "₹22,434",
+      "extractedRawAmount": null,
+      "extractor": "manual",
+      "questioned": false,
+      "currency": "INR",
+      "source": {
+        "page": 1,
+        "precision": "page"
+      }
+    }
+  ],
+  "printedFiguresRechecked": false
+}
