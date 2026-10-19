@@ -1180,7 +1180,7 @@ function candidateCard(candidate) {
   }
   const editor = document.createElement("details");
   editor.className = "line-editor";
-  editor.open = Boolean(candidate.attention || !candidate.role || !candidate.rawAmount || !candidate.description);
+  editor.open = Boolean(candidate.attention || (!reviewState.tree && (!candidate.role || !candidate.rawAmount || !candidate.description)));
   const overview = document.createElement("summary");
   overview.className = "line-overview";
   overview.innerHTML = '<span class="line-name"></span><span class="line-kind"></span><span class="line-amount"></span>';
@@ -1367,6 +1367,10 @@ function refreshPrintedCheck() {
   allLines.disabled = selection.disabled;
   document.querySelector("#accept-all-hint").textContent = `${selection.selected} of ${selection.ready} ready lines accepted.${selection.blocked ? ` ${selection.blocked} line${selection.blocked === 1 ? " needs" : "s need"} details or a decision and will stay unticked.` : ""} This confirms what was read—not whether the bill adds up.${reviewState.candidates.some(line => line.role === "subtotal") ? " Section links are confirmed separately below." : ""}`;
   const state = printedCheckPresence(reviewState.candidates);
+  const verified = Boolean(reviewState.tree?.length) && reviewState.tree.every(invoice => invoice.matches === true);
+  document.querySelector(".all-lines-control").hidden = verified;
+  document.querySelector("#printed-check-message").hidden = verified && state !== "missing" && state !== "needs_details";
+  document.querySelector("#add-printed-total").hidden = document.querySelector("#printed-check-message").hidden;
   const text = {
     missing: "No printed total or subtotal captured yet. Add the final total exactly as printed on your bill so we can check the sum.",
     needs_details: "A printed total/subtotal line is incomplete. Fill its amount and label; a subtotal also needs the section it covers.",
@@ -1427,6 +1431,7 @@ function refreshPrintedCheck() {
     section.append(title, context, details, note, yes, change);
     return section;
   }));
+  document.querySelector(".printed-check-prompt").hidden = document.querySelector("#printed-check-message").hidden && !document.querySelector("#section-links").children.length;
 }
 
 function openManualLine(role = "charge") {
@@ -1859,8 +1864,8 @@ function recommendExtractor() {
   elements.process.className = photos ? "secondary" : "primary";
   if (files.length) {
     setStatus(photos
-      ? "Photos selected. Recommended: Read with the AI reader. You will draw a box around the charge table and check it before anything is sent."
-      : "PDF selected. Recommended: Read bill locally. Nothing is uploaded.");
+      ? "Photos selected. Next: enter what you expected to pay, then press Read my bill."
+      : "PDF selected. Next: enter what you expected to pay, then press Read my bill.");
   }
 }
 
@@ -1974,7 +1979,7 @@ document.querySelector("#open-vision").addEventListener("click", async () => {
     } else { await renderImages(files); }
     showCandidates([], kind === "pdf" ? "pdf_text" : "local_ocr");
     flow.reading("select", 1);
-    setStatus("Choose a page, then Select area to read. You will check the picture before anything is sent.");
+    setStatus("Your bill is open. Press Read the whole bill. Untick any page you don't want to send.");
   } catch (error) { resetReview({ keepFiles: true }); setStatus(error.message, "failure"); }
   finally { button.disabled = false; }
 });

@@ -166,13 +166,13 @@ body[data-ui-step='0'] #status:not(.busy):not(.failure) { display: none; }
 .draft-box { gap: 16px; min-width: 0; }
 .draft-box label { font-size: 13px; font-weight: 400; color: var(--muted); }
 #draft-text { height: 240px; min-height: 220px; background: #fff; border-color: #c8ccc4; font-size: 16px; padding: 18px; line-height: 1.6; }
-#copy-draft { background: #fff !important; color: #111 !important; border: 1px solid #111; }
+#copy-draft { background: var(--accent) !important; color: #111 !important; border: 0; min-height: 52px; padding: 0 28px; font-weight: 600; }
 .sent-panel { padding: 24px; margin-top: 0; }
 .sent-panel > p { font-size: 14px; color: var(--muted); line-height: 1.5; }
 .sent-box { border: 0; padding: 0; margin: 22px 0; gap: 14px; }
 .sent-box textarea { height: 90px; }
 .sent-box .actions, #mark-sent { width: 100%; }
-#mark-sent { background: var(--accent) !important; border: 0; min-height: 52px; }
+#mark-sent { background: #fff !important; color: #111 !important; border: 1px solid #111; min-height: 48px; }
 .flow-actions { max-width: none; margin-top: 26px; }
 body[data-ui-step='3'] .flow-actions { max-width: 55%; }
 dialog { width: 390px; max-width: calc(100vw - 32px); padding: 24px; border-radius: 6px; }
@@ -333,3 +333,31 @@ dialog.saved-dialog { width: min(860px, calc(100vw - 32px)); max-height: 88vh; o
   .saved-lines th:nth-child(3), .saved-lines td:nth-child(3) { display: none; }  /* page column */
   .saved-lines td { padding: 8px 4px; }
 }
+
+/* ---- Stranger-test clarity pass (2026-10-19): where am I, what now, why use this ---- */
+/* Step counter with a progress bar on every chapter. */
+.step-progress { width: 180px; height: 4px; background: #E3E1DA; border-radius: 2px; margin: 8px 0 4px; overflow: hidden; }
+.step-progress span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
+.step-progress.first-step span { width: 20%; }
+h1[tabindex="-1"]:focus { outline: none; }
+#chapter-description { font-size: 16px; color: #202124; max-width: 680px; line-height: 1.5; }
+
+/* Chapter 1: why use this, in one sentence, and how it works in three steps. */
+.flow-heading .purpose { font-size: 18px; line-height: 1.55; color: #202124; max-width: 640px; }
+.how-it-works { list-style: none; counter-reset: how; display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 6px 0 0; padding: 0; font-size: 14px; color: #3c4043; }
+.how-it-works li { counter-increment: how; display: flex; align-items: center; gap: 8px; }
+.how-it-works li::before { content: counter(how); display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #111; font-size: 12px; font-weight: 700; }
+
+/* Read: one main action. Area drawing is under "Other ways to read" and only then shown on the page. */
+.read-instructions h2 { margin: 0; font-size: 22px; }
+.read-instructions .read-lead { margin: 0; }
+.other-ways { border-top: 1px solid #E3E1DA; padding-top: 14px; }
+.other-ways > summary { cursor: pointer; font-size: 14px; color: #3c4043; }
+.other-ways[open] { display: grid; gap: 12px; }
+.other-ways > p { margin: 8px 0 0; font-size: 14px; }
+body[data-ui-step='1']:not(.area-mode) .page-read-toolbar,
+body[data-ui-step='1']:not(.area-mode) .page-options { display: none !important; }
+
+/* Your message: what to do with it, in four short steps. */
+.send-guide { margin: 0 0 18px; padding: 14px 16px 14px 36px; background: #FFF8D6; border-radius: 6px; font-size: 14px; line-height: 1.7; color: #202124; }
+.send-guide li::marker { font-weight: 700; }

@@ -1,6 +1,17 @@
 import { readingProgress, readingInstruction } from "./read-flow.mjs";
 export const STEPS = ["Your bill", "Read", "Check the lines", "What we found", "Your message"];
 
+// Stranger test 2026-10-19: people looked for a progress bar and were unsure what to do next. Every chapter says
+// where you are and what to do now, in one sentence.
+export const STEP_GUIDANCE = [
+  "Upload your bill and tell us what you expected to pay.",
+  "Press Read the whole bill. The AI reads every price; untick pages you don't want to send.",
+  "Compare these lines with your bill. ✓ means Python checked the sums. Click a line to fix it, then press Looks right — check it.",
+  "Here is what Python found. Next: write the message to the company.",
+  "Copy this message and send it to the company yourself. Then come back and press I sent it.",
+];
+export const stepLabel = (index) => `STEP ${index + 1} OF ${STEPS.length}`;
+
 // Presence only: Python still parses money and owns every comparison.
 export function requireExpectedAmount(value) {
   const amount = value == null ? "" : String(value).trim();
@@ -36,11 +47,15 @@ export function createFlow() {
   settings.append(controls, $("#access-box"), $(".privacy-note"), $(".setup .actions"));
   $(".setup").replaceChildren(intro, settings);
 
-  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">READ YOUR BILL</p><h2>One step at a time</h2><ol id="reading-steps" class="reading-steps" aria-label="Reading steps"></ol><p id="reading-guidance" role="status" aria-live="polite"></p><details class="reading-privacy"><summary>What leaves my device?</summary><p>Only the area you preview and approve passes through our server to <span class="vision-name">Groq</span>, our AI reader. Exclude names and personal details. The app does not save this as an image.</p></details>');
+  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">READ YOUR BILL</p><h2>Let the AI read your bill</h2><p class="read-lead">It finds every price and groups them the way your bill does. Python then checks every sum. About 20 seconds per page.</p>');
   // Owner decision 2026-10-19: reading every page is the main route; drawing an area stays the fallback.
   const whole = make("button", "primary", "Read the whole bill");
   whole.id = "read-whole-bill";
-  const wholeHint = make("p", "hint", "Every page is read by the AI reader, then Python checks every section. Or select an area on a page below.");
+  const wholeHint = make("p", "hint", "The pages you tick go to our AI reader (<span class=\"vision-name\">Groq</span>). Your bill image is never saved.");
+  // Other ways to read (draw an area, read on this device) stay available but out of the way; opening them shows
+  // the area tools on the page and the step-by-step guide for drawing.
+  const otherWays = make("details", "other-ways", '<summary>Other ways to read</summary><p>Select an area: draw a box around the prices on a page and check the picture before it is sent.</p><ol id="reading-steps" class="reading-steps" aria-label="Reading steps"></ol><p id="reading-guidance" role="status" aria-live="polite"></p><details class="reading-privacy"><summary>What leaves my device?</summary><p>Only the area you preview and approve passes through our server to <span class="vision-name">Groq</span>, our AI reader. Exclude names and personal details. The app does not save this as an image.</p></details>');
+  otherWays.addEventListener("toggle", () => document.body.classList.toggle("area-mode", otherWays.open));
   // Filled by review-app.mjs when the bill has more than one page: untick a page to keep it on this device.
   const pageChoice = make("fieldset", "page-choice", "<legend>Pages to send</legend><div id=\"page-choice-boxes\"></div>");
   pageChoice.id = "page-choice";
@@ -55,7 +70,8 @@ export function createFlow() {
   toCheck.id = "review-read-lines";
   toCheck.disabled = true;
   toCheck.addEventListener("click", () => go(2));
-  readAside.append(whole, wholeHint, locally, toCheck);
+  otherWays.append(locally);
+  readAside.append(pageChoice, whole, toCheck, wholeHint, otherWays);
   $("#review").append(readAside);
   let readingStage = "choose", readingPage = 1, readingCount = 0;
   function paintReading() {
@@ -70,10 +86,11 @@ export function createFlow() {
     $("#reading-guidance").textContent = readingInstruction(readingStage, readingPage);
     toCheck.textContent = readingCount ? `Review ${readingCount} line${readingCount === 1 ? "" : "s"} →` : "Review lines →";
     toCheck.disabled = !readingCount || readingStage === "reading";
+    toCheck.hidden = !readingCount;  // appears once there are lines, so Read has one main button
   }
   paintReading();
 
-  const heading = make("div", "chapter-heading", '<p class="eyebrow" id="chapter-number"></p><h1 id="chapter-title" tabindex="-1"></h1><p id="chapter-description"></p>');
+  const heading = make("div", "chapter-heading", '<p class="eyebrow" id="chapter-number"></p><div class="step-progress" aria-hidden="true"><span id="step-progress-bar"></span></div><h1 id="chapter-title" tabindex="-1"></h1><p id="chapter-description"></p>');
   $("main").insertBefore(heading, $("#review"));
   const advanced = make("details", "advanced-review", "<summary>Message options &amp; data preview</summary>");
   advanced.append($(".message-grid"), $("#preview-payload").parentElement, $("#payload-output"), $(".checkpoint"));
@@ -106,11 +123,15 @@ export function createFlow() {
   const draftPanel = make("section", "message-layout");
   draftPanel.dataset.flowPanel = "4";
   const draft = $("#draft-box");
-  const sent = make("aside", "panel sent-panel", '<h2>Sent it?</h2><p id="finish-state">BillShield never sends anything. You choose where and when to send.</p>');
+  const sent = make("aside", "panel sent-panel", '<h2>After you send it</h2><p id="finish-state">BillShield never sends anything. You choose where and when to send.</p>');
   sent.append(draft.querySelector(".sent-box"));
   const again = make("button", "text-button", "Check another bill");
   again.addEventListener("click", () => $("#reset").click());
   sent.append(again);
+  // Message chapter: say plainly what the message is for and how to send it (stranger test, step 5).
+  const sendGuide = make("ol", "send-guide", "<li>Pick a tone and edit the text if you like.</li><li>Press <strong>Copy message</strong>.</li><li>Paste it into an e-mail, chat or contact form to the company that sent the bill.</li><li>Come back and press <strong>I sent it</strong>, so we know it helped.</li>");
+  sendGuide.setAttribute("aria-label", "How to send it");
+  draft.querySelector(".tone-picker").before(sendGuide);
   draftPanel.append(draft, sent);
   $("#result-panel").replaceChildren(resultBody, math);
   $("main").append(draftPanel);
@@ -128,13 +149,13 @@ export function createFlow() {
     $("#flow-nav").append(button);
     return button;
   });
-  const descriptions = ["", "Choose a page and follow the steps.", "Do these match your bill? Open a line to change it.", "", "Review the message before you copy or send it."];
   function paint() {
     document.body.dataset.uiStep = String(current);
     heading.hidden = current === 0;
-    $("#chapter-number").textContent = `CHAPTER ${current + 1}`;
+    $("#chapter-number").textContent = stepLabel(current);
+    $("#step-progress-bar").style.width = `${((current + 1) / STEPS.length) * 100}%`;
     $("#chapter-title").textContent = STEPS[current].toUpperCase();
-    $("#chapter-description").textContent = descriptions[current];
+    $("#chapter-description").textContent = STEP_GUIDANCE[current];
     if (current === 2) $(".candidate-panel").prepend(heading);
     else if (current === 3) resultBody.prepend(heading);
     else if (current === 4) draft.prepend(heading);

@@ -30,3 +30,12 @@ test("results and message cannot be opened before a completed check", () => {
 test("invalid navigation is rejected", () => {
   for (const step of [-1, 5, 2.5]) assert.equal(canVisit(step, { opened: true, complete: true }), false);
 });
+
+import { STEPS, STEP_GUIDANCE, stepLabel } from "../ui-flow.mjs";
+
+test("every chapter says where you are and what to do now", () => {
+  assert.equal(STEP_GUIDANCE.length, STEPS.length);
+  assert.equal(stepLabel(1), "STEP 2 OF 5");
+  assert.match(STEP_GUIDANCE[1], /Read the whole bill/);
+  assert.match(STEP_GUIDANCE[4], /send it to the company yourself/);
+});

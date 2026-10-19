@@ -215,7 +215,7 @@ After each stage the developer gives the owner changed files, exact run steps, t
 
 Deadline Tue 2026-10-20 22:17 Europe/Amsterdam. Keep time for the known-user test and the submission; reduce scope, not tests.
 
-**Next 1 — UI clarity (from E-210).** One-line purpose at the top of Chapter 1; one clearly marked next action per screen; fewer simultaneous elements (fold away reading options and advanced controls); update the outdated "Nothing is uploaded" status text. *Acceptance:* a new person reaches the message without asking what to do next.
+**Next 1 — UI clarity (from E-210) — implemented locally (D-050), retest with a new person pending.** One-line purpose at the top of Chapter 1; one clearly marked next action per screen; fewer simultaneous elements (fold away reading options and advanced controls); update the outdated "Nothing is uploaded" status text. *Acceptance:* a new person reaches the message without asking what to do next.
 
 **Next 2 — Hosted regression with Haiku.** A–D masked bills on the main link; record misses/corrections; time the slowest page against Vercel's 60 s limit.
 

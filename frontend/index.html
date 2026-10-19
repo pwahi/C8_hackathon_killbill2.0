@@ -16,7 +16,7 @@
 
     <main>
       <nav id="flow-nav" class="flow-nav" aria-label="Review progress"></nav>
-      <div class="flow-heading"><p id="flow-kicker" class="eyebrow">CHAPTER 1</p><h1 id="flow-title" tabindex="-1">YOUR BILL</h1><span class="title-cut" aria-hidden="true"></span><p id="flow-description">Add the bill you want to check and what you expected to pay. We check the confirmed lines and help you write one clear message.</p></div>
+      <div class="flow-heading"><p id="flow-kicker" class="eyebrow">STEP 1 OF 5</p><div class="step-progress first-step" aria-hidden="true"><span></span></div><h1 id="flow-title" tabindex="-1">YOUR BILL</h1><span class="title-cut" aria-hidden="true"></span><p id="flow-description" class="purpose">Paid more than you expected? BillShield checks every line of your bill, shows exactly where the difference comes from, and writes a polite message you can send to the company.</p><ol class="how-it-works" aria-label="How it works"><li><strong>Upload</strong> your bill and what you expected to pay</li><li><strong>Check</strong> the lines the AI read, while Python checks the sums</li><li><strong>Send</strong> the ready-made message yourself</li></ol></div>
       <section class="panel setup" aria-labelledby="setup-title">
         <div>
           <p class="step">1</p>
@@ -62,7 +62,7 @@
           <button id="process" class="secondary" type="button">Read on this device</button></div></details>
           <button id="reset" class="secondary" type="button">Clear this review</button>
         </div>
-        <p class="privacy-note">PDF text can be read on your device. For photos, you choose and approve a redacted charge area before it goes to <span class="vision-name">Groq</span>.</p>
+        <p class="privacy-note">When you read your bill, the pages you choose go to our AI reader (<span class="vision-name">Groq</span>). We save only the checked lines and your message, never the bill image.</p>
         <div id="status" class="status" role="status" aria-live="polite">Ready. No file has been opened.</div>
       </section>
 

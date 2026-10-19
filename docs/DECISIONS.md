@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-050 — UI clarity pass from the stranger test
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Decision (owner: "lets fix the UI"):** each finding in E-210 gets one change. Purpose line and "how it works" in three steps on Chapter 1. "STEP N OF 5" with a progress bar and a one-sentence "what to do now" on every chapter. Read has one main button (Read the whole bill); area drawing, its step list and reading on the device move under "Other ways to read", and the page's area tools only appear when that is opened; "Review lines" appears once there are lines. In Check the lines, lines the reader saw without a type are folded into "Also on the bill — not counted"; their forms no longer open by themselves; when Python verified every total, the ready-lines checkbox and the printed-total reminder are hidden (Looks right — check it still confirms the ready lines). Your message gets a four-step "how to send it" guide; Copy message is the main button and I sent it is secondary. Outdated status texts ("Nothing is uploaded", "Select area to read") replaced. Supersedes D-041's visible five-step reading guide as the default and D-042's always-visible checkbox when the structure is verified.
+
+**Verification:** 218 Python / 94 browser-module tests; headless Edge walk through all five chapters on masked bill B at 1280 px and 390 px (cached AI answers). Not yet retested with a new person.
+
 ## D-049 — Reopen saved checks; keep the browser's pass; stranger test recorded
 
 Date: 2026-10-19. Status: Implemented, pushed (490b2fc, 431a7c9) and served on Vercel; owner verified on the main link.

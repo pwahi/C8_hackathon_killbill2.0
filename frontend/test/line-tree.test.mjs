@@ -53,3 +53,13 @@ test("a total that adds up while a section inside does not is not called 'change
   const lines = LINES.map((line) => ({ ...line, structureVerified: false }));
   assert.equal(lineTreeRows(lines, tree)[0].status, "inner");
 });
+
+test("lines the reader saw without a type are folded away as 'not counted'; the person's own lines stay visible", () => {
+  const lines = [...LINES, c("vat", { role: "", structureVerified: false })];
+  const closed = lineTreeRows(lines, TREE);
+  const group = closed.find((row) => row.id === "info");
+  assert.deepEqual([group.count, group.collapsed], [1, true]);
+  assert.equal(closed.some((row) => row.id === "whole-vat"), false);
+  assert.ok(closed.some((row) => row.id === "manual-1"));
+  assert.ok(lineTreeRows(lines, TREE, new Map([["info", false]])).some((row) => row.id === "whole-vat"));
+});

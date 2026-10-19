@@ -58,6 +58,14 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
       count: referenceLines.length, collapsed });
     referenceLines.forEach((candidate) => { placed.add(candidate.id); if (!collapsed) rows.push({ type: "line", id: candidate.id, depth: 1, breakdown: true }); });
   }
+  // Lines the reader saw but that have no type yet (e.g. "VAT 21% (information)") are not counted: folded away so
+  // the person checks what is paid first. Lines the person added stay visible below.
+  const info = candidates.filter((candidate) => !placed.has(candidate.id) && candidate.gid && !candidate.role);
+  if (info.length) {
+    const collapsed = toggles.has("info") ? toggles.get("info") : true;
+    rows.push({ type: "group", id: "info", depth: 0, label: "Also on the bill — not counted", count: info.length, collapsed });
+    info.forEach((candidate) => { placed.add(candidate.id); if (!collapsed) rows.push({ type: "line", id: candidate.id, depth: 1, breakdown: true }); });
+  }
   const others = candidates.filter((candidate) => !placed.has(candidate.id));
   if (others.length) {
     rows.push({ type: "group", id: "other", depth: 0, label: "Other lines", count: others.length, collapsed: false });
