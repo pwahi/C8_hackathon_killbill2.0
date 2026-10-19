@@ -39,6 +39,10 @@ const elements = {
   draftNote: document.querySelector("#draft-note"),
   resultGap: document.querySelector("#result-gap"),
   copyDraft: document.querySelector("#copy-draft"),
+  saveNote: document.querySelector("#save-note"),
+  sentText: document.querySelector("#sent-text"),
+  markSent: document.querySelector("#mark-sent"),
+  sentNote: document.querySelector("#sent-note"),
   draftBox: document.querySelector("#draft-box"),
   recheckBox: document.querySelector("#recheck-box"),
   resultSuspects: document.querySelector("#result-suspects"),
@@ -174,8 +178,53 @@ groqSend.addEventListener("click", async () => {
 });
 
 // The access code is kept only for this browser tab (sessionStorage); it protects the server's Groq key.
+let session = null;          // { accessToken, refreshToken, expiresAt } for this browser's anonymous identity
+let savingAvailable = true;  // false when the server has no database configured
+let savedMessageId = null;
+
 function apiHeaders(purpose) {
-  return { "Content-Type": "application/json", "X-BillShield-Review": purpose, "X-BillShield-Access": elements.accessCode.value.trim() };
+  const headers = { "Content-Type": "application/json", "X-BillShield-Review": purpose, "X-BillShield-Access": elements.accessCode.value.trim() };
+  if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+  return headers;
+}
+
+// Anonymous identity so saved reviews stay private to this browser. Saving is optional: failures never block a review.
+async function ensureSession() {
+  if (!savingAvailable) return;
+  if (!session) {
+    try { session = JSON.parse(localStorage.getItem("billshield-session") || "null"); } catch { session = null; }
+  }
+  if (session && session.expiresAt > Date.now() + 60_000) return;
+  try {
+    const response = await fetch("/api/session", { method: "POST", headers: apiHeaders("session"), body: JSON.stringify(session?.refreshToken ? { refreshToken: session.refreshToken } : {}) });
+    if (response.status === 503) { savingAvailable = false; session = null; return; }
+    const answer = await response.json();
+    if (!response.ok) throw new Error(answer.error || "session failed");
+    session = { accessToken: answer.accessToken, refreshToken: answer.refreshToken, expiresAt: Date.now() + (answer.expiresIn || 3600) * 1000 };
+  } catch {
+    session = null;  // a stale refresh token or network problem: continue without saving
+  }
+  try { localStorage.setItem("billshield-session", JSON.stringify(session)); } catch { /* storage unavailable */ }
+}
+
+function showSaved(output) {
+  savedMessageId = output.saved?.messageId || null;
+  elements.sentNote.textContent = "";
+  elements.markSent.disabled = !savedMessageId;
+  if (savedMessageId) elements.saveNote.textContent = "✓ Saved to your private history (this browser only): the checked lines, the result and this draft. No bill image or OCR text is stored.";
+  else if (output.saveError) elements.saveNote.textContent = output.saveError;
+  else elements.saveNote.textContent = savingAvailable ? "" : "Saving is not switched on for this server.";
+}
+
+async function recordEvent(action, finalText = null) {
+  if (!savedMessageId) return null;
+  await ensureSession();
+  const response = await fetch(`/api/messages/${encodeURIComponent(savedMessageId)}/events`, {
+    method: "POST", headers: apiHeaders("message-event"), body: JSON.stringify({ action, finalText }),
+  });
+  const answer = await response.json();
+  if (!response.ok) throw new Error(answer.error || "Could not record this.");
+  return answer;
 }
 
 async function showAccessBoxIfNeeded() {
@@ -196,6 +245,8 @@ function clearObjectUrls() {
 }
 
 function hideResult() {
+  savedMessageId = null;
+  if (elements.saveNote) { elements.saveNote.textContent = ""; elements.sentNote.textContent = ""; elements.sentText.value = ""; elements.markSent.disabled = true; }
   elements.resultPanel.hidden = true;
   elements.draftText.value = "";
   elements.draftNote.textContent = "";
@@ -872,7 +923,8 @@ async function analyzeReview() {
   const payload = reviewState.payload;
   elements.analyze.disabled = true;
   elements.payloadError.textContent = "";
-  setStatus("Python is calculating on this computer…", "busy");
+  setStatus("Python is checking the confirmed lines…", "busy");
+  await ensureSession();
   try {
     const response = await fetch("/api/analyze", {
       method: "POST",
@@ -889,6 +941,7 @@ async function analyzeReview() {
     }
     if (!output.result.gap.needsExplanation) {
       renderResult(output.result);
+      showSaved(output);
       setStatus("Python finished: no difference to explain. Read the checks, then edit the message if needed. Nothing has been sent.");
       return;
     }
@@ -951,6 +1004,7 @@ async function explainDifference(payload, generation) {
     const output = await response.json();
     if (generation !== reviewGeneration || payload !== reviewState.payload) return;
     if (!response.ok || output.error) throw new Error(output.error || "Explanation request failed");
+    showSaved(output);
     if (output.explanation) {
       renderResult(output.result, { state: "done", explanation: output.explanation });
       setStatus("Done. Python checked the numbers and the AI suggested likely causes. Check the message, edit it if needed, then copy it. Nothing has been sent.");
@@ -969,6 +1023,20 @@ elements.recheckConfirm.addEventListener("click", async () => {
   // The person states they compared the figures with the bill; any later edit clears this again.
   reviewState.rechecked = true;
   if (previewPayload()) await analyzeReview();
+});
+
+elements.markSent.addEventListener("click", async () => {
+  elements.markSent.disabled = true;
+  try {
+    const answer = await recordEvent("sent", elements.sentText.value.trim() || null);
+    elements.sentNote.textContent = answer.wordsChanged == null
+      ? "Recorded as sent. Paste the exact text you sent to also count the changed words."
+      : `Recorded as sent: ${answer.wordsChanged} word${answer.wordsChanged === 1 ? "" : "s"} changed compared with the draft (goal: fewer than 20). Long numbers and e-mail addresses were removed before saving.`;
+  } catch (error) {
+    elements.sentNote.textContent = error.message;
+  } finally {
+    elements.markSent.disabled = !savedMessageId;
+  }
 });
 
 elements.process.addEventListener("click", processSelection);
@@ -1004,6 +1072,7 @@ elements.copyDraft.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(elements.draftText.value);
     setStatus("Message copied to your clipboard. BillShield has not sent anything; sending is up to you.");
+    recordEvent("copied").catch(() => {});
   } catch {
     elements.draftText.select();
     setStatus("Copy was blocked by the browser. The message is selected; press Ctrl+C.", "failure");

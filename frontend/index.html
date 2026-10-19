@@ -156,6 +156,13 @@
             <div class="actions">
               <button id="copy-draft" class="primary" type="button">Copy message</button>
             </div>
+            <p id="save-note" class="hint"></p>
+            <div class="sent-box">
+              <label for="sent-text">Did you send it? Paste the exact text you sent <small>(optional, used only to count changed words)</small></label>
+              <textarea id="sent-text" rows="4"></textarea>
+              <div class="actions"><button id="mark-sent" class="secondary" type="button" disabled>I sent it</button></div>
+              <p id="sent-note" class="hint" role="status"></p>
+            </div>
             <p class="hint">Every number in this draft comes from Python's checked result. If you edit a number, it is no longer checked. BillShield never contacts the provider or sends anything.</p>
           </div>
         </div>

@@ -21,6 +21,10 @@ From this `billshield-app` folder:
 
 Open `http://127.0.0.1:4173` for the review page and `http://127.0.0.1:4173/docs` for the interactive API documentation. Stop with `Ctrl+C`. The FastAPI app replaces the earlier Node helper (`frontend/local-server.mjs` is kept for comparison only). Operations: `GET /api/health`, `POST /api/analyze` (Python only), `POST /api/explain` (Python, then GPT-OSS only when there is a difference), `POST /api/groq-extract` (one approved redacted crop). Requests must come from the page's own address and be JSON; the Groq key stays on the server.
 
+## Saving reviews (Supabase, D-033)
+
+Run `supabase/migrations/20261019120000_reviews.sql` once in the Supabase SQL editor, switch on **Allow anonymous sign-ins**, and set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (the **publishable** key, never a secret key) in `.env.local` locally or in Vercel's environment variables. Each browser gets an anonymous identity; completed reviews, copy/sent events and changed-word counts are saved, and each user can read only their own rows. No bill images or OCR text are stored.
+
 ## Run the Stage 0/1 checkpoint
 
 Requirements: Python 3.11 or newer.

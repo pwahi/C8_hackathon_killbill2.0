@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-033 — Supabase storage, smaller first version
+
+Date: 2026-10-19. Status: Implemented and verified locally against the owner's Supabase project; hosted settings pending.
+
+Owner chose to build the database before user tests, in a smaller first version of their hand-drawn model (evidence E-109): bills, line_items, expectations (with recorded/effective dates), findings, messages, message_events. Deferred: finding_lines and message_lines (line IDs stored as arrays meanwhile), chat, deletion. Supabase anonymous auth gives each browser an identity without a sign-up form. The server holds only the publishable key and acts with each user's own token; row level security limits every table to the user's own rows, with append-only history (no update/delete policies). `save_review` saves a completed review in one transaction. Only completed reviews are saved (not re-check states); a difference is saved once, after the explanation step. 'Copied' and 'sent' events are recorded; with a pasted sent text the server counts word-level changes (PRD convention) and blanks e-mail addresses, IBANs and numbers of seven or more digits before storing. The page shows a saved notice and an 'I sent it' box. A secret/service-role key is refused.
+
+**Affected:** `supabase/migrations/20261019120000_reviews.sql` (new), `backend/billshield_core/store.py`, `edits.py` (new), `app.py`, `tests/test_store.py` (new), `frontend/review-app.mjs`, `index.html`, `styles.css`, README. **Verification:** Migration run by owner in the Supabase SQL editor. Python suite incl. 10 storage tests and 40 browser tests pass. Live Supabase check: anonymous session, one-step save, sent event with word count, own lines visible (14), second anonymous user sees 0 of the first user's bills/lines and cannot add events to them, nothing visible without login, phone number blanked, session refresh. Browser run on B: saved notice shown and 'I sent it' recorded 5 changed words. Setup issues met: the secret key was first put in the publishable slot (now refused by code; owner advised to rotate it because its first 15 characters were shown during diagnosis) and anonymous sign-ins were initially disabled.
+
 ## D-032 — Serve pinned reading tools from frontend/vendor
 
 Date: 2026-10-19. Status: Implemented; hosted check pending redeploy.

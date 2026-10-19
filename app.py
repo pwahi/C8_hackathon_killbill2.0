@@ -29,6 +29,15 @@ from billshield_core.groq_http import read_api_key  # noqa: E402
 from billshield_core.groq_vision import MODEL as VISION_MODEL, IncompleteOutput, extract_crop  # noqa: E402
 from billshield_core.review import ReviewError, analyze_confirmed_review  # noqa: E402
 from billshield_core.service import explain_review  # noqa: E402
+from billshield_core import store  # noqa: E402
+
+# Developer machine: read non-secret-in-code settings from the ignored .env.local (hosting sets real env vars).
+_local = ROOT / ".env.local"
+if _local.is_file():
+    for _line in _local.read_text(encoding="utf-8-sig").splitlines():
+        _name, _, _value = _line.partition("=")
+        if _name.strip() in ("SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY", "BILLSHIELD_ACCESS_CODE") and _value.strip():
+            os.environ.setdefault(_name.strip(), _value.strip().strip("\"'"))
 
 VERSION = "0.2.0"
 HOSTED = bool(os.environ.get("VERCEL")) or os.environ.get("BILLSHIELD_ENV") == "production"
@@ -84,7 +93,58 @@ async def read_json(request: Request, limit: int) -> dict | JSONResponse:
 def health() -> dict:
     """Readiness without secret values."""
     return {"status": "ok", "version": VERSION, "groqKeyConfigured": bool(read_api_key(ROOT).strip()),
-            "accessCodeRequired": bool(ACCESS_CODE)}
+            "accessCodeRequired": bool(ACCESS_CODE), "databaseConfigured": store.configured()}
+
+
+def user_token(request: Request) -> str | None:
+    header = request.headers.get("authorization", "")
+    return header[7:].strip() or None if header.lower().startswith("bearer ") else None
+
+
+async def try_save(request: Request, payload: dict, result: dict, explanation: dict | None) -> dict:
+    """Save a completed review for the signed-in browser. Saving problems never hide the result."""
+    token = user_token(request)
+    if result.get("status") != "complete" or not store.configured():
+        return {"saved": None}
+    if not token:
+        return {"saved": None, "saveError": "Not saved: no session."}
+    try:
+        return {"saved": await run_in_threadpool(store.save_review, token, payload, result, explanation)}
+    except store.StoreError as problem:
+        return {"saved": None, "saveError": f"Not saved: {problem}"}
+
+
+@app.post("/api/session")
+async def start_session(request: Request):
+    """Anonymous identity for this browser, so each tester sees only their own saved reviews."""
+    data = await read_json(request, 2_000)
+    if isinstance(data, JSONResponse):
+        return data
+    if not store.configured():
+        return error(503, "Saving is not configured on this server.")
+    try:
+        if data.get("refreshToken"):
+            return await run_in_threadpool(store.refresh_session, str(data["refreshToken"]))
+        return await run_in_threadpool(store.start_anonymous_session)
+    except store.StoreError as problem:
+        return error(502, str(problem))
+
+
+@app.post("/api/messages/{message_id}/events")
+async def message_event(message_id: str, request: Request):
+    """Record that the draft was copied or sent; with the sent text, count changed words."""
+    data = await read_json(request, 30_000)
+    if isinstance(data, JSONResponse):
+        return data
+    token = user_token(request)
+    if not token:
+        return error(401, "No session: reload the page.")
+    try:
+        recorded = await run_in_threadpool(store.record_event, token, message_id, str(data.get("action", "")),
+                                           data.get("finalText"))
+    except store.StoreError as problem:
+        return error(422, str(problem))
+    return JSONResponse(recorded, headers={"cache-control": "no-store"})
 
 
 @app.post("/api/analyze")
@@ -97,7 +157,9 @@ async def analyze(request: Request):
         result = await run_in_threadpool(analyze_confirmed_review, data)
     except ReviewError as problem:
         return error(422, str(problem))
-    return JSONResponse({"result": result}, headers={"cache-control": "no-store"})
+    # A review with a difference is saved by /api/explain once the explanation is added.
+    saved = {"saved": None} if result["gap"]["needsExplanation"] else await try_save(request, data, result, None)
+    return JSONResponse({"result": result, **saved}, headers={"cache-control": "no-store"})
 
 
 @app.post("/api/explain")
@@ -113,6 +175,7 @@ async def explain(request: Request):
             output = await run_in_threadpool(explain_review, data, read_api_key(ROOT), CACHE_DIR)
         except ReviewError as problem:
             return error(422, str(problem))
+    output.update(await try_save(request, data, output["result"], output.get("explanation")))
     return JSONResponse(output, headers={"cache-control": "no-store"})
 
 
