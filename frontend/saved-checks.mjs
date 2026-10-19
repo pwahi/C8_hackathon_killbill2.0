@@ -1,5 +1,7 @@
-// "Your earlier checks": this browser's saved reviews, shown read-only. Every amount is Python's saved, formatted
+// "My previous bills": this browser's saved reviews, shown read-only. Every amount is Python's saved, formatted
 // value from the server; nothing is calculated here. A saved check is never changed: checking again saves a new one.
+// Layout (owner sketch 2026-10-19): a quiet button under "Read my bill" opens a window with the list of bills on the
+// left and the chosen bill on the right.
 
 export function whenText(iso, locale = "en-GB") {
   const date = new Date(iso);
@@ -14,8 +16,20 @@ export function outcomeText(review) {
 }
 
 export const MESSAGE_TEXT = { "sent": "Message sent", "copied": "Message copied", "not sent yet": "Message not sent yet" };
+const MESSAGE_SHORT = { "sent": "Sent", "copied": "Copied", "not sent yet": "Not sent" };
 
 export const ROLE_TEXT = { charge: "Charge", discount: "Discount", adjustment: "Adjustment", subtotal: "Subtotal", total: "Total" };
+
+// One short line per bill: "Claude Pro" / "19 Oct · EUR 21.78 · +EUR 3.78 · Not sent".
+export function rowSummary(review, locale = "en-GB") {
+  const date = new Date(review.createdAt);
+  const day = Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString(locale, { day: "numeric", month: "short" });
+  const result = review.verdict === "checks_passed" ? "Matches" : review.verdict === "verified_mismatch" ? "Doesn't add up"
+    : review.difference ? `+${review.difference}` : "Difference";
+  const title = (review.name || "Bill").split(" · ")[0].replace(/\s*\([^)]*\)\s*$/, "") || "Bill";
+  return { title, meta: [day, review.total, result, MESSAGE_SHORT[review.messageStatus] || ""].filter(Boolean).join(" · "),
+    tone: outcomeText(review).tone };
+}
 
 const make = (tag, className = "", text = "") => {
   const node = document.createElement(tag);
@@ -26,66 +40,59 @@ const make = (tag, className = "", text = "") => {
 
 // api(path, body) -> parsed JSON or throws; hasSession() -> whether this browser has saved anything before.
 export function createSavedChecks({ api, hasSession, accessMissing }) {
-  const list = document.querySelector("#saved-list");
-  const empty = document.querySelector("#saved-empty");
-  const section = document.querySelector("#saved-checks");
+  const button = document.querySelector("#open-history");
   const dialog = document.querySelector("#saved-dialog");
+  const list = document.querySelector("#saved-list");
   const body = document.querySelector("#saved-dialog-body");
+  let reviews = [];
+  let selected = null;
 
+  // Refresh the count on the button (and the list, if the window is open). Hidden when there is nothing to show.
   async function load() {
-    list.replaceChildren();
-    section.hidden = false;
-    if (!hasSession()) { empty.textContent = "No saved checks in this browser yet. Each check you complete is saved here."; return; }
-    if (accessMissing()) { empty.textContent = "Enter the access code above to see your earlier checks."; return; }
-    empty.textContent = "Loading your earlier checks…";
-    try {
-      const { reviews } = await api("/api/reviews", {});
-      empty.textContent = reviews.length ? "" : "No saved checks in this browser yet. Each check you complete is saved here.";
-      list.replaceChildren(...reviews.map(row));
-    } catch (error) {
-      empty.textContent = `Your earlier checks could not be loaded: ${error.message}`;
+    reviews = [];
+    if (hasSession() && !accessMissing()) {
+      try { reviews = (await api("/api/reviews", {})).reviews; } catch { reviews = []; }
     }
+    button.hidden = !reviews.length;
+    button.textContent = `My previous bills (${reviews.length})`;
+    if (dialog.open) renderList();
   }
 
-  function row(review) {
-    const item = make("li");
-    const button = make("button", "saved-row");
-    button.type = "button";
-    const outcome = outcomeText(review);
-    button.append(make("span", "saved-when", whenText(review.createdAt)), make("span", "saved-name", review.name),
-      make("span", "saved-total", review.total), make("span", `saved-outcome ${outcome.tone}`, outcome.text),
-      make("span", "saved-message", MESSAGE_TEXT[review.messageStatus] || ""));
-    button.addEventListener("click", () => open(review.id));
-    item.append(button);
-    return item;
+  function renderList() {
+    list.replaceChildren(...reviews.map(review => {
+      const item = make("li");
+      const row = make("button", `history-row${review.id === selected ? " selected" : ""}`);
+      row.type = "button";
+      const summary = rowSummary(review);
+      row.append(make("span", "history-title", summary.title), make("span", `history-meta ${summary.tone}`, summary.meta));
+      row.addEventListener("click", () => open(review.id));
+      item.append(row);
+      return item;
+    }));
+  }
+
+  function show() {
+    if (!dialog.open) dialog.showModal();
+    renderList();
+    if (reviews.length) open(selected && reviews.some(review => review.id === selected) ? selected : reviews[0].id);
   }
 
   async function open(id) {
+    selected = id;
+    renderList();
     body.replaceChildren(make("p", "hint", "Opening…"));
-    if (!dialog.open) dialog.showModal();
     try {
       const { review } = await api("/api/reviews/open", { billId: id });
-      body.replaceChildren(...detail(review));
+      if (selected === id) body.replaceChildren(...detail(review));
     } catch (error) {
-      body.replaceChildren(make("p", "error", error.message), closeButton());
+      body.replaceChildren(make("p", "error", error.message));
     }
-  }
-
-  function closeButton() {
-    const close = make("button", "secondary", "Close");
-    close.type = "button";
-    close.addEventListener("click", () => dialog.close());
-    return close;
   }
 
   function detail(review) {
     const head = make("div", "saved-dialog-head");
-    head.append(make("p", "eyebrow", `SAVED CHECK · ${whenText(review.createdAt).toUpperCase()}`),
-      make("h2", "", review.verdictText), make("p", "hint", "Saved checks can't be changed. To correct something, check the bill again: that saves a new check."));
-    const top = make("button", "text-button saved-close", "Close ×");
-    top.type = "button";
-    top.addEventListener("click", () => dialog.close());
-    head.prepend(top);
+    head.append(make("p", "eyebrow", whenText(review.createdAt).toUpperCase()), make("h2", "", review.verdictText),
+      make("p", "hint", "Saved bills can't be changed. To correct something, check the bill again."));
 
     const maths = make("dl", "saved-maths");
     for (const [label, value] of [["Sum of the confirmed lines", review.calculatedTotal], ["Total printed on the bill", review.printedTotal],
@@ -119,7 +126,7 @@ export function createSavedChecks({ api, hasSession, accessMissing }) {
     const shown = message.sentText || message.draft;
     const text = make("textarea", "saved-message-text");
     text.value = shown;
-    text.rows = 8;
+    text.rows = 7;
     text.setAttribute("aria-label", "Saved message");
     const note = make("p", "hint saved-message-note");
     const history = message.events.map(event => `${event.action === "sent" ? "Sent" : "Copied"} ${whenText(event.at)}`).join(" · ");
@@ -149,6 +156,8 @@ export function createSavedChecks({ api, hasSession, accessMissing }) {
     return [make("h3", "", message.sentText ? "What you sent (long numbers and e-mail addresses removed)" : "Your message"), text, actions, note];
   }
 
+  button.addEventListener("click", show);
+  document.querySelector("#history-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
-  return { load, open };
+  return { load, open: show };
 }

@@ -10,7 +10,7 @@ export const STEP_GUIDANCE = [
   "Here is what Python found. Next: write the message to the company.",
   "Copy this message and send it to the company yourself. Then come back and press I sent it.",
 ];
-export const stepLabel = (index) => `STEP ${index + 1} OF ${STEPS.length}`;
+export const stepLabel = (index) => `CHAPTER ${index + 1}/${STEPS.length}`;
 
 // Presence only: Python still parses money and owns every comparison.
 export function requireExpectedAmount(value) {
@@ -48,10 +48,6 @@ export function createFlow() {
   controls.prepend($("#expected-amount").closest("label"));
   settings.append(controls, $("#access-box"), $(".privacy-note"), $(".setup .actions"));
   $(".setup").replaceChildren(intro, settings);
-  // Owner sketch 2026-10-19: Chapter 1 is the form, with earlier checks in a column on the right.
-  const provide = make("div", "provide-layout");
-  $(".setup").before(provide);
-  provide.append($(".setup"), $("#saved-checks"));
   $("#start-checking").addEventListener("click", () => go(0));
   $("#how-start").addEventListener("click", () => go(0));
   $("#show-how").addEventListener("click", () => go(HOW));
@@ -168,7 +164,13 @@ export function createFlow() {
       back.hidden = true; next.hidden = true;
       return;
     }
-    $("#chapter-number").textContent = stepLabel(current);
+    // "CHAPTER 2/5" with the slash in the logo's orange.
+    const [label, total] = stepLabel(current).split("/");
+    const slash = document.createElement("span");
+    slash.className = "count-slash";
+    slash.textContent = "/";
+    $("#chapter-number").replaceChildren(label, slash, total);
+    $("#chapter-number").classList.add("chapter-count");
     $("#step-progress-bar").style.width = `${((current + 1) / STEPS.length) * 100}%`;
     $("#chapter-title").textContent = STEPS[current].toUpperCase();
     $("#chapter-description").textContent = STEP_GUIDANCE[current];

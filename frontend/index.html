@@ -74,7 +74,7 @@
         </div>
       </section>
 
-      <div class="flow-heading"><p id="flow-kicker" class="eyebrow">STEP 1 OF 5</p><div class="step-progress first-step" aria-hidden="true"><span></span></div><h1 id="flow-title" tabindex="-1">YOUR BILL</h1><span class="title-cut" aria-hidden="true"></span><p id="flow-description">Add the bill you want to check and what you expected to pay.</p></div>
+      <div class="flow-heading"><p id="flow-kicker" class="eyebrow chapter-count">CHAPTER 1<span class="count-slash">/</span>5</p><div class="step-progress first-step" aria-hidden="true"><span></span></div><h1 id="flow-title" tabindex="-1">YOUR BILL</h1><span class="title-cut" aria-hidden="true"></span><p id="flow-description">Add the bill you want to check and what you expected to pay.</p></div>
       <section class="panel setup" aria-labelledby="setup-title">
         <div>
           <p class="step">1</p>
@@ -115,6 +115,7 @@
         </label>
         <div class="actions">
           <button id="start-review" class="primary" type="button">Read my bill</button>
+          <button id="open-history" class="history-button" type="button" hidden>My previous bills</button>
           <details class="reading-options"><summary>Reading options</summary><div class="actions">
           <button id="open-vision" class="secondary" type="button">Choose an area to read</button>
           <button id="process" class="secondary" type="button">Read on this device</button></div></details>
@@ -122,15 +123,6 @@
         </div>
         <p class="privacy-note">When you read your bill, the pages you choose go to our AI reader (<span class="vision-name">Groq</span>). We save only the checked lines and your message, never the bill image.</p>
         <div id="status" class="status" role="status" aria-live="polite">Ready. No file has been opened.</div>
-      </section>
-
-      <section id="saved-checks" class="saved-checks" data-flow-panel="0" aria-labelledby="saved-title" hidden>
-        <div class="saved-head">
-          <h2 id="saved-title">Your earlier checks</h2>
-          <p class="hint">Saved in this browser only. Clearing your browser or using another device starts a fresh list.</p>
-        </div>
-        <p id="saved-empty" class="hint"></p>
-        <ul id="saved-list" class="saved-list"></ul>
       </section>
 
       <section id="review" class="review-layout" hidden>
@@ -269,7 +261,16 @@
       <div class="actions"><button id="groq-send" class="primary" disabled>Read this area</button><button id="groq-cancel" class="secondary">Choose a different area</button></div>
     </dialog>
 
-    <dialog id="saved-dialog" class="saved-dialog" aria-label="Saved check"><div id="saved-dialog-body"></div></dialog>
+    <dialog id="saved-dialog" class="history-dialog" aria-labelledby="history-title">
+      <div class="history-layout">
+        <aside class="history-list">
+          <div class="history-list-head"><h2 id="history-title">My previous bills</h2><button id="history-close" class="text-button" type="button" aria-label="Close">×</button></div>
+          <p class="hint">Saved in this browser only.</p>
+          <ul id="saved-list"></ul>
+        </aside>
+        <div id="saved-dialog-body" class="history-detail"></div>
+      </div>
+    </dialog>
 
     <script type="module" src="./review-app.mjs"></script>
   </body>

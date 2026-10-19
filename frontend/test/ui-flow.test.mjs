@@ -35,7 +35,7 @@ import { STEPS, STEP_GUIDANCE, stepLabel } from "../ui-flow.mjs";
 
 test("every chapter says where you are and what to do now", () => {
   assert.equal(STEP_GUIDANCE.length, STEPS.length);
-  assert.equal(stepLabel(1), "STEP 2 OF 5");
+  assert.equal(stepLabel(1), "CHAPTER 2/5");
   assert.match(STEP_GUIDANCE[1], /Read the whole bill/);
   assert.match(STEP_GUIDANCE[4], /send it to the company yourself/);
 });
