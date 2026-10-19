@@ -538,3 +538,34 @@ body[data-ui-step='2'] .line-actions { margin-top: 0; }
 .status-rounding { box-shadow: inset 3px 0 0 #D9A400; }
 .tree-hint.rounding, .attention.rounding { background: #FFF8D6 !important; color: #5C4A00 !important; border-left-color: #D9A400 !important; }
 .rounding-button { margin-top: 8px; padding: 6px 12px; font-size: 13px; background: #fff; border: 1px solid #5C4A00; color: #5C4A00; border-radius: 6px; cursor: pointer; }
+
+/* ---- Check the lines: one table, one type hierarchy (owner sketch 2026-10-19) ----
+   Column headers: small caps, grey, semi-bold. Section title: 15px semi-bold. Line title: 14.5px regular.
+   Period / status under a title: 12px grey. Amounts: fixed-width figures, same column for sections and lines. */
+.line-table-heading { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #5F6368; }
+.heading-tools span { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #5F6368; }
+.tree-row { position: relative; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.1fr) minmax(72px, .8fr);
+  gap: 12px; align-items: center; padding: 12px 84px 12px 14px; }
+.tree-section, .tree-group { cursor: pointer; }
+.tree-section:focus-visible, .tree-group:focus-visible { outline: 2px solid #202124; outline-offset: -2px; }
+.tree-label { display: grid; gap: 2px; font-weight: 400 !important; }
+.tree-title { font-size: 15px; font-weight: 600; color: #111; }
+.tree-group .tree-title { font-size: 14px; font-weight: 500; color: #5F6368; }
+.line-sub { display: block; font-size: 12px; font-weight: 400; color: #5F6368; }
+.tree-row .tree-status { font-size: 12px; font-weight: 400; }
+.tree-amount { text-align: right; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tree-row .locate-line { top: 50%; transform: translateY(-50%); }
+/* Lines: regular weight; the amount a little stronger than the title so the eye runs down the column. */
+#candidate-list .line-name { display: grid; gap: 2px; font-weight: 400 !important; }
+.line-title { font-size: 14.5px; color: #111; }
+#candidate-list .candidate-card:not(.breakdown) .line-title { font-weight: 500; }
+.line-amount { font-size: 14.5px; font-weight: 500; }
+/* What you pay: the strongest row, but not shouting. */
+.tree-invoice .tree-title { color: #fff; font-size: 16px; }
+.tree-invoice .tree-amount { font-size: 17px; }
+.tree-invoice .tree-status { color: #F5C400; }
+/* Nested sections: indent the text, not the row (no white block on the left). */
+.tree-row { width: 100% !important; margin-left: 0 !important; padding-left: calc(14px + var(--depth, 0) * 22px); }
+/* Rows without a type use the "What is it" space for their text. */
+.tree-invoice .tree-label, .tree-group .tree-label { grid-column: 1 / 3; }
+.tree-invoice .tree-kind, .tree-group .tree-kind { display: none; }

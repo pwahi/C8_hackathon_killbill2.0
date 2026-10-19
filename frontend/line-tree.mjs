@@ -96,3 +96,11 @@ export const STATUS_TEXT = {
   rounding: "≈ rounding difference",
   none: "",
 };
+
+// Display only: "30 GB mobile plan (6-31 August)" -> title "30 GB mobile plan", period "6-31 August" (smaller, below).
+// The label itself is never changed; anything that is not a trailing bracket stays in the title.
+export function splitPeriod(label) {
+  const text = String(label || "").trim();
+  const match = /^(.+?)\s*\(([^()]+)\)$/.exec(text);
+  return match ? { title: match[1], period: match[2] } : { title: text, period: "" };
+}

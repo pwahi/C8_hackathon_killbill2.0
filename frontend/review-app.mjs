@@ -7,7 +7,7 @@ import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion, allReadyState, confirmReadyLines } from "./extraction/bulk-confirm.mjs";
 import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
 import { resultHeadline, mathRows } from "./result-display.mjs";
-import { lineTreeRows, STATUS_TEXT } from "./line-tree.mjs";
+import { lineTreeRows, STATUS_TEXT, splitPeriod } from "./line-tree.mjs";
 import { locateAmounts } from "./extraction/locate.mjs";
 import { applyTone } from "./tone.mjs";
 import { pagesToRead, readButtonText, parsePageList, formatPageList } from "./read-flow.mjs";
@@ -64,6 +64,9 @@ const ROLE_LABELS = {
   subtotal: "Printed subtotal",
   total: "Printed total",
 };
+// Short type names for the table's "What is it" column (the editor's dropdown keeps the longer explanations).
+const PILL_LABELS = { charge: "Charge", discount: "Discount", adjustment: "Rounding", subtotal: "Subtotal", total: "Total" };
+const EYE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const flow = createFlow();
 // "groq" is the stored locator value for any AI-reader location, whichever provider read it.
 const LOCATOR_LABELS = { pdf_text: "PDF text", local_ocr: "local OCR", groq: "AI reader (unverified)", user: "you" };
@@ -130,26 +133,49 @@ function renderLines() {
 }
 
 function treeHeader(row, byId) {
-  const header = document.createElement(row.type === "invoice" ? "div" : "button");
+  // Same columns as the lines (owner sketch): title with the period below, "What is it", amount, and the eye.
+  const header = document.createElement("div");
   header.className = `tree-row tree-${row.type} status-${row.status || "none"}`;
   header.dataset.nodeId = row.id;
   header.style.setProperty("--depth", row.depth);
-  const label = document.createElement("span");
-  label.className = "tree-label";
+  const name = document.createElement("span");
+  name.className = "tree-label";
+  const title = document.createElement("span");
+  title.className = "tree-title";
   const marker = row.type === "invoice" ? "" : row.collapsed ? "▸ " : "▾ ";
-  label.textContent = `${marker}${row.label}${row.period && !row.label.includes(row.period) ? ` · ${row.period}` : ""}${row.count ? ` (${row.count})` : ""}`;
-  const state = document.createElement("span");
+  const period = row.period && !row.label.includes(row.period) ? row.period : "";
+  title.textContent = `${marker}${row.label}${row.count ? ` (${row.count})` : ""}`;
+  name.append(title);
+  if (period) { const sub = document.createElement("small"); sub.className = "line-sub"; sub.textContent = period; name.append(sub); }
+  const state = document.createElement("small");
   state.className = "tree-status";
   state.textContent = row.type === "invoice" && row.status === "ok" ? "✓ all lines add up to this (checked by Python)"
     : row.type === "section" && row.status === "ok" ? "" : STATUS_TEXT[row.status] || "";
+  if (state.textContent) name.append(state);
+  const kind = document.createElement("span");
+  kind.className = row.type === "section" ? "line-kind" : "tree-kind";
+  kind.textContent = row.type === "section" ? "Section" : "";
   const amount = document.createElement("span");
   amount.className = "tree-amount";
   amount.textContent = row.amountId ? byId.get(row.amountId)?.rawAmount || "" : "";
-  header.append(label, state, amount);
+  header.append(name, kind, amount);
   if (row.type !== "invoice") {
-    header.type = "button";
+    header.setAttribute("role", "button");
+    header.tabIndex = 0;
     header.setAttribute("aria-expanded", String(!row.collapsed));
-    header.addEventListener("click", () => { reviewState.toggles.set(row.id, !row.collapsed); renderLines(); });
+    const toggle = () => { reviewState.toggles.set(row.id, !row.collapsed); renderLines(); };
+    header.addEventListener("click", toggle);
+    header.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } });
+  }
+  if (row.type === "section" && row.amountId) {
+    const where = document.createElement("button");
+    where.type = "button";
+    where.className = "locate-line";
+    where.innerHTML = EYE_ICON;
+    where.title = "Show this section's printed total on the bill";
+    where.setAttribute("aria-label", `Show ${row.label} on the bill`);
+    where.addEventListener("click", (event) => { event.stopPropagation(); focusCandidate(row.amountId); });
+    header.append(where);
   }
   return header;
 }
@@ -162,8 +188,11 @@ function refreshTreeHeaders() {
     const header = document.querySelector(`.tree-row[data-node-id="${CSS.escape(row.id)}"]`);
     if (!header) continue;
     header.className = `tree-row tree-${row.type} status-${row.status || "none"}`;
-    header.querySelector(".tree-status").textContent = row.type === "invoice" && row.status === "ok"
+    const text = row.type === "invoice" && row.status === "ok"
       ? "✓ all lines add up to this (checked by Python)" : row.type === "section" && row.status === "ok" ? "" : STATUS_TEXT[row.status] || "";
+    let state = header.querySelector(".tree-status");
+    if (!state && text) { state = document.createElement("small"); state.className = "tree-status"; header.querySelector(".tree-label").append(state); }
+    if (state) state.textContent = text;
   }
 }
 
@@ -1009,8 +1038,20 @@ function evidenceText(candidate) {
 }
 
 function updateLineOverview(card, candidate) {
-  card.querySelector(".line-name").textContent = candidate.description || "Add a label";
-  card.querySelector(".line-kind").textContent = (ROLE_LABELS[candidate.role] || "Choose type").replace(" (minus amount)", "");
+  const { title, period } = splitPeriod(candidate.description || "Add a label");
+  const name = card.querySelector(".line-name");
+  name.textContent = "";
+  const titleNode = document.createElement("span");
+  titleNode.className = "line-title";
+  titleNode.textContent = title;
+  name.append(titleNode);
+  if (period) {
+    const periodNode = document.createElement("small");
+    periodNode.className = "line-sub";
+    periodNode.textContent = period;
+    name.append(periodNode);
+  }
+  card.querySelector(".line-kind").textContent = PILL_LABELS[candidate.role] || "Choose type";
   card.querySelector(".line-amount").textContent = candidate.rawAmount || "Add amount";
   card.classList.toggle("printed-total", candidate.role === "total" || candidate.role === "subtotal");
   // In the bill's hierarchy the row shows only what the line is (owner): page and section are visible from the
@@ -1027,7 +1068,7 @@ function updateLineOverview(card, candidate) {
     section.textContent = candidate.sectionPath + (candidate.structureVerified ? " · ✓ adds up" : "");
     card.querySelector(".line-name").append(section);
   }
-  card.querySelector(".line-kind").textContent = (ROLE_LABELS[candidate.role] || "Choose type").replace(" (minus amount)", "");
+  card.querySelector(".line-kind").textContent = PILL_LABELS[candidate.role] || "Choose type";
   card.querySelector(".line-amount").textContent = candidate.rawAmount || "Add amount";
   card.classList.toggle("printed-total", candidate.role === "total" || candidate.role === "subtotal");
 }
@@ -1060,7 +1101,7 @@ function candidateCard(candidate) {
   const where = document.createElement("button");
   where.type = "button";
   where.className = "locate-line";
-  where.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  where.innerHTML = EYE_ICON;
   where.title = "Show where this line is on the bill";
   where.setAttribute("aria-label", `Show on page ${candidate.page}: ${candidate.description || "unlabelled"}`);
   where.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); focusCandidate(candidate.id); });

@@ -22,6 +22,8 @@ Date: 2026-10-19. Status: Implemented and tested locally; push pending owner app
 
 **Second follow-up (owner, same day):** accepted grouping confirmations ("✓ These lines are linked") are never listed; only a grouping that still needs Yes/Change is shown, and "Review lines" counts it. The printed-total reminder appears only when a total is missing. Zoom now enlarges the page to twice the panel width with scrolling (before, the page could not grow beyond the panel).
 
+**Third follow-up (owner sketch, same day):** sections and lines share one set of columns — title (with the billing period in small grey text below), What is it ("Section" for sections), Amount, Where (eye) and Del (×; lines only, a section is not deleted in one click). A period written in brackets in a line label is shown below the title (display only; the label is unchanged). One type hierarchy: column headers small caps grey; section titles 15 px semi-bold; line titles 14.5 px regular (main lines medium); periods and statuses 12 px grey; amounts in fixed-width figures. Type pills are short (Charge, Discount, Rounding, Subtotal, Total).
+
 ## D-054 — A line the verified bill adds up without is information, not a charge
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

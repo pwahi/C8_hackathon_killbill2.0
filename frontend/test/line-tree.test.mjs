@@ -80,3 +80,11 @@ test("a one-cent gap reads as rounding; after a rounding line is added Python ch
   const real = [{ ...TREE[0], matches: false, sections: [] }];
   assert.equal(lineTreeRows(LINES, real).find((row) => row.type === "invoice").status, "mismatch");
 });
+
+import { splitPeriod } from "../line-tree.mjs";
+
+test("a period in brackets is shown smaller under the line title; the label is not changed", () => {
+  assert.deepEqual(splitPeriod("30 GB mobile plan (6-31 August)"), { title: "30 GB mobile plan", period: "6-31 August" });
+  assert.deepEqual(splitPeriod("Supply"), { title: "Supply", period: "" });
+  assert.deepEqual(splitPeriod("VAT (21%) on fees"), { title: "VAT (21%) on fees", period: "" });
+});
