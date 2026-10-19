@@ -1,12 +1,12 @@
 # BillShield — Product requirements
 
-Version 2.6 · 2026-10-19 · Owner: Prateek Wahi
+Version 2.7 · 2026-10-19 · Owner: Prateek Wahi
 
 This PRD describes **what is required now** and **what exists now**. It was rebased on 2026-10-19 (D-035): outdated directions and superseded proposals were removed. The reasons behind every choice, including superseded ones, stay in [DECISIONS.md](DECISIONS.md) (D-006 to D-035); earlier PRD versions remain in the Git history. When this PRD and the code disagree about what *exists*, the code wins; about what is *required*, this PRD wins — record the difference in DECISIONS.md.
 
 **Status:** Stages 0–2 accepted; FastAPI backend live on Vercel (access code required); Supabase saving, smaller version, live and owner-verified. N-1 sequential UI first version is implemented locally (D-036), awaiting owner review and deployment approval. N-2 server OCR evaluation and N-3 chat/database remain planned. No real-user test beyond the owner yet; classmate and stranger tests planned for 2026-10-20.
 
-Latest N-1 update: D-041 simplifies reading to five visible steps and section membership to a quick Yes/Change confirmation; D-040 Python summary/detail rules retained. 114 Python / 70 browser-module tests pass. [Design reference](DESIGN.md); owner acceptance and deployment still pending. Offline flow checks are not new OCR accuracy evidence. No new model, storage or hosting changes.
+Latest N-1 update: D-042 adds a visible ready-line checkbox and reconfirmation after edits, on top of D-041's simple reading flow and D-040 Python summary/detail checks. 114 Python / 73 browser-module tests pass. [Design reference](DESIGN.md); owner acceptance and deployment still pending. Structure-first model extraction is a documented proposal, not built/approved. Offline flow checks are not new OCR accuracy evidence. No new model, storage or hosting changes.
 
 ---
 
@@ -51,6 +51,8 @@ Multi-page/recovery requirements (D-039): per-page reading/reselection and last-
 Section and summary requirements (D-040): subtotals and their members use identical section names; structurally link only unassigned contiguous same-area rows without conflicting groups. Offer a visible checkbox picker for each subtotal rather than requiring repeated section typing. Python may exclude a unique cross-page reference summary from summation only when label/section and parsed printed amount match uniquely and detail members exist (full rule in D-040/work/15). Retain references visibly, explain their exclusion, and do not offer them as additional charges to AI. Ambiguity or missing details must not become a false pass; prompt for review. Amounts and evidence are never invented.
 
 D-041 presentation/confirmation override: show Choose page → Select prices → Check preview → Read → Review lines with current step highlighted and one short instruction. Use plain-language actions, one selected page at a time, and explicit Review lines after reading; preserve other pages' lines. Approved-crop consent/provider/privacy stay explicit. Suggest subtotal membership from consistent labels/table order, not amounts; show proposed rows and ask Yes/Change before normal checking. Do not silently apply the old automatic membership mutator. Hide section naming/full picker behind Change; accepted grouping is not verified arithmetic, and edits/removal/reassignment require acceptance again. Python's D-040 summary exclusion and re-check rules are unchanged.
+
+D-042: provide a visible I checked all ready lines against the bill checkbox. It selects only rows passing readiness, shows blocked/partial state, clears acceptance rather than deleting on uncheck, and never approves grouping or arithmetic. Relevant row edits clear row acceptance and invalidate output. Existing explicit Looks right check shortcut remains.
 
 | Outcome | When | Result |
 |---|---|---|
@@ -192,6 +194,8 @@ After each stage the developer gives the owner changed files, exact run steps, t
 
 ## 12. Next development additions
 
+**Proposal only — structure-first extraction (owner question, not implementation approval).** Replace free-text-only grouping with model-proposed parent/child/reference links across approved structured candidates, strictly validated and calculated by Python before grounded investigation. Requires output-contract design, multi-page/multi-invoice/period boundaries, graph/double-counting verifiers and masked acceptance tests; no new model calls, full-image uploads or storage changes authorized. [Proposal and definition of done](../../work/17_ACCEPT_ALL_AND_STRUCTURE_FIRST_PROPOSAL.md). Existing N-1–N-3 priorities are not silently replaced.
+
 N-1 first version built locally on 2026-10-19 after owner approval; review pending. N-2/N-3 remain planned, not built. Local verification: 106 Python and 42 browser-module tests; A–D structured fixture screen replays with simulated extraction/AI, not live OCR tests. See D-036.
 
 Priority order (D-034). Keep time for the user tests before the deadline (Tue 2026-10-20 22:17 Europe/Amsterdam); if short, reduce these items, not the tests.
@@ -241,6 +245,7 @@ Priority order (D-034). Keep time for the user tests before the deadline (Tue 20
 | 2.4 | 2026-10-19 | Multi-page append, area recovery, conservative repeat suppression, manual lines/printed total, remove/Undo, reduced-motion row reveal; 107 Python / 58 browser-module tests | D-039 |
 | 2.5 | 2026-10-19 | Section membership suggestions/picker and Python-owned reference summary exclusion; incomplete details still re-check; 114 Python / 63 browser-module tests | D-040 |
 | 2.6 | 2026-10-19 | Five-step plain-language reading; one active page; explicit review; quick Yes/Change grouping instead of exposed technical editor or silent mutation; 114 Python / 70 browser-module tests | D-041 |
+| 2.7 | 2026-10-19 | Visible ready-line acceptance checkbox, safe blocked/partial states and edit invalidation; 114 Python / 73 browser-module tests; structure-first extraction recorded only as proposal | D-042 |
 
 ## Sources checked
 

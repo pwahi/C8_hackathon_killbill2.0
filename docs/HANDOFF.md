@@ -1,5 +1,7 @@
 # BillShield — handoff for the next coding agent (Codex)
 
+Latest D-042 / PRD v2.7: ready-line checkbox above table, partial/blocked states and clear-only acceptance; relevant edits clear that row's confirmation. 114 Python / 73 browser-module tests and offline UI checks. Frontend refresh needed, not new backend restart. Parent work/17_ACCEPT_ALL_AND_STRUCTURE_FIRST_PROPOSAL.md records the model-hierarchy recommendation only as proposed; do not implement a new model workflow or live call without approval. Local only, no push/deployment.
+
 Latest D-041 / PRD v2.6 supersedes older UI guidance: visible five-step reading, one active page, plain action labels, explicit Review lines after reading, Yes/Change subtotal proposal confirmation; technical editor collapsed. App no longer automatically mutates unassigned membership before acceptance. Python D-040 rules unchanged. 114 Python / 70 browser-module tests pass; offline/browser verification in parent work/16_SIMPLE_READING_AND_SECTION_CONFIRMATION.md. Local only; no push/deployment. Frontend refresh needed; Python restart only if the earlier D-040 backend is not already running.
 
 Latest D-040 / PRD v2.5 supersedes the status below: section linking and subtotal picker, Python-owned summary/detail counting implemented locally; 114 Python / 63 browser-module tests pass. Restart Python server for owner retest. Parent work/15_SECTION_LINKS_AND_SUMMARY_COUNTING.md records safe matching limits, offline browser proof and no new live extraction test. Owner review pending; no push/deployment.

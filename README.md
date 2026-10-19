@@ -1,5 +1,7 @@
 # BillShield application
 
+**Latest D-042 / PRD v2.7:** Check the lines has I checked all ready lines against the bill. It accepts ready rows only; skipped rows stay flagged. Untick to clear acceptance without removing lines. Edits require that row's reconfirmation; grouping/Python checks remain separate. 114 Python / 73 browser-module tests pass. Ctrl+F5 to refresh (unsaved review clears), no new backend restart. Model hierarchy/linking improvement is proposed, not built. No push/deployment.
+
 **Latest D-041 / PRD v2.6:** Read now shows Choose page → Select prices → Check preview → Read → Review lines. Only the selected page is shown; main actions use plain language. Subtotal proposals use Yes/Change; detailed naming/picker stays collapsed. Grouping confirmation is not arithmetic verification. 114 Python / 70 browser-module tests pass; offline browser flow checked. Refresh local app with Ctrl+F5 (clears unsaved review); no new Python restart needed if D-040 is already running. No push/deployment.
 
 **D-040 / PRD v2.5:** section links are suggested within one read area; use **Choose rows for…** to explicitly link a subtotal's breakdown. Python keeps uniquely matching cross-page summaries for reference, not a second charge. Missing detail still requires re-check. 114 Python / 63 browser-module tests pass; offline browser verified, live accuracy pending. Restart the existing Python server (Ctrl+C, then `.venv\Scripts\python.exe app.py`) and Ctrl+F5 to retest; unsaved lines are not restored after reload. No push/deployment.

@@ -75,6 +75,8 @@ export function createFlow() {
   $("#candidate-list").before(make("div", "line-table-heading", "<span>LINE</span><span>WHAT IS IT</span><span>AMOUNT</span>"));
   const lineActions = make("div", "line-actions", '<button id="add-line" class="secondary" type="button">+ Add a line</button><button id="undo-remove" class="text-button" type="button" hidden>Undo remove</button>');
   $(".line-table-heading").before(lineActions);
+  const allLines = make("div", "all-lines-control", '<label><input id="accept-all-lines" type="checkbox" disabled aria-describedby="accept-all-hint"> I checked all ready lines against the bill</label><p id="accept-all-hint">No lines yet. This confirms what was read—not whether the bill adds up.</p>');
+  $(".line-table-heading").before(allLines);
   const totalPrompt = make("section", "printed-check-prompt", '<p id="printed-check-message"></p><button id="add-printed-total" class="secondary" type="button">Add printed total</button><div id="section-links"></div>');
   $("#payload-panel").prepend(totalPrompt);
 

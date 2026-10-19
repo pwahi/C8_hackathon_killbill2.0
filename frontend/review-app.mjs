@@ -4,7 +4,7 @@ import { extractImageTokens } from "./extraction/ocr-client.mjs";
 import { extractPdfTokens } from "./extraction/pdf-client.mjs";
 import { buildServerPayload } from "./extraction/privacy.mjs";
 import { prepareImage } from "./extraction/image-preparation.mjs";
-import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion } from "./extraction/bulk-confirm.mjs";
+import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion, allReadyState, confirmReadyLines } from "./extraction/bulk-confirm.mjs";
 import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
 import { resultHeadline, mathRows } from "./result-display.mjs";
 import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, assignSection, suggestSection, sectionMembers, sectionReviewKey, sectionAccepted } from "./extraction/page-review.mjs";
@@ -295,6 +295,10 @@ function resetReview({ keepFiles = false } = {}) {
   reviewState = emptyState();
   document.querySelector("#page-progress")?.replaceChildren();
   document.querySelector("#undo-remove").hidden = true;
+  document.querySelector("#accept-all-lines").checked = false;
+  document.querySelector("#accept-all-lines").indeterminate = false;
+  document.querySelector("#accept-all-lines").disabled = true;
+  document.querySelector("#accept-all-hint").textContent = "No lines yet. This confirms what was read—not whether the bill adds up.";
   elements.pages.replaceChildren();
   elements.candidateList.replaceChildren();
   elements.review.hidden = true;
@@ -613,14 +617,18 @@ function focusCandidate(candidateId) {
 function updateCandidate(candidateId, field, value) {
   const index = reviewState.candidates.findIndex((candidate) => candidate.id === candidateId);
   const candidate = reviewState.candidates[index];
-  reviewState.candidates[index] = { ...candidate, [field]: value, attention: null };
+  const affectsValue = ["rawAmount", "description", "role", "group", "breakdown", "currency"].includes(field);
+  reviewState.candidates[index] = { ...candidate, [field]: value, ...(affectsValue ? {confirmed: false} : {}), attention: null };
   invalidatePayload();
   document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"] .attention`)?.remove();
   const card = document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"]`);
-  card?.classList.toggle("confirmed", field === "confirmed" ? value : reviewState.candidates[index].confirmed);
+  card?.classList.toggle("confirmed", reviewState.candidates[index].confirmed);
+  const lineCheckbox = card?.querySelector(".candidate-top input[type='checkbox']");
+  if (lineCheckbox) lineCheckbox.checked = reviewState.candidates[index].confirmed;
   if (card) updateLineOverview(card, reviewState.candidates[index]);
   drawHighlights();
   refreshPrintedCheck();
+  if (affectsValue) setStatus("Line changed. Check it against the bill and accept it again before calculating.");
 }
 
 function animatedCandidateCard(candidate, index) {
@@ -943,6 +951,12 @@ function acceptSection(subtotalId, memberIds) {
 }
 
 function refreshPrintedCheck() {
+  const selection = allReadyState(reviewState.candidates, elements.currency.value);
+  const allLines = document.querySelector("#accept-all-lines");
+  allLines.checked = selection.checked;
+  allLines.indeterminate = selection.indeterminate;
+  allLines.disabled = selection.disabled;
+  document.querySelector("#accept-all-hint").textContent = `${selection.selected} of ${selection.ready} ready lines accepted.${selection.blocked ? ` ${selection.blocked} line${selection.blocked === 1 ? " needs" : "s need"} details or a decision and will stay unticked.` : ""} This confirms what was read—not whether the bill adds up.${reviewState.candidates.some(line => line.role === "subtotal") ? " Section links are confirmed separately below." : ""}`;
   const state = printedCheckPresence(reviewState.candidates);
   const text = {
     missing: "No printed total or subtotal captured yet. Add the final total exactly as printed on your bill so we can check the sum.",
@@ -1335,24 +1349,15 @@ async function analyzeReview() {
 
 // Explicit bulk confirmation after review: ticks only lines that pass every check; never edits amounts.
 function confirmAllReady() {
-  let confirmed = 0;
-  let attention = 0;
-  let noRole = 0;
-  reviewState.candidates = reviewState.candidates.map((candidate) => {
-    if (candidate.confirmed) return candidate;
-    if (!candidate.role) { noRole += 1; return candidate; }
-    const reason = readiness(candidate, elements.currency.value);
-    if (reason) { attention += 1; return { ...candidate, attention: `Not confirmed: ${reason}` }; }
-    confirmed += 1;
-    return { ...candidate, confirmed: true, attention: null };
-  });
+  reviewState.candidates = confirmReadyLines(reviewState.candidates, elements.currency.value, true);
+  const confirmed = reviewState.candidates.filter(candidate => candidate.confirmed).length;
+  const attention = reviewState.candidates.length - confirmed;
   elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
   invalidatePayload();
   drawHighlights();
   refreshPrintedCheck();
   const parts = [`Confirmed ${confirmed} line${confirmed === 1 ? "" : "s"}.`];
   if (attention) parts.push(`${attention} need your attention (red note on the card).`);
-  if (noRole) parts.push(`${noRole} without a role were left unticked; that is fine if they are not bill amounts.`);
   parts.push("When the selected charges are correct, continue with Looks right — check it.");
   setStatus(parts.join(" "), attention ? "failure" : "");
 }
@@ -1374,6 +1379,13 @@ function recommendExtractor() {
 
 elements.files.addEventListener("change", recommendExtractor);
 elements.confirmAll.addEventListener("click", confirmAllReady);
+document.querySelector("#accept-all-lines").addEventListener("change", event => {
+  if (event.target.checked) return confirmAllReady();
+  reviewState.candidates = confirmReadyLines(reviewState.candidates, elements.currency.value, false);
+  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  invalidatePayload(); drawHighlights(); refreshPrintedCheck();
+  setStatus("Line acceptance cleared. Your lines and amounts are kept; check them before accepting again.");
+});
 async function explainDifference(payload, generation) {
   setStatus("Python found a difference. Asking Groq (gpt-oss-20b) which lines likely cause it… Only confirmed labels and amounts are sent.", "busy");
   try {

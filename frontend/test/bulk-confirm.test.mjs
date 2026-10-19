@@ -1,13 +1,44 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cleanVisionColumns, formatAmount, readiness, visionSuggestion } from "../extraction/bulk-confirm.mjs";
+import { cleanVisionColumns, formatAmount, readiness, visionSuggestion, allReadyState, confirmReadyLines } from "../extraction/bulk-confirm.mjs";
 
 const region = { x0: 0.1, top: 0.3, x1: 0.9, bottom: 0.7 };
 const ready = {
   id: "groq-1", role: "charge", group: "", description: "Convenience fee", rawAmount: "₹650", extractedRawAmount: "₹650",
   extractor: "groq", questioned: false, currency: "INR", page: 1, precision: "table", locatedBy: "groq", bounds: null, region,
 };
+
+test("accept-all confirms ready lines only, without changing values or section acceptance", () => {
+  const good = {...ready, sectionAcceptedKey:"unchanged"};
+  const incomplete = {...ready,id:"bad",role:"",confirmed:true};
+  const result = confirmReadyLines([good,incomplete],"INR",true);
+  assert.equal(result[0].confirmed,true);
+  assert.equal(result[0].rawAmount,good.rawAmount);
+  assert.equal(result[0].sectionAcceptedKey,"unchanged");
+  assert.equal(result[1].confirmed,false);
+  assert.match(result[1].attention,/role/);
+  assert.equal(good.confirmed,undefined);
+});
+
+test("accept-all reflects empty, partial, all-ready and blocked states", () => {
+  assert.equal(allReadyState([],"INR").disabled,true);
+  const rows = [{...ready,id:"a",confirmed:true},{...ready,id:"b",confirmed:false}];
+  assert.equal(allReadyState(rows,"INR").indeterminate,true);
+  const selected=confirmReadyLines([...rows,{...ready,id:"c",rawAmount:""}],"INR",true);
+  const state=allReadyState(selected,"INR");
+  assert.equal(state.checked,true);
+  assert.equal(state.blocked,1);
+  assert.equal(state.selected,2);
+});
+
+test("unchecking accept-all clears acceptance without deleting rows or changing values", () => {
+  const result=confirmReadyLines([{...ready,confirmed:true}],"INR",false);
+  assert.equal(result.length,1);
+  assert.equal(result[0].confirmed,false);
+  assert.equal(result[0].rawAmount,ready.rawAmount);
+  assert.equal(allReadyState(result,"INR").checked,false);
+});
 
 test("a fully pre-filled table-level line is ready for Confirm all", () => {
   assert.equal(readiness(ready, "INR"), null);

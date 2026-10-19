@@ -1,5 +1,7 @@
 # BillShield desktop design
 
+Latest D-042: visible native checkbox above the line table, I checked all ready lines against the bill, with ready/selected/blocked counts. Standard mixed state, clear-all on uncheck, no data deletion. Editing clears that row's acceptance. Copy distinguishes confirmation of reading from Python arithmetic and section-link acceptance. See parent work/17_ACCEPT_ALL_AND_STRUCTURE_FIRST_PROPOSAL.md; proposed hierarchy work is not built.
+
 Latest D-041 / PRD v2.6: within Read, show five compact numbered nodes joined by arrows, highlight the current node, and show only the selected source page. Plain actions Select area to read → preview consent → Read this area → Review N lines; Use last selection and Choose a different area retain recovery. Privacy/provider detail is disclosed separately. Subtotal proposals show Do these lines belong together? with raw printed rows and Yes/Change; advanced section naming/picker is collapsed. Grouping acceptance is not a calculation check. See parent work/16_SIMPLE_READING_AND_SECTION_CONFIRMATION.md for verification.
 
 Source: owner-provided `BillShield UI mock-ups.html` (2026-10-19), six desktop boards nominally 1280×800. Source path/hash and verification in parent work/13_DESKTOP_MOCKUP_IMPLEMENTATION.md. Actual reference pixels and decoded HTML inspected locally; no website scrape or remote assets needed. D-038, PRD v2.3.

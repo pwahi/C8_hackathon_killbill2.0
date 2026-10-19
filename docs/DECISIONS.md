@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-042 — Visible ready-line acceptance checkbox
+
+Date: 2026-10-19. Status: Owner-requested checkbox implemented and locally verified; owner acceptance/deployment pending.
+
+Add I checked all ready lines against the bill above the line list. Select only structurally ready rows; show skipped counts/reasons and partial state. Unticking clears acceptance, not data. Bulk confirmation revalidates previous selections. Editing a value/label/type/group/row columns/currency clears that row's acceptance and stale output. Checkbox never approves section links or arithmetic; Python still verifies every figure. Existing Looks right action remains an explicit bulk-confirm/check shortcut.
+
+**Affected:** frontend bulk-confirm/ui-flow/review-app/desktop.css and tests; PRD v2.7, DESIGN/HANDOFF/README/AGENTS; parent work/17 and PROJECT. **Verification:** 114 Python / 73 browser-module tests; offline browser select/clear/mixed/edit/blocked-row checks and real Python calculation on synthetic lines. No model/database write, push or deployment. Owner also asked how to improve breakdown understanding: [structure-first proposal](../../work/17_ACCEPT_ALL_AND_STRUCTURE_FIRST_PROPOSAL.md) records a proposed hierarchy/link-validation/explanation approach; **not an implemented or approved model-workflow change**.
+
 ## D-041 — Plain-language five-step reading and quick grouping confirmation
 
 Date: 2026-10-19. Status: Owner-approved direction implemented and locally verified; owner acceptance/deployment pending.

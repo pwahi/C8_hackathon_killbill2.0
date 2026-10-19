@@ -66,6 +66,23 @@ export function readiness(candidate, currency) {
   return null;
 }
 
+// Selection bookkeeping only. Ready means structurally complete, not correct money.
+export function allReadyState(candidates, currency) {
+  const ready = candidates.filter(candidate => readiness(candidate, currency) === null);
+  const selected = ready.filter(candidate => candidate.confirmed).length;
+  return {ready: ready.length, blocked: candidates.length - ready.length, selected,
+    checked: ready.length > 0 && selected === ready.length,
+    indeterminate: selected > 0 && selected < ready.length,
+    disabled: !ready.length && !candidates.some(candidate => candidate.confirmed)};
+}
+
+export function confirmReadyLines(candidates, currency, checked) {
+  return candidates.map(candidate => {
+    const reason = checked ? readiness(candidate, currency) : null;
+    return {...candidate, confirmed: !!checked && !reason, attention: reason ? `Not confirmed: ${reason}` : null};
+  });
+}
+
 const QUANTITY_WITH_UNIT = /^\s*(\d{1,6}(?:[.,]\d{1,2})?)\s*([A-Za-z]{1,6}\.?)?\s*$/u;
 const PLAIN_AMOUNT = /^\s*[-−(]?\s*(?:EUR|INR|€|₹)?\s*[-−]?\s*\d[\d.,\s]*\)?\s*(?:EUR|INR|€|₹)?\s*$/iu;
 
