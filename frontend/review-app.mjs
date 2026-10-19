@@ -138,7 +138,8 @@ function treeHeader(row, byId) {
   label.textContent = `${marker}${row.label}${row.period && !row.label.includes(row.period) ? ` · ${row.period}` : ""}${row.count ? ` (${row.count})` : ""}`;
   const state = document.createElement("span");
   state.className = "tree-status";
-  state.textContent = row.type === "invoice" && row.status === "ok" ? "✓ all lines add up to this (checked by Python)" : STATUS_TEXT[row.status] || "";
+  state.textContent = row.type === "invoice" && row.status === "ok" ? "✓ all lines add up to this (checked by Python)"
+    : row.type === "section" && row.status === "ok" ? "" : STATUS_TEXT[row.status] || "";
   const amount = document.createElement("span");
   amount.className = "tree-amount";
   amount.textContent = row.amountId ? byId.get(row.amountId)?.rawAmount || "" : "";
@@ -160,7 +161,7 @@ function refreshTreeHeaders() {
     if (!header) continue;
     header.className = `tree-row tree-${row.type} status-${row.status || "none"}`;
     header.querySelector(".tree-status").textContent = row.type === "invoice" && row.status === "ok"
-      ? "✓ all lines add up to this (checked by Python)" : STATUS_TEXT[row.status] || "";
+      ? "✓ all lines add up to this (checked by Python)" : row.type === "section" && row.status === "ok" ? "" : STATUS_TEXT[row.status] || "";
   }
 }
 
@@ -985,6 +986,12 @@ function evidenceText(candidate) {
 
 function updateLineOverview(card, candidate) {
   card.querySelector(".line-name").textContent = candidate.description || "Add a label";
+  card.querySelector(".line-kind").textContent = (ROLE_LABELS[candidate.role] || "Choose type").replace(" (minus amount)", "");
+  card.querySelector(".line-amount").textContent = candidate.rawAmount || "Add amount";
+  card.classList.toggle("printed-total", candidate.role === "total" || candidate.role === "subtotal");
+  // In the bill's hierarchy the row shows only what the line is (owner): page and section are visible from the
+  // tree and the eye. Without a hierarchy (drawn areas, typed lines) the page is still shown.
+  if (reviewState.tree) return;
   const pageLabel = document.createElement("small");
   pageLabel.className = "line-page";
   pageLabel.textContent = `Page ${candidate.page}`;
@@ -996,7 +1003,7 @@ function updateLineOverview(card, candidate) {
     section.textContent = candidate.sectionPath + (candidate.structureVerified ? " · ✓ adds up" : "");
     card.querySelector(".line-name").append(section);
   }
-  card.querySelector(".line-kind").textContent = ROLE_LABELS[candidate.role] || "Choose type";
+  card.querySelector(".line-kind").textContent = (ROLE_LABELS[candidate.role] || "Choose type").replace(" (minus amount)", "");
   card.querySelector(".line-amount").textContent = candidate.rawAmount || "Add amount";
   card.classList.toggle("printed-total", candidate.role === "total" || candidate.role === "subtotal");
 }

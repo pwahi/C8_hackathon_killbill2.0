@@ -63,3 +63,11 @@ test("lines the reader saw without a type are folded away as 'not counted'; the 
   assert.ok(closed.some((row) => row.id === "manual-1"));
   assert.ok(lineTreeRows(lines, TREE, new Map([["info", false]])).some((row) => row.id === "whole-vat"));
 });
+
+test("rows and sections follow the order printed on the bill", () => {
+  // Like the Anthropic invoice: the section (Claude Pro) is printed before the VAT line that sits under the bill.
+  const tree = [{ ...TREE[0], rows: ["vat"], sections: [{ ...TREE[0].sections[0], rows: ["a", "b"], references: [] }] }];
+  const lines = [c("a"), c("b"), c("s"), c("vat"), c("t")];
+  const order = lineTreeRows(lines, tree).map((row) => row.id);
+  assert.ok(order.indexOf("mob") < order.indexOf("whole-vat"));
+});

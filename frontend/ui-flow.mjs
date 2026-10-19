@@ -6,7 +6,7 @@ export const STEPS = ["Your bill", "Read", "Check the lines", "What we found", "
 export const STEP_GUIDANCE = [
   "Upload your bill and tell us what you expected to pay.",
   "Choose the pages with prices, then press Read. The AI reads every price.",
-  "Compare these lines with your bill. ✓ means Python checked the sums. Click a line to fix it, then press Looks right — check it.",
+  ["Compare each line with your bill.", "Click a line to fix it; the eye shows where it is on the bill.", "When it all matches, press Looks right — check it."],
   "Here is what Python found. Next: write the message to the company.",
   "Copy this message and send it to the company yourself. Then come back and press I sent it.",
 ];
@@ -100,7 +100,7 @@ export function createFlow() {
   }
   paintReading();
 
-  const heading = make("div", "chapter-heading", '<p class="eyebrow" id="chapter-number"></p><div class="step-progress" aria-hidden="true"><span id="step-progress-bar"></span></div><h1 id="chapter-title" tabindex="-1"></h1><p id="chapter-description"></p>');
+  const heading = make("div", "chapter-heading", '<p class="eyebrow" id="chapter-number"></p><div class="step-progress" aria-hidden="true"><span id="step-progress-bar"></span></div><h1 id="chapter-title" tabindex="-1"></h1><div id="chapter-description"></div>');
   $("main").insertBefore(heading, $("#review"));
   // Owner sketch "Page 3": the technical controls are for experts, with a short explanation behind ⓘ.
   const advanced = make("details", "advanced-review", '<summary>Advanced (for experts) <span class="info-dot" title="The exact data Python receives, and the message type. You do not need this to check your bill.">i</span></summary><p class="advanced-note">The exact data Python receives, and the message type. You do not need this to check your bill. Checking sends your confirmed lines to our server; if there is a difference, the AI also receives those lines and the result — never your bill image.</p>');
@@ -168,7 +168,11 @@ export function createFlow() {
   });
   function paint() {
     document.body.dataset.uiStep = current === INTRO ? "intro" : current === HOW ? "how" : String(current);
-    if (current === 1) readColumn.append(status); else if ($("main").firstElementChild !== status) $("main").prepend(status);
+    // Messages sit in a notification box next to the main button: under the Read panel, or above the check buttons.
+    if (current === 1) readColumn.append(status);
+    else if (current === 2) checkRow.before(status);
+    else if ($("main").firstElementChild !== status) $("main").prepend(status);
+    status.classList.toggle("notification-box", current === 1 || current === 2);
     heading.hidden = current <= 0;
     if (current < 0) {
       navButtons.forEach((button, index) => { button.disabled = !canVisit(index, state); button.removeAttribute("aria-current"); });
@@ -184,9 +188,14 @@ export function createFlow() {
     $("#chapter-number").classList.add("chapter-count");
     $("#step-progress-bar").style.width = `${((current + 1) / STEPS.length) * 100}%`;
     $("#chapter-title").textContent = STEPS[current].toUpperCase();
-    $("#chapter-description").textContent = STEP_GUIDANCE[current];
-    if (current === 2) $(".candidate-panel").prepend(heading);
-    else if (current === 3) resultBody.prepend(heading);
+    const guidance = STEP_GUIDANCE[current];
+    if (Array.isArray(guidance)) {
+      const points = document.createElement("ul");
+      points.className = "guidance-points";
+      guidance.forEach(text => { const item = document.createElement("li"); item.textContent = text; points.append(item); });
+      $("#chapter-description").replaceChildren(points);
+    } else $("#chapter-description").textContent = guidance;
+    if (current === 3) resultBody.prepend(heading);
     else if (current === 4) draft.prepend(heading);
     else $("main").insertBefore(heading, $("#review"));
     navButtons.forEach((button, index) => {

@@ -8,6 +8,8 @@ Date: 2026-10-19. Status: Implemented and tested locally; push pending owner app
 
 **Verification:** 220 Python / 96 browser-module tests; headless Edge walk with the masked two-page Vodafone bill.
 
+**Follow-up (owner feedback, same day):** the chapter title and instructions sit above both columns as in Chapter 2; instructions are three short points; status messages appear in a notification box above the bottom buttons. Rows and sections follow the order printed on the bill (a VAT line printed after a section is no longer listed above it). Sections are grey group headers; their lines are indented with a guide line; every row has a clear divider. A row shows only its name, type and amount (no page or section path when the hierarchy is shown); sections no longer repeat "✓ adds up" — only problems are shown, and the closing "What you pay" bar confirms the rest.
+
 ## D-054 — A line the verified bill adds up without is information, not a charge
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

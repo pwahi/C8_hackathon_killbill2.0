@@ -503,3 +503,27 @@ body[data-ui-step='2'] .read-column { display: none; }
   .line-overview, .line-table-heading { padding-right: 78px; }
   .check-actions { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- Check the lines: clearer hierarchy and rows (owner feedback 2026-10-19) ---- */
+/* Every row is separated by a clear line. */
+#candidate-list > * { border-top: 1px solid #E3E1DA !important; }
+#candidate-list > *:first-child { border-top: 0 !important; }
+/* A section is a group header: grey band, bold, chevron. */
+.tree-section { background: #F1F0EB; font-size: 14px; }
+.tree-section .tree-label { font-weight: 700; }
+button.tree-section:hover { background: #E9E8E2; }
+/* Its lines hang beneath it: indented, white, with a guide line on the left. */
+#candidate-list .candidate-card.breakdown { background: #FFFFFF; border-left: 3px solid #D5D3CC; }
+#candidate-list .candidate-card.breakdown .line-name { font-weight: 400; }
+/* Top-level lines read as the main items. */
+#candidate-list .candidate-card:not(.breakdown) .line-name { font-weight: 600; }
+/* What you pay closes the list. */
+.tree-invoice { border-radius: 0; }
+#candidate-list > .tree-invoice:last-child, #candidate-list > .tree-invoice + .tree-row { border-radius: 0; }
+/* Instructions as short points. */
+.guidance-points { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 2px; font-size: 16px; line-height: 1.5; color: #202124; }
+/* Notification box next to the main button (Read and Check the lines). */
+#status.notification-box { margin: 0 0 12px; padding: 12px 16px; border-radius: 8px; background: #fff; border: 1px solid #E3E1DA; font-size: 14px; line-height: 1.5; }
+#status.notification-box.busy { border-color: var(--accent); background: #FFFBEA; }
+#status.notification-box.failure { border-color: #C8102E; background: #FDF1F3; }
+body[data-ui-step='2'] .line-actions { margin-top: 0; }

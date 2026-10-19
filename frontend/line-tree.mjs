@@ -28,6 +28,14 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
     rows.push({ type: "line", id: candidate.id, depth, breakdown });
   };
   const hide = (node) => nodeGids(node).forEach((gid) => byGid.get(gid) && placed.add(byGid.get(gid).id));
+  // Rows and sections in the order they are printed on the bill (the reading order of the lines), so a VAT line
+  // printed after a section is not listed above it.
+  const order = new Map(candidates.map((candidate, index) => [candidate.gid, index]));
+  const position = (gids) => Math.min(...gids.map((gid) => order.get(gid) ?? Infinity));
+  const children = (node) => [
+    ...node.rows.map((gid) => ({ at: position([gid]), row: gid })),
+    ...node.sections.map((section) => ({ at: position(nodeGids(section)), section })),
+  ].sort((a, b) => a.at - b.at);
 
   const visit = (node, depth) => {
     references.push(...node.references);
@@ -36,8 +44,7 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
     rows.push({ type: "section", id: node.id, depth, label: node.label, period: node.period, status: state, collapsed,
       amountId: byGid.get(node.printedLineId)?.id || null, hint: byGid.get(node.printedLineId)?.attention || null });
     if (collapsed) { hide(node); collectReferences(node); return; }
-    node.rows.forEach((gid) => line(gid, depth + 1, true));
-    node.sections.forEach((child) => visit(child, depth + 1));
+    children(node).forEach((child) => child.section ? visit(child.section, depth + 1) : line(child.row, depth + 1, true));
     line(node.printedLineId, depth + 1, true);
   };
   const collectReferences = (node) => node.sections.forEach((child) => { references.push(...child.references); collectReferences(child); });
@@ -48,8 +55,7 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
       status: status(invoice, byGid), amountId: byGid.get(invoice.printedLineId)?.id || null };
     // One bill: the lines first, "What you pay" as the closing row (owner sketch). Several invoices: a header each.
     if (tree.length > 1) rows.push(header);
-    invoice.rows.forEach((gid) => line(gid, 0, false));
-    invoice.sections.forEach((section) => visit(section, 0));
+    children(invoice).forEach((child) => child.section ? visit(child.section, 0) : line(child.row, 0, false));
     line(invoice.printedLineId, 0, false);
     if (tree.length === 1) rows.push(header);
   }
