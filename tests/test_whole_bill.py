@@ -254,3 +254,29 @@ class InformationLines(unittest.TestCase):
             result = link_pages([(1, short)], decimal_separator=",", currency="EUR", api_key="k")
         self.assertNotEqual(result["status"], "ok")
         self.assertNotIn("p1-v", {k for k, v in result["lines"].items() if v.get("role") == ""})
+
+
+class Rounding(unittest.TestCase):
+    """Seen live 2026-10-19 (energy bill): parts add up to 334,55, printed total 334,56."""
+
+    PAGE = page([line("a", "Supply", "207,53", "charge"), line("b", "Energy tax", "-85,88", "discount"),
+                 line("c", "Grid costs", "188,91", "charge"), line("d", "Fixed costs", "23,99", "charge"),
+                 line("t", "Total electricity costs", "334,56", "total")],
+                {"sections": [], "rows": [{"line_id": x, "section_id": None} for x in "abcd"]})
+
+    def test_a_one_cent_gap_is_named_rounding_with_a_ready_adjustment(self):
+        with patch("billshield_core.whole_bill.post_chat", return_value=reply({})):
+            result = link_pages([(1, self.PAGE)], decimal_separator=",", currency="EUR", api_key="k")
+        self.assertEqual(result["status"], "mismatch")
+        total = result["lines"]["p1-t"]
+        self.assertEqual(total["rounding"], {"minor": 1, "raw": "0,01"})
+        self.assertIn("rounding difference", total["hint"])
+        self.assertTrue(result["tree"][0]["rounding"])
+
+    def test_a_real_gap_is_not_called_rounding(self):
+        bigger = page([line("a", "Supply", "207,53", "charge"), line("t", "Total", "210,00", "total")],
+                      {"sections": [], "rows": [{"line_id": "a", "section_id": None}]})
+        with patch("billshield_core.whole_bill.post_chat", return_value=reply({})):
+            result = link_pages([(1, bigger)], decimal_separator=",", currency="EUR", api_key="k")
+        self.assertIsNone(result["lines"]["p1-t"]["rounding"])
+        self.assertNotIn("rounding", result["lines"]["p1-t"]["hint"])

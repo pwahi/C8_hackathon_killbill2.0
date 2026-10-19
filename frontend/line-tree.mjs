@@ -6,8 +6,12 @@ const nodeGids = (node) => [node.printedLineId, ...node.rows, ...node.sections.f
 
 const innerMismatch = (node) => node.sections.some((child) => child.matches === false || innerMismatch(child));
 
-function status(node, byGid) {
-  if (node.matches === false) return "mismatch";
+function status(node, byGid, fixed = new Set()) {
+  if (node.matches === false) {
+    // A 1-2 cent gap is named rounding; once the person added a rounding line, Python checks it again on Looks right.
+    if (fixed.has(node.printedLineId)) return "changed";
+    return node.rounding ? "rounding" : "mismatch";
+  }
   if (node.matches !== true) return "none";
   const members = nodeGids(node).map((gid) => byGid.get(gid));
   if (members.some((line) => !line || line.edited)) return "changed";   // only after the person edits or removes
@@ -19,6 +23,7 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
   const rows = [];
   if (!tree?.length) return candidates.map((candidate) => ({ type: "line", id: candidate.id, depth: 0, breakdown: false }));
   const byGid = new Map(candidates.filter((candidate) => candidate.gid).map((candidate) => [candidate.gid, candidate]));
+  const fixed = new Set(candidates.map((candidate) => candidate.roundingFor).filter(Boolean));
   const placed = new Set();
   const references = [];
   const line = (gid, depth, breakdown) => {
@@ -39,7 +44,7 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
 
   const visit = (node, depth) => {
     references.push(...node.references);
-    const state = status(node, byGid);
+    const state = status(node, byGid, fixed);
     const collapsed = toggles.has(node.id) ? toggles.get(node.id) : state === "ok";
     rows.push({ type: "section", id: node.id, depth, label: node.label, period: node.period, status: state, collapsed,
       amountId: byGid.get(node.printedLineId)?.id || null, hint: byGid.get(node.printedLineId)?.attention || null });
@@ -52,7 +57,7 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
   for (const invoice of tree) {
     references.push(...invoice.references);
     const header = { type: "invoice", id: invoice.id, depth: 0, label: tree.length > 1 ? invoice.label : "What you pay",
-      status: status(invoice, byGid), amountId: byGid.get(invoice.printedLineId)?.id || null };
+      status: status(invoice, byGid, fixed), amountId: byGid.get(invoice.printedLineId)?.id || null };
     // One bill: the lines first, "What you pay" as the closing row (owner sketch). Several invoices: a header each.
     if (tree.length > 1) rows.push(header);
     children(invoice).forEach((child) => child.section ? visit(child.section, 0) : line(child.row, 0, false));
@@ -88,5 +93,6 @@ export const STATUS_TEXT = {
   mismatch: "✗ does not add up",
   changed: "changed — checked again when you press Looks right",
   inner: "✓ adds up — but a section below does not",
+  rounding: "≈ rounding difference",
   none: "",
 };

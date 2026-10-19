@@ -531,3 +531,10 @@ body[data-ui-step='2'] .line-actions { margin-top: 0; }
 /* Zoom: the page really gets bigger (about twice the panel width) and the panel scrolls; markers scale with it. */
 .document-panel:not(.fit) .page-shell { width: 200%; max-width: none; margin: 0; }
 .document-panel:not(.fit) .page-shell canvas, .document-panel:not(.fit) .page-shell img { width: 100%; max-width: none; height: auto; }
+
+/* Rounding (1-2 cents): amber, calm, with a one-click "Add 0,01 rounding" line. */
+.status-rounding .tree-status { color: #8A6D00; }
+.tree-invoice.status-rounding .tree-status { color: #F5C400; }
+.status-rounding { box-shadow: inset 3px 0 0 #D9A400; }
+.tree-hint.rounding, .attention.rounding { background: #FFF8D6 !important; color: #5C4A00 !important; border-left-color: #D9A400 !important; }
+.rounding-button { margin-top: 8px; padding: 6px 12px; font-size: 13px; background: #fff; border: 1px solid #5C4A00; color: #5C4A00; border-radius: 6px; cursor: pointer; }

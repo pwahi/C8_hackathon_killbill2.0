@@ -194,11 +194,31 @@ def _with_unreadable(check: StructureCheck, unreadable: list[Problem]) -> Struct
     return StructureCheck("invalid", (*unreadable, *check.problems), {}, (), ())
 
 
+# A gap of one or two cents is how bills round each part separately (owner, 2026-10-19). It is named as rounding and
+# the person may add it as a visible adjustment line; it is never absorbed silently.
+ROUNDING_LIMIT_MINOR = 2
+
+
+def rounding_fix(node, decimal_separator: str) -> dict | None:
+    """The adjustment that would close a rounding gap, written the way the bill writes amounts."""
+    if node is None or node.matches is not False or node.computed_minor is None or node.printed_minor is None:
+        return None
+    gap = node.computed_minor - node.printed_minor
+    if not 0 < abs(gap) <= ROUNDING_LIMIT_MINOR:
+        return None
+    fix = -gap
+    return {"minor": fix, "raw": f"{'-' if fix < 0 else ''}0{decimal_separator}{abs(fix):02d}"}
+
+
 def _gap_text(what: str, node, currency: str, lines: dict | None = None, labels: dict | None = None) -> str:
     """Plain explanation of a part that does not add up. A line equal to the gap is named: it is the likeliest
     cause (in the wrong section, or counted twice). Amounts compared exactly; nothing is moved automatically."""
     gap = node.computed_minor - node.printed_minor
     money = lambda amount: format_minor(amount, currency)
+    if 0 < abs(gap) <= ROUNDING_LIMIT_MINOR:
+        return (f"{what}: the lines add up to {money(node.computed_minor)} and the printed figure is "
+                f"{money(node.printed_minor)}, a {money(abs(gap))} rounding difference. Bills often round each part "
+                f"separately. Add it as a rounding line if that is what it is.")
     text = (f"{what}: the lines here add up to {money(node.computed_minor)}, but the printed figure is "
             f"{money(node.printed_minor)} ({money(abs(gap))} {'more' if gap > 0 else 'less'}).")
     same = [line_id for line_id in node.line_ids if lines and lines.get(line_id, (None, None))[1] == gap]
@@ -211,7 +231,7 @@ def _gap_text(what: str, node, currency: str, lines: dict | None = None, labels:
 
 
 def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str], currency: str,
-         notes: dict[str, str] | None = None, lines: dict | None = None) -> dict:
+         notes: dict[str, str] | None = None, lines: dict | None = None, decimal_separator: str = ".") -> dict:
     """Per line: the checked group it joins in today's flat line list, its printed path, Python's tick and hints."""
     notes = notes or {}
     if check.status == "invalid":
@@ -282,7 +302,8 @@ def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str]
         line_id = sections[section_id].subtotal_line_id
         node = check.nodes[section_id]
         result[line_id] = {"group": names[section_id], "path": path(section_id),
-                           "verified": node.matches is True, "hint": hint(section_id)}
+                           "verified": node.matches is True, "hint": hint(section_id),
+                           "rounding": rounding_fix(node, decimal_separator)}
         nested = any(other != section_id and section_id in {s.id for s in chain(other)[0]} for other in checked_sections)
         if not node.line_ids and node.matches is True:
             # A printed zero subtotal over skipped zero rows: nothing to count, and today's line list cannot
@@ -300,7 +321,8 @@ def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str]
             continue
         node = check.nodes[invoice.id]
         entry = {"group": "", "path": invoice.label or "", "verified": node.matches is True,
-                 "hint": _gap_text(invoice.label or "The bill total", node, currency, lines, labels) if node.matches is False else None}
+                 "hint": _gap_text(invoice.label or "The bill total", node, currency, lines, labels) if node.matches is False else None,
+                 "rounding": rounding_fix(node, decimal_separator)}
         if invoice.id in invoice_owners:
             # Several invoices: each printed invoice total checks its own rows, like a subtotal.
             entry.update(role="subtotal", group=names[invoice.id])
@@ -341,6 +363,7 @@ def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str]
                 "period": None if is_invoice else item.period,
                 "printedLineId": item.total_line_id if is_invoice else item.subtotal_line_id,
                 "matches": None if checked is None else checked.matches,
+                "rounding": rounding_fix(checked, decimal_separator) is not None,
                 "rows": [row.line_id for row in structure.rows if row.parent_id == node_id],
                 "sections": [node(s.id) for s in structure.sections if s.parent_id == node_id],
                 "references": [link.line_id for link in structure.summaries if link.section_id == node_id]}
@@ -382,7 +405,7 @@ def link_pages(pages: list[tuple[int, ExtractionOutput]], *, decimal_separator: 
             rank = {"ok": 0, "incomplete": 1, "mismatch": 2, "invalid": 3}
             if rank[ai_check.status] <= rank[check.status]:
                 structure, check, linked_by = proposal, ai_check, "ai"
-    result = plan(structure, check, labels, currency, notes if linked_by == "ai" else {}, lines)
+    result = plan(structure, check, labels, currency, notes if linked_by == "ai" else {}, lines, decimal_separator)
     result["linkedBy"] = linked_by
     result["decimalMark"] = decimal_separator
     result["ids"] = {f"{page}:{local}": gid for (page, local), gid in ids.items()}

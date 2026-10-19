@@ -380,3 +380,29 @@ class MismatchHints(unittest.TestCase):
         data = self.review([("plan", "charge", "10,00")], "12,50")
         self.assertIn("EUR 2.50 too little: a charge of EUR 2.50 may be missing",
                       analyze_confirmed_review(data)["suspects"][0]["text"])
+
+
+class RoundingLine(unittest.TestCase):
+    """Owner 2026-10-19: a 1-cent rounding gap is settled only by a visible adjustment line the person adds."""
+
+    def payload(self, with_rounding):
+        data = json.loads((Path(__file__).parent / "fixtures/confirmed/BS-001.confirmed.json").read_text(encoding="utf-8"))
+        data["messageType"] = "automatic"
+        data["expectedAmount"] = "33,76"
+        for line in data["lines"]:
+            line["questioned"] = False
+            if line["role"] == "total":
+                line["rawAmount"] = "33,76"
+        if with_rounding:
+            data["lines"].append({"id": "rounding-1", "role": "adjustment", "group": None,
+                                  "description": "Rounding difference (added by you)", "rawAmount": "0,01",
+                                  "extractedRawAmount": None, "extractor": "manual", "questioned": False,
+                                  "currency": "EUR", "source": {"page": 1, "precision": "page"}})
+        return data
+
+    def test_without_the_rounding_line_the_cent_is_not_ignored(self):
+        self.assertEqual(analyze_confirmed_review(self.payload(False))["status"], "needs_recheck")
+
+    def test_with_the_rounding_line_the_bill_adds_up(self):
+        result = analyze_confirmed_review(self.payload(True))
+        self.assertEqual((result["status"], result["verdict"]), ("complete", "checks_passed"))

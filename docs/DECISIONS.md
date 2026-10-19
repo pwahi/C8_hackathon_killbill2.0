@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-056 — A 1–2 cent gap is named rounding and settled only by a visible line
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Problem (owner, energy bill):** parts add up to 334,55, printed total 334,56. Shown as a red "does not add up", which overstates a normal rounding difference.
+
+**Decision:** Python names a gap of one or two cents (or paise) as rounding: amber "≈ rounding difference" with "Bills often round each part separately", and gives the exact adjustment written as the bill writes amounts (e.g. "0,01"). One click on "Add 0,01 rounding" adds a visible adjustment line "Rounding difference (added by you)" to that section (or the bill), confirmed by the person; only one such line per review. Python checks the whole bill again on Looks right. There is no silent tolerance: without the line the cent still blocks the result; with it the bill adds up and the line is saved like any other. Larger gaps stay red as before.
+
+**Verification:** 2 Python tests on the plan (1 cent named rounding with "0,01"; a real gap is not), 2 on the final check (needs_recheck without the line, checks_passed with it), 1 browser-module test on the status; page loads without errors. Not yet run on the owner's real energy bill.
+
 ## D-055 — Check the lines per owner sketch "Page 3"
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

@@ -113,11 +113,13 @@ function renderLines() {
   elements.candidateList.replaceChildren(...lineTreeRows(reviewState.candidates, reviewState.tree, reviewState.toggles).flatMap(row => {
     if (row.type !== "line") {
       const header = treeHeader(row, byId);
-      if (row.status !== "mismatch" || !row.hint) return [header];
+      if (!["mismatch", "rounding"].includes(row.status) || !row.hint) return [header];
       const note = document.createElement("p");
-      note.className = "tree-hint";
+      note.className = `tree-hint${row.status === "rounding" ? " rounding" : ""}`;
       note.style.setProperty("--depth", row.depth);
       note.textContent = row.hint;
+      const fix = row.status === "rounding" ? roundingButton(byId.get(row.amountId)) : null;
+      if (fix) note.append(" ", fix);
       return [header, note];
     }
     const card = candidateCard(byId.get(row.id));
@@ -214,7 +216,7 @@ function visionCandidate(line, { page, area, sourceKey, outputCurrency, placed, 
     extractionSourceKey: sourceKey,
     extractionSignature: JSON.stringify({description: line.description, amount: line.raw_amount, role: line.role, group: line.group, currency: line.currency, breakdown: line.breakdown}),
     role: placed && "role" in placed ? placed.role : suggestion.role, group: placed ? placed.group : suggestion.group,
-    sectionPath: placed?.path || "", structureVerified: Boolean(placed?.verified),
+    sectionPath: placed?.path || "", structureVerified: Boolean(placed?.verified), rounding: placed?.rounding || null,
     reference: placed && placed.role === "" ? { text: referenceText(placed) } : null,
     attention: placed && placed.role === "" ? null : placed?.hint || null,
     breakdown: cleaned ? cleaned.columns : null,
@@ -644,6 +646,28 @@ async function pdfLibrary() {
   const pdfjs = await import("./vendor/pdfjs/pdf.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.mjs";
   return pdfjs;
+}
+
+// Rounding (owner 2026-10-19): Python names a 1-2 cent gap and the exact adjustment, written as the bill writes
+// amounts. The person adds it with one click as a visible line "Rounding difference (added by you)"; Python checks the
+// whole bill again with it on Looks right. Nothing is absorbed silently and only one rounding line can be added.
+function roundingButton(candidate) {
+  if (!candidate?.rounding || reviewState.candidates.some(line => line.roundingFor)) return null;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "secondary rounding-button";
+  button.textContent = `Add ${candidate.rounding.raw} rounding`;
+  button.addEventListener("click", () => addRounding(candidate));
+  return button;
+}
+
+function addRounding(candidate) {
+  const fields = manualCandidateFields({ page: candidate.page, role: "adjustment", description: "Rounding difference (added by you)",
+    rawAmount: candidate.rounding.raw, group: candidate.role === "subtotal" ? candidate.group : "" });
+  reviewState.candidates = reviewState.candidates.map(line => line.id === candidate.id ? { ...line, attention: null } : line);
+  addCandidate(newCandidate({ ...fields, id: `rounding-${crypto.randomUUID()}`, roundingFor: candidate.gid, confirmed: true,
+    context: "Added by you to settle a rounding difference that Python found.", warning: "" }),
+    `Rounding line of ${candidate.rounding.raw} added. Python checks the whole bill again when you press Looks right — check it.`);
 }
 
 function addCandidate(candidate, message) {
@@ -1189,8 +1213,10 @@ function candidateCard(candidate) {
   });
   if (candidate.attention) {
     const attention = document.createElement("p");
-    attention.className = "attention";
+    attention.className = `attention${candidate.rounding ? " rounding" : ""}`;
     attention.textContent = candidate.attention;
+    const fix = roundingButton(candidate);
+    if (fix) attention.append(" ", fix);
     card.append(attention);
   }
   const editor = document.createElement("details");

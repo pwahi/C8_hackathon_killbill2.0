@@ -71,3 +71,12 @@ test("rows and sections follow the order printed on the bill", () => {
   const order = lineTreeRows(lines, tree).map((row) => row.id);
   assert.ok(order.indexOf("mob") < order.indexOf("whole-vat"));
 });
+
+test("a one-cent gap reads as rounding; after a rounding line is added Python checks it again", () => {
+  const tree = [{ ...TREE[0], matches: false, rounding: true, sections: [] }];
+  assert.equal(lineTreeRows(LINES, tree).find((row) => row.type === "invoice").status, "rounding");
+  const withFix = [...LINES, { id: "rounding-1", roundingFor: "t", role: "adjustment" }];
+  assert.equal(lineTreeRows(withFix, tree).find((row) => row.type === "invoice").status, "changed");
+  const real = [{ ...TREE[0], matches: false, sections: [] }];
+  assert.equal(lineTreeRows(LINES, real).find((row) => row.type === "invoice").status, "mismatch");
+});
