@@ -1562,12 +1562,19 @@ function refreshPrintedCheck() {
   const pendingBoxes = [...document.querySelectorAll("#section-links .section-review")].filter(box => !box.hidden);
   document.querySelector(".printed-check-prompt").hidden = document.querySelector("#printed-check-message").hidden && !pendingBoxes.length;
   // Review lines also counts grouping questions that wait for Yes/Change, so it never says "Nothing to review" then.
-  const roundingOpen = reviewState.candidates.filter(line => line.reference && line.rounding && !reviewState.candidates.some(other => other.roundingFor === line.gid)).length;
-  const waiting = reviewState.candidates.filter(line => line.attention && !line.reference).length + pendingBoxes.length + roundingOpen;
+  const waiting = reviewWaiting();
   const review = document.querySelector("#review-lines");
   review.disabled = !waiting;
   review.classList.toggle("needed", waiting > 0);
   review.textContent = waiting ? `Review ${waiting} item${waiting === 1 ? "" : "s"}` : "Nothing to review";
+}
+
+// What "Review N items" counts: lines marked for a look, grouping questions waiting for Yes/Change, and rounding
+// differences on a printed figure that has no rounding line yet.
+function reviewWaiting() {
+  const pendingBoxes = [...document.querySelectorAll("#section-links .section-review")].filter(box => !box.hidden).length;
+  const roundingOpen = reviewState.candidates.filter(line => line.reference && line.rounding && !reviewState.candidates.some(other => other.roundingFor === line.gid)).length;
+  return reviewState.candidates.filter(line => line.attention && !line.reference).length + pendingBoxes + roundingOpen;
 }
 
 function openManualLine(role = "charge") {
@@ -2112,6 +2119,16 @@ document.querySelector("#confirm-and-check").addEventListener("click", async (ev
     setStatus("The printed total or subtotal is missing or incomplete. Add it from your bill; we will not guess it.", "failure");
     return;
   }
+  // Owner: "it says review two items but still calculates". The first press with items still marked goes to the
+  // first one and says so; pressing Looks right again (nothing changed) checks anyway — the items are advice.
+  const waiting = reviewWaiting();
+  if (waiting && reviewState.reviewWarned !== waiting) {
+    reviewState.reviewWarned = waiting;
+    document.querySelector("#review-lines").click();
+    setStatus(`${waiting} item${waiting === 1 ? " is" : "s are"} still marked for review — the first one is open. Fix ${waiting === 1 ? "it" : "them"}, or press Looks right again to check anyway.`, "failure");
+    return;
+  }
+  reviewState.reviewWarned = null;
   const button = event.currentTarget;
   button.disabled = true;
   confirmAllReady();
