@@ -1351,12 +1351,6 @@ function refreshPrintedCheck() {
   checkAll.disabled = selection.disabled;
   checkAll.textContent = selection.checked ? "✓ All lines checked" : "Check all lines";
   checkAll.classList.toggle("done", selection.checked);
-  // Review lines: highlighted only when a line needs the person (a hint from Python or a missing decision).
-  const needs = reviewState.candidates.filter(line => line.attention && !line.reference);
-  const review = document.querySelector("#review-lines");
-  review.disabled = !needs.length;
-  review.classList.toggle("needed", needs.length > 0);
-  review.textContent = needs.length ? `Review ${needs.length} line${needs.length === 1 ? "" : "s"}` : "Nothing to review";
   allLines.checked = selection.checked;
   allLines.indeterminate = selection.indeterminate;
   allLines.disabled = selection.disabled;
