@@ -2115,6 +2115,15 @@ document.querySelector("#confirm-and-check").addEventListener("click", async (ev
   const button = event.currentTarget;
   button.disabled = true;
   confirmAllReady();
+  // A line that could not be confirmed is never left out silently: Python would then report a gap the bill does
+  // not have (owner, Odido bill: "Customer benefit -0,48"). Point to it and say why instead of checking.
+  const blocked = reviewState.candidates.find(line => !line.confirmed && line.role && !line.reference);
+  if (blocked) {
+    button.disabled = false;
+    focusCandidate(blocked.id);
+    setStatus(`“${blocked.description || "A line"}” is not checked yet, so it would be left out of the sums: ${readiness(blocked, elements.currency.value) || "tick “I checked this against the bill”."} Fix it or remove it with ×, then press Looks right again.`, "failure");
+    return;
+  }
   try { if (previewPayload()) await analyzeReview(); }
   finally { button.disabled = false; }
 });

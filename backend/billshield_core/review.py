@@ -35,10 +35,10 @@ CURRENCY_MARKS = {"EUR": ("€", "EUR"), "INR": ("₹", "INR")}
 # Same patterns as frontend/extraction/privacy.mjs; Python re-checks rather than trusting the browser.
 PRIVATE_PATTERNS = (
     re.compile(r"\b(?:\d[ -]?){13,19}\b"),
-    # "phone"/"mobile" only when they introduce a number ("mobile number", "phone 0612..."); on their own they
-    # are ordinary telecom product words ("30 GB mobile plan"). The other identifier words always block.
-    re.compile(r"\b(?:account|customer|booking|reference|address)\b|\b(?:phone|mobile)\s*(?:number|no\.?|nr\.?|id)\b"
-               r"|\b(?:phone|mobile)\s*[:#]?\s*\d{4,}", re.IGNORECASE),
+    # Identifier words block only when they introduce a number ("customer number", "account 1234", "phone 0612...");
+    # on their own they are ordinary bill words ("Customer benefit", "30 GB mobile plan"). "address" always blocks.
+    re.compile(r"\baddress\b|\b(?:account|customer|booking|reference|phone|mobile)\s*(?:number|no\.?|nr\.?|id|code)\b"
+               r"|\b(?:account|customer|booking|reference|phone|mobile)\s*[:#]?\s*(?=[A-Z0-9-]*\d)[A-Z0-9-]{4,}", re.IGNORECASE),
     re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b", re.IGNORECASE),
     re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b"),
 )

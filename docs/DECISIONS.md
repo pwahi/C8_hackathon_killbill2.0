@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-062 — Identifier words block a label only when a number follows; Looks right never drops a line silently
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Problem (owner, Odido bill):** the discounts -108,73, -16,50 and -0,48 add up to the printed -125,71, but the check said the section added up to -125,23. The line "Customer benefit" was blocked by the privacy rule (any label containing "customer", "account", "booking" or "reference"), so it stayed unconfirmed, Looks right left it out without saying so, and Python reported a gap the bill does not have.
+
+**Decision:** those words (and "phone"/"mobile") block a label only when they introduce a number or code ("customer number", "account 12345678", "booking reference X7K9P2"); "address" always blocks; same rule in privacy.mjs and review.py. Looks right now stops at any line that has a type but is not checked, opens it and says why, instead of checking without it. Python tests updated: "Account fee" and "Booking reference" alone are allowed; with a number or code they are refused.
+
 ## D-061 — Check the lines and What we found follow the owner's sketches
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

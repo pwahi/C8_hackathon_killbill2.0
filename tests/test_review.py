@@ -328,12 +328,21 @@ class ProvenanceTests(unittest.TestCase):
 
 class LabelSafetyTests(unittest.TestCase):
     def test_amounts_and_private_data_cannot_enter_message_through_labels(self) -> None:
-        for label in ("Delivery 59.90", "Fee INR 5", "Fee €5", "5 EUR fee", "Fee 2312", "Account fee", "Booking reference"):
+        for label in ("Delivery 59.90", "Fee INR 5", "Fee €5", "5 EUR fee", "Fee 2312", "Account number fee",
+                      "Booking reference X7K9P2", "Delivery address"):
             with self.subTest(label=label):
                 data = payload("BS-002")
                 line_by_id(data, "delivery")["description"] = label
                 with self.assertRaises(ReviewError):
                     analyze_confirmed_review(data)
+
+    def test_identifier_words_without_a_number_are_ordinary_labels(self) -> None:
+        # Owner, Odido bill: "Customer benefit" is a discount, not private data.
+        for label in ("Customer benefit", "Account fee", "Booking fee"):
+            with self.subTest(label=label):
+                data = payload("BS-002")
+                line_by_id(data, "delivery")["description"] = label
+                self.assertEqual(analyze_confirmed_review(data)["verdict"], "unexplained")
 
     def test_currency_word_without_number_is_allowed(self) -> None:
         data = payload("BS-002")
