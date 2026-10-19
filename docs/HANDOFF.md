@@ -120,6 +120,7 @@ Requirement: PRD v2.0 §12 → **N-1**. Summary: turn the working Stage 2 review
 
 When the owner says to start:
 
+0. Read `docs/UI_RESEARCH.md` (design brief: minimal "Kill Bill 2.0" accents, 5 chapters, colour tokens) and the owner's decisions on it.
 1. Look at the owner's paper UI sequence and flow (parent workspace: `../evidence/E-109_CHECKIN3_PAPER_DESIGN.md` links the photos under `../evidence/originals/2026-10-18_move2/`; never copy evidence into this repo). Describe the screens you will build in ≤ 10 lines and get the owner's OK.
 2. Prefer plain HTML/JS in `frontend/` (no build step — Vercel and the vendor setup depend on that) unless the owner approves otherwise.
 3. Build in small steps; after each, run all tests and drive the four reference cases (A–D) through the new screens. Acceptance: same verdicts and drafts as today; existing tests pass; a first-time user does not need terms like "role" or "precision" explained.
