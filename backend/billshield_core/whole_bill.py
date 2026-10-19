@@ -314,6 +314,15 @@ def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str]
             # Kept visible but not counted: it repeats a section or total that is itemised elsewhere.
             "role": "", "summaryOf": target,
         }
+    if check.status == "ok":
+        # Every printed total and subtotal is matched by the structure without these lines, so they are information
+        # printed on the bill (e.g. "VAT 21% over EUR 8.93", already inside the total), not extra charges. Seen live
+        # 2026-10-19 (Lebara): left with the reader's own role, such a line was counted on top of a verified total.
+        # When something does not add up they keep their role: a left-out line may be the missing piece.
+        for line_id in labels:
+            if line_id not in result:
+                result[line_id] = {"group": "", "path": "", "verified": False, "hint": None, "role": "",
+                                   "referenceText": "For information only — the bill adds up without it, so it is not counted."}
     for line_id, entry in result.items():
         note = notes.get(line_id)
         if note:

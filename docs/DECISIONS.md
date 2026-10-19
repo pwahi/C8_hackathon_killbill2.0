@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-054 — A line the verified bill adds up without is information, not a charge
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Problem (owner, live Lebara PDF):** "Btw 21% over € 8,93 = 1,87" is already inside the printed total of 10,80. The structure verified without it ("✓ all lines add up"), but the line had no instruction from the plan, so the screen showed it as a yellow "Choose type" line; choosing Charge made Python count it on top (12,67 vs 10,80) and stop with a re-check message.
+
+**Decision:** when Python verified every printed total and subtotal (status ok), any line the structure left out is marked "For information only — the bill adds up without it, so it is not counted" and shown as a calm reference row with "Count it anyway". When something does not add up, left-out lines keep their role, because one may be the missing piece. The folded group is renamed "Shown on the bill — not counted" (repeats and information).
+
+**Verification:** 2 new Python tests (information line not counted when verified; kept when not verified). Not yet re-run on the owner's real Lebara PDF, which is not in the test folder.
+
 ## D-053 — Read chapter per owner sketch: Prev/Next viewer, page field, one button, notification box
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

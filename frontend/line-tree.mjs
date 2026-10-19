@@ -54,7 +54,7 @@ export function lineTreeRows(candidates, tree, toggles = new Map()) {
   const referenceLines = candidates.filter((candidate) => candidate.reference);
   if (referenceLines.length) {
     const collapsed = toggles.has("references") ? toggles.get("references") : true;
-    rows.push({ type: "group", id: "references", depth: 0, label: "Repeated elsewhere on the bill — not counted",
+    rows.push({ type: "group", id: "references", depth: 0, label: "Shown on the bill — not counted",
       count: referenceLines.length, collapsed });
     referenceLines.forEach((candidate) => { placed.add(candidate.id); if (!collapsed) rows.push({ type: "line", id: candidate.id, depth: 1, breakdown: true }); });
   }

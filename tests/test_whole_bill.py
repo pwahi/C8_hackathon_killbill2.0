@@ -226,3 +226,31 @@ class TaxInsideSubtotal(unittest.TestCase):
         hint = result["lines"]["p1-s"]["hint"]
         self.assertIn("“VAT” is exactly the difference, so it probably belongs outside this section", hint)
         self.assertIsNone(result["lines"]["p1-a"]["hint"])  # not repeated on every row
+
+
+class InformationLines(unittest.TestCase):
+    """Seen live 2026-10-19 (Lebara): "VAT 21% over EUR 8.93 = 1.87" is already inside the total of 10.80."""
+
+    PAGE = page([line("a", "Sim Only 5GB", "9,30", "charge"), line("b", "Data cap", "1,50", "charge"),
+                 line("s", "Subtotal", "10,80", "subtotal"), line("t", "Total incl. VAT", "10,80", "total"),
+                 line("v", "VAT 21% (information only)", "1,87", "other")],
+                {"sections": [{"id": "x", "label": "Subscription", "subtotal_line_id": "s"}],
+                 "rows": [{"line_id": "a", "section_id": "x"}, {"line_id": "b", "section_id": "x"}]})
+
+    def test_a_line_the_verified_bill_adds_up_without_is_shown_but_not_counted(self):
+        with patch("billshield_core.whole_bill.post_chat", return_value=reply({})):
+            result = link_pages([(1, self.PAGE)], decimal_separator=",", currency="EUR", api_key="k")
+        self.assertEqual(result["status"], "ok")
+        vat = result["lines"]["p1-v"]
+        self.assertEqual(vat["role"], "")
+        self.assertIn("not counted", vat["referenceText"])
+
+    def test_when_the_bill_does_not_add_up_a_left_out_line_keeps_its_role(self):
+        short = page([line("a", "Sim Only 5GB", "9,30", "charge"), line("s", "Subtotal", "10,80", "subtotal"),
+                      line("t", "Total", "10,80", "total"), line("v", "Data cap", "1,50", "charge")],
+                     {"sections": [{"id": "x", "label": "Subscription", "subtotal_line_id": "s"}],
+                      "rows": [{"line_id": "a", "section_id": "x"}]})
+        with patch("billshield_core.whole_bill.post_chat", return_value=reply({})):
+            result = link_pages([(1, short)], decimal_separator=",", currency="EUR", api_key="k")
+        self.assertNotEqual(result["status"], "ok")
+        self.assertNotIn("p1-v", {k for k, v in result["lines"].items() if v.get("role") == ""})
