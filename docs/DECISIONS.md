@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-061 — Check the lines and What we found follow the owner's sketches
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Check the lines.** Every total you pay is the same black band at the bottom of its lines, also for bills with several parts (electricity, gas); a rounding line sits inside the part it fixes. Clicking a total or a section lights up all its lines on the bill; clicking one line lights up only that line. Until something is clicked the page shows no boxes.
+
+**What we found (chapter 4).** Short headline ("Your bill adds up."), the difference large in a yellow box, then the AI-powered explanation with its disclaimer, then Python's check in a smaller box. A failed AI step keeps its "Try the AI again" button (D-060); a failed Python check stays on Check the lines with the error next to "Looks right — check it", which is the retry. The sketch's "chatbot / math button" next to The maths is not built: an AI answering questions about the numbers crosses the boundary that Python owns every number (D-002), so it needs an owner decision first.
+
 ## D-060 — A missing AI explanation is said plainly, with a retry
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

@@ -10,7 +10,7 @@ const result = {status: "complete", verdict: "unexplained", minor: {expected: 12
     {description: "Total", role: "total", amount: "EUR 1378.80"}]};
 
 test("desktop headline copies Python difference without inventing an explanation", () => {
-  assert.deepEqual(resultHeadline(result), {text: "Your bill adds up. Difference from what you expected:", amount: "EUR 79.80"});
+  assert.deepEqual(resultHeadline(result), {text: "Your bill adds up.", amount: "EUR 79.80", amountLabel: "Difference from what you expected"});
   const negative = {...result, minor: {...result.minor, difference: -100}, amounts: {...result.amounts, difference: "EUR -1.00"}};
   assert.equal(resultHeadline(negative).amount, "EUR -1.00");
 });

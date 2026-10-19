@@ -4,7 +4,8 @@ export function resultHeadline(result) {
   if (result.verdict === "verified_mismatch") return { text: "The re-checked figures do not add up.", amount: null };
   if (result.minor.expected == null) return { text: "The confirmed bill amounts add up.", amount: null };
   if (result.minor.difference === 0) return { text: "Your bill adds up and matches what you expected.", amount: null };
-  return { text: "Your bill adds up. Difference from what you expected:", amount: result.amounts.difference };
+  // Owner sketch (chapter 4): a short headline, then the difference large in its own yellow box.
+  return { text: "Your bill adds up.", amount: result.amounts.difference, amountLabel: "Difference from what you expected" };
 }
 
 // Short maths: one row per section (Python's section sum), then lines outside any section, then one total.

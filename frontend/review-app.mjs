@@ -1670,7 +1670,7 @@ function renderGap(result, ai) {
     elements.resultGap.replaceChildren(paragraph("Nothing to explain: the bill matches what you expected."));
     return;
   }
-  nodes.push(paragraph("Where the difference sits", "gap-heading"));
+  nodes.push(paragraph("Python's check: where the difference sits", "gap-heading"));
   const exact = result.gap.exactMatches.map((match) => listItem(`${match.groupLabel ? match.groupLabel : match.labels.join(" + ")} = ${match.amount}, ${MATCH_TEXT[match.kind]}.`));
   const list = document.createElement("ul");
   list.replaceChildren(...(exact.length ? exact : [listItem("No line or section on the bill equals the difference exactly. The reason may be outside this bill, for example a different price you were quoted.")]));
@@ -1682,7 +1682,7 @@ function renderGap(result, ai) {
   if (ai.state === "error") {
     const note = document.createElement("section");
     note.className = "ai-reason ai-unavailable";
-    note.append(paragraph("Possible reason (AI suggestion)", "gap-heading"),
+    note.append(paragraph("AI-powered explanation", "gap-heading"),
       paragraph(`The AI suggestion is not available right now: ${ai.message || "no answer"} Everything above was checked by Python and is complete.`, "hint"));
     const retry = document.createElement("button");
     retry.type = "button";
@@ -1696,10 +1696,10 @@ function renderGap(result, ai) {
     const facts = document.createElement("section");
     facts.className = "python-facts";
     facts.append(...nodes);
-    elements.resultGap.replaceChildren(facts, note);
+    elements.resultGap.replaceChildren(note, facts);
     return;
   }
-  nodes.push(paragraph("Possible reason (AI suggestion, not verified)", "gap-heading"));
+  nodes.push(paragraph("AI-powered explanation (not verified)", "gap-heading"));
   if (ai.state === "done") nodes.push(paragraph("Written by AI. It can be wrong, so check it against your bill. The amounts in The maths come from Python.", "ai-disclaimer"));
   if (ai.state === "asking") nodes.push(paragraph("Looking for a likely reason… Only the checked lines and amounts are sent, no picture of your bill.", "hint"));
   if (ai.state === "done" && ai.explanation.story) {
@@ -1722,10 +1722,11 @@ function renderGap(result, ai) {
   suggestion.className = "ai-reason";
   let target = facts;
   for (const node of nodes) {
-    if (node.classList.contains("gap-heading") && node.textContent.includes("AI suggestion")) target = suggestion;
+    if (node.classList.contains("gap-heading") && node.textContent.includes("AI-powered")) target = suggestion;
     target.append(node);
   }
-  elements.resultGap.replaceChildren(facts, suggestion);
+  // AI explanation first, Python's facts in a smaller box under it (owner sketch, chapter 4).
+  elements.resultGap.replaceChildren(suggestion, facts);
 }
 
 // One re-check problem with the two ways to fix it: look at the lines, or read the page again.
@@ -1810,10 +1811,11 @@ function renderResult(result, ai = { state: "skipped" }) {
   verdict.className = needsRecheck ? "verdict verdict-verified_mismatch" : `verdict verdict-${result.verdict}`;
   const headline = resultHeadline(result);
   verdict.textContent = headline.text;
+  // The difference sits in its own large yellow box under the headline (owner sketch, chapter 4).
+  const differenceBox = document.createElement("div");
   if (headline.amount) {
-    const amount = document.createElement("mark");
-    amount.textContent = headline.amount;
-    verdict.append(" ", amount);
+    differenceBox.className = "difference-box";
+    differenceBox.append(paragraph(headline.amountLabel || "Difference", "difference-label"), paragraph(headline.amount, "difference-amount"));
   }
   verdict.title = needsRecheck ? "Check the reading before continuing" : VERDICT_LABELS[result.verdict] || result.verdict;
   elements.recheckBox.hidden = !needsRecheck;
@@ -1827,7 +1829,7 @@ function renderResult(result, ai = { state: "skipped" }) {
   if (result.amounts.printedTotal) parts.push(`printed total: ${result.amounts.printedTotal}`);
   if (result.amounts.expected) parts.push(`you expected: ${result.amounts.expected}`, `difference: ${result.amounts.difference}`);
   totals.textContent = parts.join(" · ");
-  elements.resultSummary.replaceChildren(verdict, totals);
+  elements.resultSummary.replaceChildren(...[verdict, headline.amount ? differenceBox : null, totals].filter(Boolean));
   const table = document.createElement("table");
   table.className = "math-table";
   table.setAttribute("aria-label", "Code-checked bill amounts");

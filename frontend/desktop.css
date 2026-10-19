@@ -590,3 +590,16 @@ body[data-ui-step='2'] .table-area.active, body[data-ui-step='2'] .highlight.act
 body[data-ui-step='2'] .table-area span { display: none; }
 #candidate-list .showing { box-shadow: inset 4px 0 0 #F5C400 !important; }
 .tree-invoice.shows-lines { cursor: pointer; }
+
+/* ---- What we found (owner sketch, chapter 4) ----
+   Short headline, the difference large in a yellow box, then the AI explanation, then Python's facts smaller. */
+.difference-box { margin: 16px 0 0; padding: 18px 22px; background: var(--accent); border-radius: 8px; color: #111; display: grid; gap: 2px; }
+.difference-box .difference-label { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: .02em; }
+.difference-box .difference-amount { margin: 0; font-size: 40px; line-height: 1.15; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.result-gap { display: grid; gap: 16px; }
+.result-gap .ai-reason { border: 1px solid var(--line); border-style: solid; background: #fff; }
+.result-gap .python-facts { padding: 14px 18px; gap: 8px; background: transparent; font-size: 13px; }
+.result-gap .python-facts .gap-heading { font-size: 11px; }
+.result-gap .python-facts li, .result-gap .python-facts p { font-size: 13px; line-height: 1.55; }
+/* The "Done…" status line is not needed on this page; a failure still shows. */
+body[data-ui-step='3'] #status:not(.failure) { display: none; }
