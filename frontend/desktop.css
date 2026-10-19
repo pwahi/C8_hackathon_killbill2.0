@@ -581,10 +581,4 @@ body[data-ui-step='2'] .line-actions { margin-top: 0; }
 .confirmed .line-title::before { content: '✓ '; color: var(--green); }
 .ai-unavailable .secondary { margin-top: 10px; }
 
-/* Several parts (electricity, gas): each part's total closes its own lines, like a receipt subtotal — white with a
-   strong rule above, not a black heading. Black stays for the single "What you pay". */
-.tree-invoice.tree-part { background: #FFFFFF; color: #111111; border-top: 2px solid #111111 !important; }
-.tree-invoice.tree-part .tree-title { color: #111111; }
-.tree-invoice.tree-part .tree-status { color: #8A6D00; }
-.tree-invoice.tree-part.status-ok .tree-status { color: #1E6B45; }
-.tree-invoice.tree-part.status-mismatch .tree-status { color: #C8102E; }
+/* Every total you pay is the same black band, whether the bill has one part or several (owner 2026-10-19). */
