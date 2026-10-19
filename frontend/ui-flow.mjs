@@ -31,6 +31,7 @@ export function createFlow() {
   };
   const state = { opened: false, complete: false, busy: false };
   const INTRO = -1;  // the landing page (what it is, how to use it, the data workflow) comes before step 1
+  const HOW = -2;    // "How it works": its own page, reached from the landing page
   let current = INTRO;
   $(".brand-bar").append($("#flow-nav"));
   const status = $("#status");
@@ -52,6 +53,9 @@ export function createFlow() {
   $(".setup").before(provide);
   provide.append($(".setup"), $("#saved-checks"));
   $("#start-checking").addEventListener("click", () => go(0));
+  $("#how-start").addEventListener("click", () => go(0));
+  $("#show-how").addEventListener("click", () => go(HOW));
+  $("#how-back").addEventListener("click", () => go(INTRO));
   $("#home-link").addEventListener("click", (event) => { event.preventDefault(); go(INTRO, true); });
 
   const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">READ YOUR BILL</p><h2>Let the AI read your bill</h2><p class="read-lead">It finds every price and groups them the way your bill does. Python then checks every sum. About 20 seconds per page.</p>');
@@ -157,9 +161,9 @@ export function createFlow() {
     return button;
   });
   function paint() {
-    document.body.dataset.uiStep = current === INTRO ? "intro" : String(current);
+    document.body.dataset.uiStep = current === INTRO ? "intro" : current === HOW ? "how" : String(current);
     heading.hidden = current <= 0;
-    if (current === INTRO) {
+    if (current < 0) {
       navButtons.forEach((button, index) => { button.disabled = !canVisit(index, state); button.removeAttribute("aria-current"); });
       back.hidden = true; next.hidden = true;
       return;
@@ -181,9 +185,9 @@ export function createFlow() {
     next.disabled = state.busy;
   }
   function go(step, force = false) {
-    if (step !== INTRO && !force && !canVisit(step, state)) return;
+    if (step >= 0 && !force && !canVisit(step, state)) return;
     current = step; paint();
-    (current === INTRO ? $("#landing-title") : current === 0 ? $("#flow-title") : $("#chapter-title")).focus({ preventScroll: true });
+    (current === INTRO ? $("#landing-title") : current === HOW ? $("#how-title") : current === 0 ? $("#flow-title") : $("#chapter-title")).focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }
   paint();

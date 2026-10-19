@@ -365,11 +365,13 @@ body[data-ui-step='1']:not(.area-mode) .page-options { display: none !important;
 /* ---- Kill Bill 2.0 (owner logo 2026-10-19): header logo and a clean landing page ---- */
 .brand-logo { display: inline-flex; align-items: center; }
 .brand-logo img { display: block; height: 44px; width: auto; }
-body[data-ui-step='intro'] .brand-bar { display: none; }  /* the landing page is just the logo, one question and one button */
+body[data-ui-step='intro'] .brand-bar, body[data-ui-step='how'] .brand-bar { display: none; }  /* the landing page is just the logo, one question and one button */
 
-body[data-ui-step='intro'] [data-flow-panel='intro'] { display: grid !important; }
-body[data-ui-step='intro'] #status, body[data-ui-step='intro'] .chapter-heading, body[data-ui-step='intro'] .flow-actions { display: none !important; }
-.landing { justify-items: center; text-align: center; gap: 56px; padding: 24px 0 40px; }
+body[data-ui-step='intro'] [data-flow-panel='intro'], body[data-ui-step='how'] [data-flow-panel='how'] { display: grid !important; }
+body[data-ui-step='intro'] #status, body[data-ui-step='intro'] .chapter-heading, body[data-ui-step='intro'] .flow-actions,
+body[data-ui-step='how'] #status, body[data-ui-step='how'] .chapter-heading, body[data-ui-step='how'] .flow-actions { display: none !important; }
+/* The hero sits in the middle of the screen. */
+.landing, .how-page { min-height: calc(100vh - 88px); align-content: center; justify-items: center; text-align: center; gap: 40px; }
 .landing-hero { display: grid; justify-items: center; gap: 18px; }
 .landing-logo { width: 240px; height: auto; margin-bottom: 12px; }
 .landing-hero h1 { font-family: Anton, Impact, sans-serif; font-weight: 400; font-size: 48px; line-height: 1.05; margin: 0; text-transform: uppercase; letter-spacing: .01em; }
@@ -387,14 +389,19 @@ body[data-ui-step='intro'] #status, body[data-ui-step='intro'] .chapter-heading,
 .fs-you { background: #fff; border: 1px solid #E3E1DA; }
 .fs-ai { background: #FDEEE8; color: #8F2E12; } .fs-ai small { color: #D24A22; }
 .fs-code { background: #202124; color: #fff; } .fs-code small { color: var(--accent); }
-.landing-note { margin: -28px 0 0; font-size: 14px; color: #5F6368; }
+.landing-note { margin: -16px 0 0; font-size: 14px; color: #5F6368; }
+.how-link { font-size: 15px; color: #3c4043; text-decoration: underline; text-underline-offset: 3px; }
+.how-page h1 { font-family: Anton, Impact, sans-serif; font-weight: 400; font-size: 44px; margin: 0; text-transform: uppercase; }
+.how-page h1:focus { outline: none; }
+.how-actions { display: grid; justify-items: center; gap: 12px; }
+.how-actions .primary { min-height: 56px; padding: 0 44px; font-size: 17px; font-weight: 600; }
 @media (max-width: 700px) {
   .landing-logo { width: 180px; }
   .landing-hero h1 { font-size: 34px; }
   .flow-strip { flex-direction: column; gap: 22px; }
   .flow-strip li { margin-right: 0; min-width: 200px; }
   .flow-strip li:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -20px; transform: translateX(-50%); }
-  .landing-note { margin-top: -20px; }
+  .landing-note { margin-top: -8px; }
 }
 
 /* Chapter 1 (owner sketch): the form on the left, earlier checks in a column on the right. */
