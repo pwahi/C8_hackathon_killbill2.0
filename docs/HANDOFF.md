@@ -126,6 +126,20 @@ When the owner says to start:
 4. Keep real-user tests possible: the owner plans classmate (A-006) and stranger (A-007) tests on 2026-10-20. If time runs short, cut UI scope, not the tests.
 5. Afterwards (only when asked): N-3 chat + `chat_turns`/`finding_lines`/`message_lines` migration, N-2 LightOnOCR-3 comparison (needs a GPU host; evaluate before adopting). See PRD.
 
-## 8. Keeping the records up to date
+## 8. Hackathon check-ins — check-in 4 is next (help only when asked)
+
+The owner posts check-ins to the cohort; the agent drafts only on request and never posts. Known history: check-in 2 posted GREEN (discovery summaries + images, `../evidence/E-106_CHECKIN_2_POSTED.md`); check-in 3 "on paper" package prepared (`../evidence/E-109_CHECKIN3_PAPER_DESIGN.md`). **Check-in 4 is next.** Its exact prompt/format is **not recorded** in the project files: the plan and PRD point to the **"Live" checkpoint, Monday 2026-10-19 09:00 IST (05:30 Europe/Amsterdam)**, followed by the known-user test (Tue 09:00 IST) and stranger test (Tue 21:00 IST) — see `../work/02_72_HOUR_PLAN.md` and `../evidence/E-001_BILLSHIELD_BRIEF.md`. Ask the owner for the actual check-in 4 prompt before drafting.
+
+When asked, draft for the cohort/instructors (not for the owner), short and honest, and give the owner a version to paste:
+
+- **Live:** app at https://c8-hackathon-killbill2-0.vercel.app (access code given only to testers), code at https://github.com/pwahi/C8_hackathon_killbill2.0; FastAPI on Vercel + Supabase; owner ran bills end-to-end on the live site, including saving and a recorded "sent" event (owner-reported).
+- **What it does:** read → confirm → Python checks (re-check / no issue / difference) → explanation → editable message; code owns numbers; three verdicts; privacy limits.
+- **Verified vs not:** 106 Python + 40 browser tests; agent-scripted runs on the four reference cases; **no real-user test and no observed send yet** — classmate and stranger tests planned for 2026-10-20. Do not mark user evidence GREEN.
+- **Next:** N-1 UI, then user tests; N-3 chat and N-2 OCR evaluation if time allows.
+- Suggest evidence the owner can attach (screenshots of the live page and of the Supabase `message_events` row without personal data); never include the access code, keys or unmasked bill details.
+
+After the owner posts, record it as evidence (new `../evidence/E-1xx_...md`, linked from `../PROJECT.md`) only with the owner's confirmation or screenshot.
+
+## 9. Keeping the records up to date
 
 After each material change, in this order: detailed work record (`../work/...` when relevant) → append a decision to `docs/DECISIONS.md` (date, status, reason, affected files, verification, superseded choices; never rewrite old entries — add a new one or a dated follow-up) → update `docs/PRD.md` when requirements change (bump version, add a change-history row) → update `../PROJECT.md` (status line, action table, progress row). Record owner statements as owner-reported. Commit with a clear message; push only with the owner's OK.
