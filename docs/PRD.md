@@ -1,12 +1,12 @@
 # BillShield — Product requirements
 
-Version 2.3 · 2026-10-19 · Owner: Prateek Wahi
+Version 2.4 · 2026-10-19 · Owner: Prateek Wahi
 
 This PRD describes **what is required now** and **what exists now**. It was rebased on 2026-10-19 (D-035): outdated directions and superseded proposals were removed. The reasons behind every choice, including superseded ones, stay in [DECISIONS.md](DECISIONS.md) (D-006 to D-035); earlier PRD versions remain in the Git history. When this PRD and the code disagree about what *exists*, the code wins; about what is *required*, this PRD wins — record the difference in DECISIONS.md.
 
 **Status:** Stages 0–2 accepted; FastAPI backend live on Vercel (access code required); Supabase saving, smaller version, live and owner-verified. N-1 sequential UI first version is implemented locally (D-036), awaiting owner review and deployment approval. N-2 server OCR evaluation and N-3 chat/database remain planned. No real-user test beyond the owner yet; classmate and stranger tests planned for 2026-10-20.
 
-Latest N-1 presentation: owner's supplied desktop HTML mock-up implemented locally (D-038); 107 Python / 47 browser-module tests pass. [Design reference](DESIGN.md); owner acceptance and deployment still pending. No new model, storage or hosting changes.
+Latest N-1 update: desktop mock-up plus multi-page append, persistent area-reselection controls, conservative repeat suppression, manual lines, printed-total prompt, remove/Undo and row fade (D-038/D-039); 107 Python / 58 browser-module tests pass. [Design reference](DESIGN.md); owner acceptance and deployment still pending. Offline flow checks are not new OCR accuracy evidence. No new model, storage or hosting changes.
 
 ---
 
@@ -41,6 +41,8 @@ Conceptual flow remains Provide → Confirm → Understand → Draft → Finish.
 | **Provide** | Choose one PDF or the image pages of one bill (≤ 4,000,000 bytes per file, ≤ 10 pages); currency; decimal mark; **expected amount required** before reading/comparison. Unknown is not replaced with zero or the bill total. |
 | **Read** | Photos: recommended **Groq vision** (`qwen/qwen3.8-27b`) on one table area the person draws, previews and confirms free of personal details (one request per area). PDFs: local PDF.js text. Fallback: local Tesseract OCR, or typing an amount seen on a page. Nothing is uploaded without the explicit preview step. |
 | **Confirm** | Compact expandable rows beside the source bill; label, amount and type visible; open for editing, group, source and printed row columns. **Looks right — check it** explicitly confirms ready lines then calls Python. Problem lines flagged; lines without a type remain unticked. |
+
+Multi-page/recovery requirements (D-039): each page always exposes reading and area-reselection controls, with last-area preview once selected. Approved extraction appends without clearing prior corrections. Suppress only exact repeated original outputs from the same page/area, preserving multiplicity; equal amounts alone are not duplicates. Provide visible Add a line, remove and Undo. Manual lines use exact entered amounts and honest page-only provenance. Prompt early for an explicit printed total/subtotal; missing/incomplete printed checks block checking rather than inventing a total. A subtotal checks only its section. Edits/removal invalidate old results and drafts. New rows may fade in subtly, respecting reduced motion. Local OCR restart must ask before resetting current lines.
 | **Understand** | **What we found**: actual checked result and facts left, maths table right; AI causes separately unverified. Re-check shows source page without inferred error boxes. Outcome A/B/C rules below unchanged. |
 | **Draft** | Editable message: numbers and line references from Python; an accepted AI suggestion may pre-select the lines asked about and add one number-free question. **Copy**. |
 | **Finish** | **I sent it** (optionally paste the sent text → changed words counted). Saved privately for this browser. Chat about the bill is planned (N-3). |
@@ -231,6 +233,7 @@ Priority order (D-034). Keep time for the user tests before the deadline (Tue 20
 | 2.1 | 2026-10-19 | Sequential UI first version local; 106 Python / 42 browser-module tests; owner review/deployment pending | D-036 |
 | 2.2 | 2026-10-19 | Required expectation in main UI; crop-storage and sketch alignment audit; 106 Python / 44 browser-module tests | D-037 |
 | 2.3 | 2026-10-19 | Working UI adapted to owner's desktop HTML mock-up, Finish inside Your message; 107 Python / 47 browser-module tests | D-038 |
+| 2.4 | 2026-10-19 | Multi-page append, area recovery, conservative repeat suppression, manual lines/printed total, remove/Undo, reduced-motion row reveal; 107 Python / 58 browser-module tests | D-039 |
 
 ## Sources checked
 

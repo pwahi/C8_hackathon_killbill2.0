@@ -1,5 +1,7 @@
 # BillShield — handoff for the next coding agent (Codex)
 
+Latest checkpoint: D-039 / PRD v2.4, multi-page/recovery controls local; 107 Python / 58 browser-module tests pass. Owner review next, no push/deployment. See the dated follow-up at the end; earlier status notes are historical where superseded.
+
 Written 2026-10-19 by the previous coding agent. Audience: an AI coding agent continuing this repository for the project owner. Read this file fully at the start of your first session; afterwards follow the session-start routine in §2 every time.
 
 Your two jobs right now:
@@ -150,3 +152,7 @@ After the owner posts, record it as evidence (new `../evidence/E-1xx_...md`, lin
 ## 9. Keeping the records up to date
 
 After each material change, in this order: detailed work record (`../work/...` when relevant) → append a decision to `docs/DECISIONS.md` (date, status, reason, affected files, verification, superseded choices; never rewrite old entries — add a new one or a dated follow-up) → update `docs/PRD.md` when requirements change (bump version, add a change-history row) → update `../PROJECT.md` (status line, action table, progress row). Record owner statements as owner-reported. Commit with a clear message; push only with the owner's OK.
+
+## Latest follow-up — 2026-10-19, D-039 / PRD v2.4
+
+Multi-page extraction appends without clearing corrections; per-page Groq read/reselection and last-area preview remain visible. Exact same-area repeat output is suppressed, not arbitrary equal charges. Add a line/manual printed total, remove/Undo and subtle reduced-motion row fade are local. 107 Python / 58 browser-module tests pass; offline browser replay and six-page PDF controls checked, not fresh Groq accuracy. Parent work/14_MULTI_PAGE_AND_REVIEW_RECOVERY.md details limitations. Owner review next; do not push/deploy without permission. Earlier notes are historical where superseded.

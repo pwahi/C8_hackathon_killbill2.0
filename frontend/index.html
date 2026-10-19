@@ -169,6 +169,22 @@
       </section>
     </main>
 
+    <dialog id="manual-line-dialog" aria-labelledby="manual-line-title">
+      <form id="manual-line-form">
+        <h2 id="manual-line-title">Add a line from your bill</h2>
+        <p>Copy the printed amount exactly. Do not calculate or guess it. This records page-level evidence, not an exact location.</p>
+        <div class="manual-grid">
+          <label>Source page<select id="manual-page" required></select></label>
+          <label>Type of line<select id="manual-role"><option value="charge">Charge</option><option value="discount">Discount (negative)</option><option value="adjustment">Rounding / adjustment</option><option value="total">Printed total</option><option value="subtotal">Printed subtotal</option></select></label>
+          <label>Label on the bill<input id="manual-label" required maxlength="160" placeholder="For example: Delivery"></label>
+          <label>Amount as printed<input id="manual-amount" required inputmode="decimal" placeholder="For example: 33,75"></label>
+          <label class="manual-section">Section / period <small>Required for a subtotal; use the same section on its charges.</small><input id="manual-group" maxlength="120" placeholder="For example: September"></label>
+        </div>
+        <p id="manual-error" class="error" role="alert"></p>
+        <div class="actions"><button type="submit" class="primary">Add this line</button><button id="manual-cancel" type="button" class="secondary">Cancel</button></div>
+      </form>
+    </dialog>
+
     <dialog id="groq-dialog">
       <h2>Check the area before sending</h2>
       <p>This exact image goes to Groq’s Qwen model. Include charge labels and prices. Exclude names, phone/account numbers and other personal details.</p>

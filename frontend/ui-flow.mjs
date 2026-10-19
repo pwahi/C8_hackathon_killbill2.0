@@ -35,9 +35,12 @@ export function createFlow() {
   settings.append(controls, $("#access-box"), $(".privacy-note"), $(".setup .actions"));
   $(".setup").replaceChildren(intro, settings);
 
-  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">CHAPTER 2</p><h2>Choose the part to read</h2><p>Draw a box around the charge labels and prices. Include the printed total.</p><p>Check the exact cut-out in the preview. Exclude names, account numbers and other personal details.</p><p class="hint">Only your approved cut-out passes through our server to Groq. It is not saved as an image by the app.</p>');
+  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">CHAPTER 2</p><h2>Choose the page, then the part to read</h2><p>Use the page buttons above the bill. Draw around the charge labels and prices; include the printed total where relevant. Each approved area adds lines without replacing earlier pages.</p><p>Check the exact cut-out in the preview. Exclude names, account numbers and other personal details.</p><p class="hint">Only your approved cut-out passes through our server to Groq. It is not saved as an image by the app.</p>');
   const locally = make("button", "secondary", "Read it on this device instead");
-  locally.addEventListener("click", () => $("#process").click());
+  locally.addEventListener("click", () => {
+    if (state.hasLines && !window.confirm("Local reading starts a new extraction of all selected pages and clears the current lines and corrections. Start over?")) return;
+    $("#process").click();
+  });
   const toCheck = make("button", "text-button", "Review the current lines →");
   toCheck.addEventListener("click", () => go(2));
   readAside.append(locally, toCheck);
@@ -52,6 +55,10 @@ export function createFlow() {
   $("#payload-panel").append(make("p", "analysis-privacy", "Checking sends confirmed lines to our server. If there is a difference, Groq also receives those lines and the checked result—not your bill image."), check, advanced);
   $(".candidate-panel").append($("#payload-panel"));
   $("#candidate-list").before(make("div", "line-table-heading", "<span>LINE</span><span>WHAT IS IT</span><span>AMOUNT</span>"));
+  const lineActions = make("div", "line-actions", '<button id="add-line" class="secondary" type="button">+ Add a line</button><button id="undo-remove" class="text-button" type="button" hidden>Undo remove</button>');
+  $(".line-table-heading").before(lineActions);
+  const totalPrompt = make("section", "printed-check-prompt", '<p id="printed-check-message"></p><button id="add-printed-total" class="secondary" type="button">Add printed total</button>');
+  $("#payload-panel").prepend(totalPrompt);
 
   // Real API results only: sample values from the mock-up are never copied.
   const resultBody = make("div", "result-story");
@@ -120,10 +127,11 @@ export function createFlow() {
   paint();
   return {
     provide() { go(0, true); },
-    opened(hasLines = false) { state.opened = true; go(hasLines ? 2 : 1); },
-    extracted() { state.opened = true; go(2); },
+    read() { go(1); },
+    opened(hasLines = false) { state.opened = true; state.hasLines = hasLines; go(hasLines ? 2 : 1); },
+    extracted() { state.opened = true; state.hasLines = true; go(2); },
     invalidated() { state.complete = false; state.busy = false; if (current > 2) go(state.opened ? 2 : 0, true); else paint(); },
-    reset() { state.opened = false; state.complete = false; state.busy = false; $("#finish-state").textContent = "BillShield never sends anything. You choose where and when to send."; go(0, true); },
+    reset() { state.opened = false; state.hasLines = false; state.complete = false; state.busy = false; $("#finish-state").textContent = "BillShield never sends anything. You choose where and when to send."; go(0, true); },
     result(result, pending = false) {
       state.complete = result.status === "complete"; state.busy = pending;
       $("#result-gap").hidden = !state.complete; unknown.hidden = !state.complete; go(3, true);

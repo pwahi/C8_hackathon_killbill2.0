@@ -1,5 +1,15 @@
 # BillShield — Decision log
 
+## D-039 — Multi-page append, selection recovery and editable review
+
+Date: 2026-10-19. Status: Owner-requested changes implemented and locally verified; owner acceptance and deployment pending.
+
+Each loaded page exposes Groq reading and last-area preview controls; another approved crop appends without clearing previous edits/confirmations. Exact repeated original extraction signatures from the same page/area are suppressed with multiplicity preserved. Different areas/pages and changed output are not silently discarded. Each row can be removed and restored with Undo. Removing/editing invalidates prior results/drafts. Local OCR restart asks before clearing existing review lines.
+
+Visible Add a line uses exact user-entered raw values and page-only evidence. An early printed-total/subtotal prompt offers manual entry and blocks checking when missing/incomplete; no inferred totals. Subtotal scope remains explicit. New rows fade in with bounded staggering and reduced-motion support. These changes extend D-038's UI; numeric authority, three outcomes, confirmation, approved-crop privacy and message rules are unchanged. No new storage/provider/deployment.
+
+**Affected:** frontend/extraction/page-review.mjs and tests, review-app.mjs, ui-flow.mjs, index.html, desktop.css; offline scripts/ui_fixture_server.py; PRD v2.4, DESIGN/HANDOFF/README/AGENTS; parent work/14 and PROJECT. **Verification:** 107 Python / 58 browser-module tests; offline two-image append/retry/edit/manual-total/remove/Undo/Python-result replay and six-page PDF controls. Model replies were simulated; no fresh extraction-accuracy or real-user acceptance claim. [Detailed record](../../work/14_MULTI_PAGE_AND_REVIEW_RECOVERY.md). Not pushed/deployed.
+
 ## D-038 — Adopt owner's desktop HTML mock-up
 
 Date: 2026-10-19. Status: Owner requested implementation; adapted working desktop UI implemented locally; owner acceptance/deployment pending.

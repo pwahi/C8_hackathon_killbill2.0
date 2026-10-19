@@ -1,5 +1,7 @@
 # Instructions for coding agents (Codex and others)
 
+Latest checkpoint D-039 / PRD v2.4: multi-page append, visible Groq area recovery, manual lines/printed-total prompt, exact same-area repeat suppression, remove/Undo and row fade implemented locally. 107 Python / 58 browser-module tests pass; offline flow verification, not new model accuracy. Owner review/deployment pending. See parent work/14_MULTI_PAGE_AND_REVIEW_RECOVERY.md.
+
 Start every session with `docs/HANDOFF.md` §2 ("Session-start routine"): check git status, run both test suites, read `docs/PRD.md` (v2.0: status, §4 requirement status, §11 stages, §12 next additions) and the newest entries of `docs/DECISIONS.md`, then summarize where things stand before doing anything else.
 
 Essentials (details in `docs/HANDOFF.md`):

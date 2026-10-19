@@ -16,6 +16,7 @@ import app as api
 from billshield_core.extraction import ExtractionOutput
 
 case = "BS-001"
+extraction_view = "all"
 api.ACCESS_CODE = ""
 api.store.configured = lambda: False
 api.read_api_key = lambda *_: "offline-fixture-only"
@@ -27,6 +28,10 @@ def fixture():
 
 def fake_extract(*args):
     data = fixture()
+    if extraction_view == "charges":
+        data["lines"] = [line for line in data["lines"] if line["role"] in {"charge", "discount", "adjustment"}]
+    elif extraction_view == "total":
+        data["lines"] = [line for line in data["lines"] if line["role"] == "total"]
     return ExtractionOutput.model_validate({"currency": data["currency"], "lines": [
         {"id": line["id"], "description": line["description"], "raw_amount": line["rawAmount"],
          "currency": line["currency"], "page": 1, "confidence": 1,
@@ -43,11 +48,12 @@ api.extract_crop = fake_extract
 api.explain_review = lambda payload, *_: {"result": api.analyze_confirmed_review(payload), "explanation": None, "skipped": "Offline UI test: no AI request."}
 
 
-async def select_case(name: str):
-    global case
+async def select_case(name: str, view: str = "all"):
+    global case, extraction_view
     if name not in {"BS-001", "BS-002", "BS-003", "BS-004"}:
         return api.error(404, "Unknown test fixture")
     case = name
+    extraction_view = view if view in {"all", "charges", "total"} else "all"
     data = fixture()
     return {"case": case, "expectedAmount": data["expectedAmount"], "currency": data["currency"], "decimalSeparator": data["decimalSeparator"], "earlierPeriodGroup": data.get("earlierPeriodGroup"), "expectedResult": api.analyze_confirmed_review(data)}
 
@@ -58,7 +64,7 @@ from starlette.responses import JSONResponse
 
 
 async def case_route(request):
-    return JSONResponse(await select_case(request.path_params["name"]))
+    return JSONResponse(await select_case(request.path_params["name"], request.query_params.get("view", "all")))
 
 
 api.app.router.routes.insert(0, Route("/_test/case/{name}", case_route))

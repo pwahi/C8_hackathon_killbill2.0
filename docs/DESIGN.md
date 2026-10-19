@@ -29,3 +29,7 @@ Anton Latin woff2 extracted unmodified from the supplied bundle; locally served 
 ## Constraints and unresolved fidelity
 
 Expected amount required despite optional reference copy. No sample numbers/explanations, assumed tax exclusions, or fabricated highlights. No send-channel or formatting controls without implemented behaviour. Exact crop approval uses existing modal; final message chapter includes Finish. System body font, real result length and variable numbers of lines mean this is an adapted working implementation, not a pixel-perfect screenshot replica. Mobile is an adaptation. Live extraction accuracy, saved-history/chat gaps and owner/usability acceptance remain separate from design fidelity.
+
+## Review recovery follow-up — D-039, 2026-10-19
+
+Retain the desktop reference. Read/Check expose per-page reading, last-area preview and page line counts. Compact rows show source page and visible remove control; Add a line and Undo sit above the list. Printed-total prompt offers exact manual entry before checking. Appended rows use a short staggered fade; reduced motion disables it. Exact same-area repeat suppression does not merge equal charges across pages or areas. See parent work/14_MULTI_PAGE_AND_REVIEW_RECOVERY.md for offline verification and limits. Local only, not deployed.

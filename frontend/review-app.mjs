@@ -7,6 +7,7 @@ import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion } from "./extraction/bulk-confirm.mjs";
 import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
 import { resultHeadline, mathRows } from "./result-display.mjs";
+import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay } from "./extraction/page-review.mjs";
 
 const elements = {
   files: document.querySelector("#bill-files"),
@@ -75,7 +76,7 @@ const groqSend = document.querySelector("#groq-send");
 const groqRedacted = document.querySelector("#groq-redacted");
 
 function emptyState() {
-  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false };
+  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), removedLines: [] };
 }
 
 // One shape for every candidate, whatever produced it. Evidence precision is never upgraded silently.
@@ -96,6 +97,9 @@ function regionKey(page, region) {
 function previewGroqArea(page, bounds) {
   const source = reviewState.pageElements.get(page)?.querySelector("canvas, img");
   if (!source) return;
+  reviewState.activePage = page;
+  reviewState.lastAreas.set(page, {...bounds});
+  refreshPageControls();
   const width = source.naturalWidth || source.width;
   const height = source.naturalHeight || source.height;
   const crop = document.createElement("canvas");
@@ -160,6 +164,8 @@ groqSend.addEventListener("click", async () => {
         id: `groq-${crypto.randomUUID()}`, page: selection.page,
         precision: bounds ? "exact" : "table", locatedBy: "groq", bounds, region: bounds ? null : { ...area },
         extractor: "groq", rawAmount: amountText, extractedRawAmount: line.raw_amount == null ? null : amountText,
+        extractionSourceKey: regionKey(selection.page, area),
+        extractionSignature: JSON.stringify({description: line.description, amount: line.raw_amount, role: line.role, group: line.group, currency: line.currency, breakdown: line.breakdown}),
         role: suggestion.role, group: suggestion.group,
         breakdown: cleaned ? cleaned.columns : null,
         description: line.description, currency: line.currency || result.output.currency || elements.currency.value,
@@ -169,13 +175,17 @@ groqSend.addEventListener("click", async () => {
           : "Read from the dashed table area; the exact position of this amount is not known. Check the amount in that table before confirming."].filter(Boolean).join(" "),
       });
     });
-    reviewState.candidates.push(...added);
-    elements.candidateList.append(...added.map(candidateCard));
+    const previousIds = new Set(reviewState.candidates.map(line => line.id));
+    reviewState.candidates = appendPageCandidates(reviewState.candidates, added, selection.page);
+    const fresh = reviewState.candidates.filter(line => !previousIds.has(line.id));
+    elements.candidateList.append(...fresh.map(animatedCandidateCard));
     elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
     invalidatePayload("Vision suggestions added. Review them and rebuild the safe preview.");
     drawHighlights();
+    refreshPageControls();
     flow.extracted();
-    setStatus(`Groq filled in ${added.length} lines. Compare them with your bill, open anything that needs fixing, then choose Looks right — check it.`);
+    const repeated = added.length - fresh.length;
+    setStatus(`Added ${fresh.length} lines from page ${selection.page}.${repeated ? ` Kept ${repeated} identical earlier line(s) instead of adding them twice.` : ""} Earlier lines and your corrections are kept. Use the page buttons above the bill to read another relevant page, or check the combined lines.`);
   } catch (error) {
     if (selection.generation === reviewGeneration) setStatus(error.message, "failure");
   } finally { groqRequestRunning = false; pendingGroq = null; }
@@ -272,8 +282,11 @@ function resetReview({ keepFiles = false } = {}) {
   reviewGeneration += 1;
   pendingGroq = null;
   groqDialog.close();
+  document.querySelector("#manual-line-dialog").close();
   clearObjectUrls();
   reviewState = emptyState();
+  document.querySelector("#page-progress")?.replaceChildren();
+  document.querySelector("#undo-remove").hidden = true;
   elements.pages.replaceChildren();
   elements.candidateList.replaceChildren();
   elements.review.hidden = true;
@@ -307,7 +320,8 @@ async function pdfLibrary() {
 
 function addCandidate(candidate, message) {
   reviewState.candidates.push(candidate);
-  elements.candidateList.append(candidateCard(candidate));
+  elements.candidateList.append(animatedCandidateCard(candidate, 0));
+  refreshPageControls();
   flow.extracted();
   elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
   invalidatePayload();
@@ -330,8 +344,24 @@ function pageShell(pageNumber) {
   const vision = document.createElement("button");
   vision.type = "button";
   vision.className = "primary";
-  vision.textContent = `Select charge table for Groq · page ${pageNumber}`;
-  tools.append(manual, typed, vision);
+  vision.textContent = `Read page ${pageNumber} with Groq`;
+  tools.append(manual, typed);
+  const pageToolbar = document.createElement("div");
+  pageToolbar.className = "page-read-toolbar";
+  pageToolbar.dataset.page = String(pageNumber);
+  const retryArea = document.createElement("button");
+  retryArea.type = "button";
+  retryArea.className = "secondary retry-area";
+  retryArea.dataset.page = String(pageNumber);
+  retryArea.textContent = "Preview last area again";
+  retryArea.disabled = true;
+  retryArea.addEventListener("click", () => {
+    if (groqRequestRunning) { setStatus("Wait for the current reading to finish."); return; }
+    const area = reviewState.lastAreas.get(pageNumber);
+    if (area) previewGroqArea(pageNumber, area);
+  });
+  pageToolbar.append(vision, retryArea);
+  elements.pages.append(pageToolbar);
   const pageOptions = document.createElement("details");
   pageOptions.className = "page-options";
   const optionsTitle = document.createElement("summary");
@@ -382,9 +412,10 @@ function pageShell(pageNumber) {
   vision.addEventListener("click", () => {
     if (groqRequestRunning) { setStatus("Wait for the current vision request to finish."); return; }
     selectionMode = "groq";
+    reviewState.activePage = pageNumber;
     selecting = true;
     shell.classList.add("selecting");
-    setStatus("Draw one box around the charge table, including labels and prices. You will preview it before sending anything to Groq.");
+    setStatus(`Page ${pageNumber}: draw around the charge table, including labels and prices. New lines will be added to the existing list after you approve the crop. Avoid reading the same amounts twice.`);
   });
   shell.addEventListener("pointerdown", (event) => {
     if (!selecting) return;
@@ -573,6 +604,15 @@ function updateCandidate(candidateId, field, value) {
   card?.classList.toggle("confirmed", field === "confirmed" ? value : reviewState.candidates[index].confirmed);
   if (card) updateLineOverview(card, reviewState.candidates[index]);
   drawHighlights();
+  refreshPrintedCheck();
+}
+
+function animatedCandidateCard(candidate, index) {
+  const card = candidateCard(candidate);
+  card.classList.add("new-line");
+  card.style.setProperty("--row-delay", `${rowRevealDelay(index)}ms`);
+  card.addEventListener("animationend", () => card.classList.remove("new-line"), {once: true});
+  return card;
 }
 
 function evidenceText(candidate) {
@@ -583,6 +623,10 @@ function evidenceText(candidate) {
 
 function updateLineOverview(card, candidate) {
   card.querySelector(".line-name").textContent = candidate.description || "Add a label";
+  const pageLabel = document.createElement("small");
+  pageLabel.className = "line-page";
+  pageLabel.textContent = `Page ${candidate.page}`;
+  card.querySelector(".line-name").append(pageLabel);
   card.querySelector(".line-kind").textContent = ROLE_LABELS[candidate.role] || "Choose type";
   card.querySelector(".line-amount").textContent = candidate.rawAmount || "Add amount";
   card.classList.toggle("printed-total", candidate.role === "total" || candidate.role === "subtotal");
@@ -592,6 +636,25 @@ function candidateCard(candidate) {
   const card = document.createElement("article");
   card.className = `candidate-card${candidate.confirmed ? " confirmed" : ""}`;
   card.dataset.cardId = candidate.id;
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "remove-line";
+  remove.textContent = "×";
+  remove.title = "Remove this line (Undo available)";
+  remove.setAttribute("aria-label", `Remove line from page ${candidate.page}: ${candidate.description || "unlabelled"}`);
+  remove.addEventListener("click", () => {
+    const removed = removeCandidateById(reviewState.candidates, candidate.id);
+    if (!removed.removed) return;
+    reviewState.candidates = removed.lines;
+    reviewState.removedLines.push({line: removed.removed, index: removed.index});
+    card.remove();
+    invalidatePayload();
+    drawHighlights();
+    refreshPageControls();
+    document.querySelector("#undo-remove").hidden = false;
+    setStatus("Line removed from this review. Undo remove restores it. Previously saved reviews are unchanged.");
+  });
+  card.append(remove);
   const top = document.createElement("div");
   top.className = "candidate-top";
   const confirm = document.createElement("label");
@@ -763,13 +826,112 @@ function showCandidates(tokens, extractor) {
   reviewState.tokens = tokens;
   reviewState.extractor = extractor;
   reviewState.candidates = candidates;
-  elements.candidateList.replaceChildren(...candidates.map(candidateCard));
+  elements.candidateList.replaceChildren(...candidates.map(animatedCandidateCard));
   elements.candidateCount.textContent = `${candidates.length} found`;
   drawHighlights();
   elements.review.hidden = false;
   elements.payloadPanel.hidden = false;
+  refreshPageControls();
   flow.opened(candidates.length > 0);
 }
+
+function refreshPageControls() {
+  let progress = document.querySelector("#page-progress");
+  if (!progress) {
+    progress = document.createElement("nav");
+    progress.id = "page-progress";
+    progress.className = "page-progress";
+    progress.setAttribute("aria-label", "Bill pages and extracted lines");
+    elements.pages.before(progress);
+  }
+  progress.replaceChildren();
+  const pages = [...reviewState.pageElements.keys()];
+  const hint = document.createElement("p");
+  hint.textContent = pages.length > 1
+    ? `${pages.length} pages loaded. Read each relevant charge page; its lines are added to the same list.`
+    : "Read another area if needed. New lines are added to the same list.";
+  progress.append(hint);
+  elements.candidateCount.textContent = `${reviewState.candidates.length} lines`;
+  document.querySelectorAll(".retry-area").forEach(button => {
+    button.disabled = !reviewState.lastAreas.has(Number(button.dataset.page));
+  });
+  for (const {page, count} of pageLineCounts(pages, reviewState.candidates)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary";
+    button.textContent = `Read page ${page} · ${count} line${count === 1 ? "" : "s"} added`;
+    button.addEventListener("click", () => {
+      if (groqRequestRunning) { setStatus("Wait for the current reading to finish."); return; }
+      flow.read();
+      const shell = reviewState.pageElements.get(page);
+      shell?.startGroqSelection();
+      shell?.scrollIntoView({behavior: "instant", block: "nearest"});
+    });
+    progress.append(button);
+  }
+  refreshPrintedCheck();
+}
+
+function refreshPrintedCheck() {
+  const state = printedCheckPresence(reviewState.candidates);
+  const text = {
+    missing: "No printed total or subtotal captured yet. Add the final total exactly as printed on your bill so we can check the sum.",
+    needs_details: "A printed total/subtotal line is incomplete. Fill its amount and label; a subtotal also needs the section it covers.",
+    needs_confirmation: "Printed total/subtotal captured. Compare it with your bill before choosing Looks right — check it.",
+    confirmed: "Printed total/subtotal included. Code will check it; a subtotal checks only its named section.",
+  };
+  document.querySelector("#printed-check-message").textContent = text[state];
+  document.querySelector(".printed-check-prompt").classList.toggle("missing-check", state === "missing" || state === "needs_details");
+  document.querySelector("#add-printed-total").textContent = state === "missing" ? "+ Add printed total" : "Review printed total / subtotal";
+}
+
+function openManualLine(role = "charge") {
+  if (!reviewState.pageElements.size) { setStatus("Open a bill first.", "failure"); return; }
+  const form = document.querySelector("#manual-line-form");
+  form.reset();
+  const page = document.querySelector("#manual-page");
+  page.replaceChildren(...[...reviewState.pageElements.keys()].map(number => new Option(`Page ${number}`, String(number))));
+  page.value = String(reviewState.activePage);
+  document.querySelector("#manual-role").value = role;
+  document.querySelector("#manual-label").value = role === "total" ? "Printed total" : "";
+  document.querySelector("#manual-group").required = role === "subtotal";
+  document.querySelector("#manual-error").textContent = "";
+  document.querySelector("#manual-line-dialog").showModal();
+  document.querySelector(role === "total" ? "#manual-amount" : "#manual-label").focus();
+}
+
+document.querySelector("#add-line").addEventListener("click", () => openManualLine());
+document.querySelector("#add-printed-total").addEventListener("click", () => {
+  const check = reviewState.candidates.find(line => ["total", "subtotal"].includes(line.role));
+  if (!check) return openManualLine("total");
+  const card = document.querySelector(`[data-card-id="${CSS.escape(check.id)}"]`);
+  card.querySelector(".line-editor").open = true;
+  card.scrollIntoView({block: "nearest", behavior: "smooth"});
+  card.querySelector('input[data-field="amount"]').focus();
+});
+document.querySelector("#manual-role").addEventListener("change", event => {
+  document.querySelector("#manual-group").required = event.target.value === "subtotal";
+});
+document.querySelector("#manual-cancel").addEventListener("click", () => document.querySelector("#manual-line-dialog").close());
+document.querySelector("#manual-line-form").addEventListener("submit", event => {
+  event.preventDefault();
+  try {
+    const fields = manualCandidateFields({page: Number(document.querySelector("#manual-page").value), role: document.querySelector("#manual-role").value,
+      description: document.querySelector("#manual-label").value, rawAmount: document.querySelector("#manual-amount").value, group: document.querySelector("#manual-group").value});
+    if (!reviewState.pageElements.has(fields.page)) throw new Error("Choose a page in the current bill");
+    addCandidate(newCandidate({...fields, id: `manual-${crypto.randomUUID()}`, context: `Entered by you from page ${fields.page}.`, warning: "Manual entry, page-level evidence. Check every digit before confirming."}), "Your line was added. Check it against the printed bill before calculating.");
+    document.querySelector("#manual-line-dialog").close();
+  } catch (error) { document.querySelector("#manual-error").textContent = error.message; }
+});
+document.querySelector("#undo-remove").addEventListener("click", () => {
+  const removed = reviewState.removedLines.pop();
+  if (!removed) return;
+  reviewState.candidates.splice(Math.min(removed.index, reviewState.candidates.length), 0, removed.line);
+  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  invalidatePayload(); drawHighlights(); refreshPageControls();
+  document.querySelector("#undo-remove").hidden = reviewState.removedLines.length === 0;
+  setStatus("Line restored. Check the combined lines again before continuing.");
+});
 
 async function processSelection() {
   if (!checkExpectedAmount()) return;
@@ -811,6 +973,7 @@ function previewPayload() {
   try {
     const lines = confirmedCandidates();
     if (!lines.length) throw new Error("Confirm at least one relevant line first.");
+    if (printedCheckPresence(reviewState.candidates.filter(line => line.confirmed)) !== "confirmed") throw new Error("Add and confirm the printed total, or a printed subtotal with its section, before checking.");
     const payload = buildServerPayload({
       currency: elements.currency.value,
       decimalSeparator: elements.decimalSeparator.value,
@@ -1062,6 +1225,7 @@ function confirmAllReady() {
   elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
   invalidatePayload();
   drawHighlights();
+  refreshPrintedCheck();
   const parts = [`Confirmed ${confirmed} line${confirmed === 1 ? "" : "s"}.`];
   if (attention) parts.push(`${attention} need your attention (red note on the card).`);
   if (noRole) parts.push(`${noRole} without a role were left unticked; that is fine if they are not bill amounts.`);
@@ -1151,6 +1315,12 @@ document.querySelector("#start-review").addEventListener("click", () => {
   (photos ? elements.openVision : elements.process).click();
 });
 document.querySelector("#confirm-and-check").addEventListener("click", async (event) => {
+  if (["missing", "needs_details"].includes(printedCheckPresence(reviewState.candidates))) {
+    refreshPrintedCheck();
+    document.querySelector("#add-printed-total").focus();
+    setStatus("The printed total or subtotal is missing or incomplete. Add it from your bill; we will not guess it.", "failure");
+    return;
+  }
   const button = event.currentTarget;
   button.disabled = true;
   confirmAllReady();

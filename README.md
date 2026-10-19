@@ -1,5 +1,7 @@
 # BillShield application
 
+**Latest D-039 / PRD v2.4:** each page can append another approved Groq reading; visible area controls allow retry/reselection. Exact same-area repeats keep original corrections. Add a line, printed-total prompt, remove/Undo and subtle row fade are implemented locally. 107 Python / 58 browser-module tests pass. Refresh the existing local app with Ctrl+F5; owner review remains pending, no push/deployment. Offline flow checks are not live extraction-accuracy evidence.
+
 **Latest UI checkpoint — D-038, PRD v2.3:** local working UI now follows the owner's desktop mock-up: **Your bill → Read → Check the lines → What we found → Your message**, with Finish/sent reporting beside the draft. Expected amount required; local reading and approved-crop Groq path retained. 107 Python / 47 browser-module tests pass. No push or deployment; owner review pending. Design details: [docs/DESIGN.md](docs/DESIGN.md). Earlier status notes below are historical.
 
 Run from this application folder: `.venv\Scripts\python.exe app.py`; open http://127.0.0.1:4173/ (if already running, refresh—do not start another server). Use Ctrl+F5 if old styling is cached. Upload a masked bill and actual expected amount, approve a crop if needed, check/edit rows, then **Looks right — check it** and **Write my message**. Only report I sent it after actually sending.
