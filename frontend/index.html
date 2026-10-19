@@ -38,11 +38,12 @@
             </select>
           </label>
           <label>
-            <span>Amounts look like</span>
-            <select id="decimal-separator">
+            <span>Decimal mark</span>
+            <select id="decimal-separator" aria-describedby="decimal-hint">
               <option value=".">Point · 1,299.00</option>
               <option value=",">Comma · 1.299,00</option>
             </select>
+            <small id="decimal-hint">Set from the currency. We also check how your bill writes amounts.</small>
           </label>
           <label>
             <span>What did you expect to pay? <small>(required)</small></span>
@@ -61,7 +62,7 @@
           <button id="process" class="secondary" type="button">Read on this device</button></div></details>
           <button id="reset" class="secondary" type="button">Clear this review</button>
         </div>
-        <p class="privacy-note">PDF text can be read on your device. For photos, you choose and approve a redacted charge area before it goes to Groq.</p>
+        <p class="privacy-note">PDF text can be read on your device. For photos, you choose and approve a redacted charge area before it goes to <span class="vision-name">Groq</span>.</p>
         <div id="status" class="status" role="status" aria-live="polite">Ready. No file has been opened.</div>
       </section>
 
@@ -72,7 +73,7 @@
               <p class="step">2</p>
               <h2>Your bill</h2>
             </div>
-            <p><span class="key candidate-key"></span> Possible amount <span class="key confirmed-key"></span> Confirmed <span class="key table-key"></span> Table area (not exact)</p>
+            <p class="ai-legend"><span class="key table-key"></span> Highlighted by the AI reader — it can make mistakes, so check each amount against your bill. <span class="key confirmed-key"></span> Confirmed by you</p>
           </div>
           <div id="document-pages" class="document-pages"></div>
         </div>
@@ -150,6 +151,12 @@
             <ul id="result-missing"></ul>
           </div>
           <div id="draft-box" class="draft-box">
+            <div class="tone-picker" role="group" aria-label="Tone of the message">
+              <span>Tone</span>
+              <button type="button" class="secondary" data-tone="warm" aria-pressed="false">Warm</button>
+              <button type="button" class="secondary" data-tone="neutral" aria-pressed="true">Neutral</button>
+              <button type="button" class="secondary" data-tone="direct" aria-pressed="false">Direct</button>
+            </div>
             <label for="draft-text">Message draft <small>(edit freely before copying)</small></label>
             <textarea id="draft-text" rows="9"></textarea>
             <p id="draft-note" class="hint"></p>
@@ -190,7 +197,7 @@
       <h2>Check your selected area</h2>
       <p>Can you see the charge labels and prices? If this is the wrong area, choose a different one.</p>
       <img id="groq-crop-preview" alt="Your selected charge area, not yet sent">
-      <p>Only this approved picture goes to our AI reader (Groq). Every amount still needs checking.</p>
+      <p>Only this approved picture goes to our AI reader (<span class="vision-name">Groq</span>). Every amount still needs checking.</p>
       <label class="confirm-control"><input id="groq-redacted" type="checkbox">I checked this image and it contains no personal identifiers.</label>
       <div class="actions"><button id="groq-send" class="primary" disabled>Read this area</button><button id="groq-cancel" class="secondary">Choose a different area</button></div>
     </dialog>

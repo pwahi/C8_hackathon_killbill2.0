@@ -215,3 +215,75 @@ body[data-ui-step='1'] .review-layout { grid-template-columns: minmax(0, 1.65fr)
   .line-overview, .line-table-heading { padding-right: 42px; }
   .verdict { font-size: 23px; } .math-table td { padding: 11px; font-size: 12px; }
 }
+
+/* Re-check: each problem offers its own fix (show the lines, or read the page again). */
+#result-suspects .suspect { margin-bottom: 12px; }
+.suspect-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 8px; }
+
+/* Printed section a line belongs to (proposed by Groq); green tick only when Python verified the section. */
+.line-section { display: block; margin-top: 2px; color: #5F6368; font-size: 12px; font-weight: 400; }
+.line-section.verified { color: #1E6B45; }
+
+/* Reference lines (repeats of a section or total): shown for information, never counted. */
+.candidate-card.reference-line { display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: #F4F4EF; color: #5F6368; }
+.reference-line .reference-name { flex: 1; font-size: 14px; }
+.reference-line .reference-name small { display: block; font-size: 12px; margin-top: 2px; }
+.reference-line .reference-amount { font-variant-numeric: tabular-nums; font-size: 14px; }
+
+/* Chapter 1: upload first, then the three settings in one row underneath. */
+.setup { grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 920px; }
+.setup .file-control { min-height: 200px; }
+.provide-settings .control-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.provide-settings .control-grid > label:first-child { grid-column: auto; }
+@media (max-width: 700px) { .provide-settings .control-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Check the lines: the bill's hierarchy. Breakdown rows are indented and lighter; headers carry Python's tick. */
+#candidate-list .candidate-card { margin-left: calc(var(--depth, 0) * 22px); }
+#candidate-list .candidate-card.breakdown { background: #FBFBF8; border-left: 2px solid #E4E4DE; }
+.tree-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 90px; gap: 12px; align-items: center; width: calc(100% - var(--depth, 0) * 22px);
+  margin-left: calc(var(--depth, 0) * 22px); padding: 10px 14px; border: 0; border-top: 1px solid #E4E4DE; background: #FFFFFF;
+  font: inherit; font-size: 14px; text-align: left; color: #111111; box-sizing: border-box; }
+button.tree-row { cursor: pointer; }
+button.tree-row:hover { background: #FAFAF7; }
+.tree-row .tree-label { font-weight: 600; }
+.tree-row .tree-status { font-size: 12px; color: #5F6368; }
+.tree-row .tree-amount { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tree-invoice { background: #111111; color: #FFFFFF; font-size: 15px; border-radius: 6px 6px 0 0; }
+.tree-invoice .tree-status { color: #F5C400; }
+.status-ok .tree-status { color: #1E6B45; }
+.tree-invoice.status-ok .tree-status { color: #F5C400; }
+.status-mismatch { box-shadow: inset 3px 0 0 #C8102E; }
+.status-mismatch .tree-status { color: #C8102E; }
+.tree-group { background: #F4F4EF; color: #5F6368; }
+.tree-group .tree-label { font-weight: 500; }
+
+/* The AI's short story reads like a paragraph, not a list. */
+.ai-story { font-size: 16px; line-height: 1.6; margin: 0 0 8px; }
+
+.ai-disclaimer { font-size: 13px; color: #5F6368; border-left: 3px solid #F5C400; padding-left: 10px; margin: 4px 0 10px; }
+
+/* Page viewer (Stage 3): one page fitted to the panel; Zoom in shows it full size and scrolls. */
+.document-panel.fit .page-shell canvas, .document-panel.fit .page-shell img { max-height: calc(78vh - 170px); width: auto; max-width: 100%; }
+.page-progress { align-items: center; }
+.page-progress .page-step, .page-progress .page-zoom { font-size: 13px; padding: 8px 6px; }
+.page-progress .page-zoom { margin-left: auto; }
+/* While checking the lines, the page is for looking: the reading buttons are hidden. */
+body[data-ui-step='2'] .page-read-toolbar, body[data-ui-step='2'] .page-options { display: none !important; }
+
+/* Message tone picker */
+.tone-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.tone-picker span { font-size: 13px; color: #5F6368; margin-right: 4px; }
+.tone-picker button { padding: 6px 14px; font-size: 13px; border-radius: 16px; }
+.tone-picker button[aria-pressed='true'] { background: #111111; color: #FFFFFF; border-color: #111111; }
+
+/* A section that does not add up: Python's explanation once, under its header. */
+.tree-hint { margin: 0 0 0 calc(var(--depth, 0) * 22px); padding: 10px 14px; background: #FDF1F3; color: #8A0B20;
+  font-size: 14px; line-height: 1.5; border-left: 3px solid #C8102E; }
+.status-inner .tree-status { color: #8A6D00; }
+.tree-invoice.status-inner .tree-status { color: #F5C400; }
+
+/* Read: choose which pages are sent to the AI reader (multi-page bills only). */
+.page-choice { border: 1px solid #E3E1DA; border-radius: 6px; padding: 10px 14px; margin: 0; }
+.page-choice legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
+.page-choice #page-choice-boxes { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.page-choice label { font-size: 15px; cursor: pointer; }

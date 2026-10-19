@@ -7,7 +7,11 @@ import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion, allReadyState, confirmReadyLines } from "./extraction/bulk-confirm.mjs";
 import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
 import { resultHeadline, mathRows } from "./result-display.mjs";
-import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, assignSection, suggestSection, sectionMembers, sectionReviewKey, sectionAccepted } from "./extraction/page-review.mjs";
+import { lineTreeRows, STATUS_TEXT } from "./line-tree.mjs";
+import { locateAmounts } from "./extraction/locate.mjs";
+import { applyTone } from "./tone.mjs";
+import { pagesToRead, readButtonText } from "./read-flow.mjs";
+import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, assignSection, suggestSection, sectionMembers, sectionReviewKey, sectionAccepted, acceptVerifiedSections } from "./extraction/page-review.mjs";
 
 const elements = {
   files: document.querySelector("#bill-files"),
@@ -60,7 +64,10 @@ const ROLE_LABELS = {
   total: "Printed total",
 };
 const flow = createFlow();
-const LOCATOR_LABELS = { pdf_text: "PDF text", local_ocr: "local OCR", groq: "Groq (unverified)", user: "you" };
+// "groq" is the stored locator value for any AI-reader location, whichever provider read it.
+const LOCATOR_LABELS = { pdf_text: "PDF text", local_ocr: "local OCR", groq: "AI reader (unverified)", user: "you" };
+// Which service reads approved areas (from /api/health); named wherever data leaves the device.
+let visionName = "Groq";
 const VERDICT_LABELS = {
   verified_mismatch: "Verified mismatch — the confirmed printed figures do not add up",
   unexplained: "Unexplained — the bill differs from what you expected, but that is not proof of an error",
@@ -76,7 +83,7 @@ const groqSend = document.querySelector("#groq-send");
 const groqRedacted = document.querySelector("#groq-redacted");
 
 function emptyState() {
-  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), removedLines: [] };
+  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), skippedPages: new Set(), removedLines: [], tree: null, toggles: new Map(), zoom: false };
 }
 
 // One shape for every candidate, whatever produced it. Evidence precision is never upgraded silently.
@@ -88,6 +95,172 @@ function newCandidate(fields) {
     context: "", warning: "",
     ...fields,
   };
+}
+
+// One sentence about the structure Groq proposed for the area, as checked by Python on the server.
+function structureNote(structure) {
+  if (!structure) return "";
+  if (structure.status === "invalid") return "The AI reader's sections for this area did not check out, so the lines were added without them.";
+  if (structure.status === "mismatch") return "A section does not add up to its printed subtotal: open the marked lines to see what may be missing.";
+  const verified = Object.values(structure.lines).some(line => line.verified);
+  return verified ? "Sections were recognised and add up to their printed subtotals (checked by Python)." : "";
+}
+
+// ---- "Check the lines" table in the bill's hierarchy (Python's tree; nothing is added up here) ----
+function renderLines() {
+  const byId = new Map(reviewState.candidates.map(line => [line.id, line]));
+  elements.candidateList.replaceChildren(...lineTreeRows(reviewState.candidates, reviewState.tree, reviewState.toggles).flatMap(row => {
+    if (row.type !== "line") {
+      const header = treeHeader(row, byId);
+      if (row.status !== "mismatch" || !row.hint) return [header];
+      const note = document.createElement("p");
+      note.className = "tree-hint";
+      note.style.setProperty("--depth", row.depth);
+      note.textContent = row.hint;
+      return [header, note];
+    }
+    const card = candidateCard(byId.get(row.id));
+    card.style.setProperty("--depth", row.depth);
+    card.classList.toggle("breakdown", row.breakdown);
+    return [card];
+  }));
+}
+
+function treeHeader(row, byId) {
+  const header = document.createElement(row.type === "invoice" ? "div" : "button");
+  header.className = `tree-row tree-${row.type} status-${row.status || "none"}`;
+  header.dataset.nodeId = row.id;
+  header.style.setProperty("--depth", row.depth);
+  const label = document.createElement("span");
+  label.className = "tree-label";
+  const marker = row.type === "invoice" ? "" : row.collapsed ? "▸ " : "▾ ";
+  label.textContent = `${marker}${row.label}${row.period && !row.label.includes(row.period) ? ` · ${row.period}` : ""}${row.count ? ` (${row.count})` : ""}`;
+  const state = document.createElement("span");
+  state.className = "tree-status";
+  state.textContent = row.type === "invoice" && row.status === "ok" ? "✓ all lines add up to this (checked by Python)" : STATUS_TEXT[row.status] || "";
+  const amount = document.createElement("span");
+  amount.className = "tree-amount";
+  amount.textContent = row.amountId ? byId.get(row.amountId)?.rawAmount || "" : "";
+  header.append(label, state, amount);
+  if (row.type !== "invoice") {
+    header.type = "button";
+    header.setAttribute("aria-expanded", String(!row.collapsed));
+    header.addEventListener("click", () => { reviewState.toggles.set(row.id, !row.collapsed); renderLines(); });
+  }
+  return header;
+}
+
+// After an edit or removal: update only the section ticks, so typing is not interrupted.
+function refreshTreeHeaders() {
+  if (!reviewState.tree) return;
+  for (const row of lineTreeRows(reviewState.candidates, reviewState.tree, reviewState.toggles)) {
+    if (row.type === "line") continue;
+    const header = document.querySelector(`.tree-row[data-node-id="${CSS.escape(row.id)}"]`);
+    if (!header) continue;
+    header.className = `tree-row tree-${row.type} status-${row.status || "none"}`;
+    header.querySelector(".tree-status").textContent = row.type === "invoice" && row.status === "ok"
+      ? "✓ all lines add up to this (checked by Python)" : STATUS_TEXT[row.status] || "";
+  }
+}
+
+// The reader reports the bill's decimal mark; adopt it (visibly) before amounts are formatted for display.
+function useBillDecimalMark(mark) {
+  if (![".", ","].includes(mark) || mark === elements.decimalSeparator.value) return;
+  elements.decimalSeparator.value = mark;
+  setDecimalHint(`Switched to ${mark === "," ? "comma" : "point"} because your bill writes amounts that way. Change it if that is wrong.`);
+}
+
+function setDecimalHint(text) {
+  const hint = document.querySelector("#decimal-hint");
+  if (hint) hint.textContent = text;
+}
+
+// One AI-read line -> an unconfirmed candidate. area is the drawn table area, or null for a whole page.
+// placed is Python's checked plan for the line (section, tick, hint, role for summaries), if any.
+function visionCandidate(line, { page, area, sourceKey, outputCurrency, placed, model, id = null, gid = null, wholePage = false }) {
+  const suggestion = visionSuggestion(line);
+  // Uniform display: no currency marks, chosen decimal format; unclear values stay as printed with a note.
+  const separator = elements.decimalSeparator.value;
+  const formatNotes = [];
+  const fmt = (value) => { const result = formatAmount(value, separator); if (result.note) formatNotes.push(result.note); return result.text; };
+  const amountText = fmt(line.raw_amount);
+  const cleaned = line.breakdown ? cleanVisionColumns({
+    quantity: line.breakdown.quantity, unitPrice: line.breakdown.unit_price, discount: line.breakdown.discount,
+    taxableValue: line.breakdown.taxable_value, taxes: line.breakdown.taxes,
+  }) : null;
+  if (cleaned) {
+    for (const key of ["unitPrice", "discount", "taxableValue"]) cleaned.columns[key] = fmt(cleaned.columns[key]);
+    cleaned.columns.taxes = cleaned.columns.taxes.map(fmt);
+  }
+  // Whole page: the reader finds the right row reliably but not the exact column (tested 2026-10-19), so the
+  // evidence is the printed row as a band across the page ("read from this row"), never an exact amount box.
+  const row = wholePage && line.bounds ? { x0: 0.02, top: line.bounds.top, x1: 0.98, bottom: line.bounds.bottom } : null;
+  if (row) area = row;
+  const box = area && !wholePage ? line.bounds : null;
+  // Valid crop-relative boxes map back to the page; otherwise the selected table area is the evidence.
+  const bounds = box ? {
+    x0: area.x0 + box.x0 * (area.x1 - area.x0),
+    x1: area.x0 + box.x1 * (area.x1 - area.x0),
+    top: area.top + box.top * (area.bottom - area.top),
+    bottom: area.top + box.bottom * (area.bottom - area.top),
+  } : null;
+  return newCandidate({
+    id: id || `groq-${crypto.randomUUID()}`, gid, page,
+    precision: bounds ? "exact" : area ? "table" : "page", locatedBy: bounds || area ? "groq" : null, bounds,
+    region: bounds || !area ? null : { ...area },
+    extractor: "groq", rawAmount: amountText, extractedRawAmount: line.raw_amount == null ? null : amountText,
+    extractionSourceKey: sourceKey,
+    extractionSignature: JSON.stringify({description: line.description, amount: line.raw_amount, role: line.role, group: line.group, currency: line.currency, breakdown: line.breakdown}),
+    role: placed && "role" in placed ? placed.role : suggestion.role, group: placed ? placed.group : suggestion.group,
+    sectionPath: placed?.path || "", structureVerified: Boolean(placed?.verified),
+    reference: placed && placed.role === "" ? { text: referenceText(placed) } : null,
+    attention: placed && placed.role === "" ? null : placed?.hint || null,
+    breakdown: cleaned ? cleaned.columns : null,
+    description: line.description, currency: line.currency || outputCurrency || elements.currency.value,
+    originalLabel: line.original_label && line.original_label !== line.description ? line.original_label : "",
+    context: `AI reader suggestion (${model || visionName}) · check against the original page${line.original_label && line.original_label !== line.description ? ` · printed as “${line.original_label}”` : ""}${placed?.note ? ` · AI link (unverified): ${placed.note}` : ""}`,
+    warning: [line.warning, ...suggestion.notes, ...(cleaned ? cleaned.notes : []), ...formatNotes, bounds
+      ? "Model source box is unverified. Inspect it before confirming."
+      : row ? "Read from the highlighted row (found by the AI reader, not verified). Check the amount in that row before confirming."
+      : area ? "Read from the dashed table area; the exact position of this amount is not known. Check the amount in that table before confirming."
+      : "Read from the whole page; the exact position of this amount is not known. Check it on that page before confirming."].filter(Boolean).join(" "),
+  });
+}
+
+// Python decided this line is not counted: it repeats a section or total, or it is a zero subtotal.
+function referenceText(placed) {
+  if (placed.referenceText) return placed.referenceText;
+  if (!placed.summaryOf) return placed.hint || "Shown for reference, not counted.";
+  return `Repeats “${placed.summaryOf}” — not counted${placed.verified ? " · ✓ amounts agree" : " · ✗ amounts differ: compare them"}`;
+}
+
+// A calm, collapsed row for reference lines. "Count it anyway" turns it back into a normal line to classify.
+function referenceCard(candidate) {
+  const card = document.createElement("article");
+  card.className = "candidate-card reference-line";
+  card.dataset.cardId = candidate.id;
+  const name = document.createElement("div");
+  name.className = "reference-name";
+  name.textContent = candidate.description || "Reference line";
+  const note = document.createElement("small");
+  note.textContent = `Page ${candidate.page} · ${candidate.reference.text}`;
+  name.append(note);
+  const amount = document.createElement("span");
+  amount.className = "reference-amount";
+  amount.textContent = candidate.rawAmount;
+  const count = document.createElement("button");
+  count.type = "button";
+  count.className = "text-button";
+  count.textContent = "Count it anyway";
+  count.addEventListener("click", () => {
+    const index = reviewState.candidates.findIndex(line => line.id === candidate.id);
+    reviewState.candidates[index] = { ...candidate, reference: null, attention: "Choose what this line is. Only count it if it is a separate charge, not a repeat." };
+    card.replaceWith(candidateCard(reviewState.candidates[index]));
+    invalidatePayload();
+    refreshPageControls();
+  });
+  card.append(name, amount, count);
+  return card;
 }
 
 function regionKey(page, region) {
@@ -135,7 +308,9 @@ groqSend.addEventListener("click", async () => {
     const response = await fetch("/api/groq-extract", {
       method: "POST",
       headers: apiHeaders("redacted-crop"),
-      body: JSON.stringify({ imageBase64: selection.dataUrl.split(",")[1], mime: "image/png", redacted: true }),
+      // structure: Groq also proposes sections, periods and subtotals; the server's Python checks every sum.
+      body: JSON.stringify({ imageBase64: selection.dataUrl.split(",")[1], mime: "image/png", redacted: true,
+        structure: true, decimalSeparator: elements.decimalSeparator.value, currency: elements.currency.value }),
     });
     const result = await response.json();
     if (!response.ok || result.error) throw new Error(result.error || "Vision request failed");
@@ -145,59 +320,172 @@ groqSend.addEventListener("click", async () => {
       elements.currency.value = result.output.currency;
       elements.currency.dispatchEvent(new Event("change"));
     }
-    const added = result.output.lines.map((line) => {
-      const suggestion = visionSuggestion(line);
-      // Uniform display: no currency marks, chosen decimal format; unclear values stay as printed with a note.
-      const separator = elements.decimalSeparator.value;
-      const formatNotes = [];
-      const fmt = (value) => { const result = formatAmount(value, separator); if (result.note) formatNotes.push(result.note); return result.text; };
-      const amountText = fmt(line.raw_amount);
-      const cleaned = line.breakdown ? cleanVisionColumns({
-        quantity: line.breakdown.quantity, unitPrice: line.breakdown.unit_price, discount: line.breakdown.discount,
-        taxableValue: line.breakdown.taxable_value, taxes: line.breakdown.taxes,
-      }) : null;
-      if (cleaned) {
-        for (const key of ["unitPrice", "discount", "taxableValue"]) cleaned.columns[key] = fmt(cleaned.columns[key]);
-        cleaned.columns.taxes = cleaned.columns.taxes.map(fmt);
-      }
-      const box = line.bounds;
-      // Valid crop-relative boxes map back to the page; otherwise the selected table area is the evidence.
-      const bounds = box ? {
-        x0: area.x0 + box.x0 * (area.x1 - area.x0),
-        x1: area.x0 + box.x1 * (area.x1 - area.x0),
-        top: area.top + box.top * (area.bottom - area.top),
-        bottom: area.top + box.bottom * (area.bottom - area.top),
-      } : null;
-      return newCandidate({
-        id: `groq-${crypto.randomUUID()}`, page: selection.page,
-        precision: bounds ? "exact" : "table", locatedBy: "groq", bounds, region: bounds ? null : { ...area },
-        extractor: "groq", rawAmount: amountText, extractedRawAmount: line.raw_amount == null ? null : amountText,
-        extractionSourceKey: regionKey(selection.page, area),
-        extractionSignature: JSON.stringify({description: line.description, amount: line.raw_amount, role: line.role, group: line.group, currency: line.currency, breakdown: line.breakdown}),
-        role: suggestion.role, group: suggestion.group,
-        breakdown: cleaned ? cleaned.columns : null,
-        description: line.description, currency: line.currency || result.output.currency || elements.currency.value,
-        context: "Groq vision suggestion · check against the original page",
-        warning: [line.warning, ...suggestion.notes, ...(cleaned ? cleaned.notes : []), ...formatNotes, bounds
-          ? "Model source box is unverified. Inspect it before confirming."
-          : "Read from the dashed table area; the exact position of this amount is not known. Check the amount in that table before confirming."].filter(Boolean).join(" "),
-      });
-    });
+    useBillDecimalMark(result.decimalMark);
+    const plan = result.structure && result.structure.status !== "invalid" ? result.structure.lines : {};
+    const added = result.output.lines.map((line) => visionCandidate(line, {
+      page: selection.page, area: selection.bounds, sourceKey: regionKey(selection.page, selection.bounds),
+      outputCurrency: result.output.currency, placed: plan[line.id], model: result.model,
+    }));
     const previousIds = new Set(reviewState.candidates.map(line => line.id));
     reviewState.candidates = appendPageCandidates(reviewState.candidates, added, selection.page);
+    reviewState.candidates = acceptVerifiedSections(reviewState.candidates, added.map(line => line.id));
     const fresh = reviewState.candidates.filter(line => !previousIds.has(line.id));
-    elements.candidateList.append(...fresh.map(animatedCandidateCard));
+    renderLines();
     elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
     invalidatePayload("Vision suggestions added. Review them and rebuild the safe preview.");
     drawHighlights();
     refreshPageControls();
     flow.extracted(true);
     const repeated = added.length - fresh.length;
-    setStatus(`Added ${fresh.length} lines from page ${selection.page}.${repeated ? ` Kept ${repeated} identical earlier line(s) instead of adding them twice.` : ""} Earlier lines and your corrections are kept. Use the page buttons above the bill to read another relevant page, or check the combined lines.`);
+    setStatus(`Added ${fresh.length} lines from page ${selection.page}.${repeated ? ` Kept ${repeated} identical earlier line(s) instead of adding them twice.` : ""} ${structureNote(result.structure)} Earlier lines and your corrections are kept. Use the page buttons above the bill to read another relevant page, or check the combined lines.`, result.structure?.status === "mismatch" ? "failure" : "");
   } catch (error) {
     if (selection.generation === reviewGeneration) { flow.reading("select", selection.page); setStatus(error.message, "failure"); }
   } finally { groqRequestRunning = false; pendingGroq = null; refreshPageControls(); }
 });
+
+// ---- Whole-bill reading: every page, then one linking pass; Python checks every section. ----
+
+// JPEG of one page for the AI reader. PDFs are rendered again at a higher scale so small digits stay sharp.
+async function pageImage(pageNumber, pdf) {
+  const canvas = document.createElement("canvas");
+  if (pdf) {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 2.2 });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+  } else {
+    const image = reviewState.pageElements.get(pageNumber)?.querySelector("img");
+    if (!image) throw new Error(`Page ${pageNumber} is not available.`);
+    const scale = Math.min(1, 2400 / Math.max(image.naturalWidth, image.naturalHeight));
+    canvas.width = Math.round(image.naturalWidth * scale);
+    canvas.height = Math.round(image.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+  }
+  for (const quality of [0.85, 0.7, 0.55]) {
+    const data = canvas.toDataURL("image/jpeg", quality);
+    if (data.length < 4_200_000) return data;
+  }
+  throw new Error(`Page ${pageNumber} is too large to send. Draw an area around its price table instead.`);
+}
+
+// The PDF's own text per page (exact digits), in reading order. Images have no text layer.
+function pageTextLayer(tokens) {
+  const byPage = new Map();
+  for (const token of tokens) {
+    if (!byPage.has(token.page)) byPage.set(token.page, []);
+    byPage.get(token.page).push(token);
+  }
+  const texts = new Map();
+  for (const [page, items] of byPage) {
+    items.sort((a, b) => Math.round(a.bounds.top * 250) - Math.round(b.bounds.top * 250) || a.bounds.x0 - b.bounds.x0);
+    const lines = [];
+    let row = -1;
+    for (const item of items) {
+      const top = Math.round(item.bounds.top * 250);
+      if (top !== row) { lines.push([]); row = top; }
+      lines[lines.length - 1].push(item.text);
+    }
+    texts.set(page, lines.map(words => words.join(" ")).join("\n"));
+  }
+  return texts;
+}
+
+function wholeBillNote(plan, count, pages) {
+  const lead = `Read ${count} line${count === 1 ? "" : "s"} from ${pages} page${pages === 1 ? "" : "s"}.`;
+  const linked = plan.linkedBy === "ai" ? " The pages were connected by the AI reader and checked by Python." : "";
+  const status = {
+    ok: " Every section adds up to its printed figure.",
+    incomplete: " The parts fit together, but some of the bill has no printed total to check against.",
+    mismatch: " Something does not add up: open the marked lines to see what may be missing or read twice.",
+    invalid: " The proposed structure did not check out, so the lines were added without sections. Check them against the bill.",
+  }[plan.status] || "";
+  return lead + linked + status + (plan.complex ? ` ${plan.problems.at(-1)}` : "");
+}
+
+async function readWholeBill() {
+  if (groqRequestRunning) return;
+  if (!checkExpectedAmount()) return;
+  const all = [...reviewState.pageElements.keys()];
+  const pages = pagesToRead(all, reviewState.skippedPages);
+  if (!all.length) { setStatus("Open your bill first.", "failure"); return; }
+  if (!pages.length) { setStatus("Tick at least one page to read.", "failure"); return; }
+  const which = pages.length === all.length ? `All ${pages.length} page${pages.length === 1 ? "" : "s"}` : `Page${pages.length === 1 ? "" : "s"} ${pages.join(", ")}`;
+  if (!window.confirm(`${which} will be sent to ${visionName}, including any personal details on them. Continue? (Select an area on a page instead to send less.)`)) return;
+  const generation = reviewGeneration;
+  groqRequestRunning = true;
+  refreshPageControls();
+  flow.reading("reading", pages[0]);
+  const outputs = [];
+  try {
+    const files = Array.from(elements.files.files || []);
+    let pdf = null, texts = new Map(), pdfTokens = [];
+    if (validSelection(files) === "pdf") {
+      const pdfjs = await pdfLibrary();
+      const bytes = new Uint8Array(await files[0].arrayBuffer());
+      pdfTokens = (await extractPdfTokens(bytes.slice(), { loadPdfJs: async () => pdfjs })).tokens;
+      texts = pageTextLayer(pdfTokens);
+      pdf = await pdfjs.getDocument({ data: bytes }).promise;
+    }
+    for (const [index, page] of pages.entries()) {
+      setStatus(`Reading page ${index + 1} of ${pages.length} with ${visionName}… This can take up to a minute per page.`, "busy");
+      const image = await pageImage(page, pdf);
+      const response = await fetch("/api/read-page", {
+        method: "POST", headers: apiHeaders("whole-page"),
+        body: JSON.stringify({ imageBase64: image.split(",")[1], mime: "image/jpeg", wholePage: true, pageText: texts.get(page) || null }),
+      });
+      const result = await response.json();
+      if (generation !== reviewGeneration) return;
+      if (!response.ok || result.error) throw new Error(`Page ${page}: ${result.error || "reading failed"}`);
+      outputs.push({ page, output: result.output, model: result.model });
+    }
+    setStatus("Connecting the pages and checking every section with Python…", "busy");
+    const response = await fetch("/api/link-pages", {
+      method: "POST", headers: apiHeaders("whole-bill"),
+      body: JSON.stringify({ decimalSeparator: elements.decimalSeparator.value, currency: elements.currency.value,
+        pages: outputs.map(({ page, output }) => ({ page, output })) }),
+    });
+    const linked = await response.json();
+    if (generation !== reviewGeneration) return;
+    if (!response.ok || linked.error) throw new Error(linked.error || "The pages could not be connected.");
+    const plan = linked.plan;
+    useBillDecimalMark(plan.decimalMark);
+    const currency = outputs.map(item => item.output.currency).find(value => ["EUR", "INR"].includes(value));
+    if (currency && currency !== elements.currency.value) {
+      elements.currency.value = currency;
+      elements.currency.dispatchEvent(new Event("change"));
+    }
+    const added = outputs.flatMap(({ page, output, model }) => output.lines.map(line => {
+      const gid = plan.ids[`${page}:${line.id}`];
+      return visionCandidate(line, { page, area: null, sourceKey: `whole:${page}`, outputCurrency: output.currency,
+        placed: plan.lines[gid], model, id: `whole-${gid}`, gid, wholePage: true });
+    }));
+    // PDFs: the exact printed position from the PDF's own text replaces any AI box (no guessing, see locate.mjs).
+    const positions = locateAmounts(added.map(line => ({ id: line.id, page: line.page, rawAmount: JSON.parse(line.extractionSignature).amount })), pdfTokens);
+    for (const line of added) {
+      const bounds = positions.get(line.id);
+      if (!bounds) continue;
+      Object.assign(line, { precision: "exact", locatedBy: "pdf_text", bounds: { ...bounds }, region: null,
+        warning: line.warning.replace(/Model source box is unverified\. Inspect it before confirming\.|Read from the whole page;[^.]*\.[^.]*\.|Read from the highlighted row[^.]*\.[^.]*\./, "Located in the PDF text.") });
+    }
+    // A new whole-bill reading replaces the previous one; drawn areas and typed lines are kept.
+    const kept = reviewState.candidates.filter(line => !String(line.extractionSourceKey || "").startsWith("whole:"));
+    reviewState.candidates = acceptVerifiedSections([...kept, ...added], added.map(line => line.id));
+    reviewState.tree = plan.status === "invalid" ? null : plan.tree || null;
+    reviewState.toggles = new Map();
+    renderLines();
+    invalidatePayload("Whole bill read. Review the lines and check them.");
+    drawHighlights();
+    refreshPageControls();  // updates the line count first, so the Check chapter can open
+    flow.extracted(false);
+    setStatus(wholeBillNote(plan, added.length, pages.length), ["mismatch", "invalid"].includes(plan.status) ? "failure" : "");
+  } catch (error) {
+    if (generation === reviewGeneration) {
+      flow.reading("select", reviewState.activePage);
+      setStatus(`${error instanceof Error ? error.message : String(error)} You can select an area on a page instead.`, "failure");
+    }
+  } finally { groqRequestRunning = false; refreshPageControls(); }
+}
 
 // The access code is kept only for this browser tab (sessionStorage); it protects the server's Groq key.
 let session = null;          // { accessToken, refreshToken, expiresAt } for this browser's anonymous identity
@@ -242,7 +530,7 @@ async function recordEvent(action, finalText = null) {
   if (!savedMessageId) return null;
   await ensureSession();
   const response = await fetch(`/api/messages/${encodeURIComponent(savedMessageId)}/events`, {
-    method: "POST", headers: apiHeaders("message-event"), body: JSON.stringify({ action, finalText }),
+    method: "POST", headers: apiHeaders("message-event"), body: JSON.stringify({ action, finalText, tone: messageTone, draftShown: draftFor(messageTone) }),
   });
   const answer = await response.json();
   if (!response.ok) throw new Error(answer.error || "Could not record this.");
@@ -254,6 +542,10 @@ async function showAccessBoxIfNeeded() {
   try {
     const health = await (await fetch("/api/health")).json();
     elements.accessBox.hidden = !health.accessCodeRequired;
+    if (health.visionReader) {
+      visionName = health.visionReader;
+      document.querySelectorAll(".vision-name").forEach(node => { node.textContent = visionName; });
+    }
   } catch { elements.accessBox.hidden = false; }
 }
 
@@ -301,6 +593,7 @@ function resetReview({ keepFiles = false } = {}) {
   document.querySelector("#accept-all-hint").textContent = "No lines yet. This confirms what was read—not whether the bill adds up.";
   elements.pages.replaceChildren();
   elements.candidateList.replaceChildren();
+  reviewState.tree = null;
   elements.review.hidden = true;
   elements.payloadPanel.hidden = true;
   elements.payloadError.textContent = "";
@@ -332,7 +625,7 @@ async function pdfLibrary() {
 
 function addCandidate(candidate, message) {
   reviewState.candidates.push(candidate);
-  elements.candidateList.append(animatedCandidateCard(candidate, 0));
+  renderLines();
   refreshPageControls();
   flow.extracted();
   elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
@@ -579,9 +872,7 @@ function drawHighlights() {
       const area = document.createElement("div");
       area.className = "table-area";
       area.dataset.regionKey = key;
-      const tag = document.createElement("span");
-      tag.textContent = "Table area · not an exact amount location";
-      area.append(tag);
+      area.title = "Read by the AI reader from this area (see the legend above the page)";
       placeBox(area, candidate.region);
       shell.append(area);
       continue;
@@ -600,6 +891,17 @@ function drawHighlights() {
 }
 
 function focusCandidate(candidateId) {
+  if (!document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"]`)) {
+    const gid = reviewState.candidates.find(line => line.id === candidateId)?.gid;
+    const open = (nodes, trail) => nodes.some(node => {
+      const path = [...trail, node.id];
+      if (node.rows.includes(gid) || node.printedLineId === gid) { path.forEach(id => reviewState.toggles.set(id, false)); return true; }
+      return open(node.sections, path);
+    });
+    if (gid && reviewState.tree) open(reviewState.tree, []);
+    if (reviewState.candidates.find(line => line.id === candidateId)?.reference) reviewState.toggles.set("references", false);
+    renderLines();
+  }
   document.querySelectorAll(".highlight.active, .table-area.active, .page-shell.active").forEach((node) => node.classList.remove("active"));
   const candidate = reviewState.candidates.find((item) => item.id === candidateId);
   if (!candidate) return;
@@ -618,7 +920,21 @@ function updateCandidate(candidateId, field, value) {
   const index = reviewState.candidates.findIndex((candidate) => candidate.id === candidateId);
   const candidate = reviewState.candidates[index];
   const affectsValue = ["rawAmount", "description", "role", "group", "breakdown", "currency"].includes(field);
-  reviewState.candidates[index] = { ...candidate, [field]: value, ...(affectsValue ? {confirmed: false} : {}), attention: null };
+  reviewState.candidates[index] = { ...candidate, [field]: value, ...(affectsValue ? {confirmed: false, edited: true} : {}), attention: null };
+  if (affectsValue) queueMicrotask(refreshTreeHeaders);
+  if (affectsValue && candidate.structureVerified) {
+    // Python's tick was for the section as read; after any edit only a new check can confirm it.
+    const section = String(candidate.group || "").trim().toLowerCase();
+    reviewState.candidates = reviewState.candidates.map(line => line.id === candidateId ||
+      (line.structureVerified && String(line.group || "").trim().toLowerCase() === section) ? { ...line, structureVerified: false } : line);
+    document.querySelectorAll(".line-section.verified").forEach(node => {
+      const card = node.closest("[data-card-id]");
+      if (!reviewState.candidates.find(line => line.id === card?.dataset.cardId)?.structureVerified) {
+        node.classList.remove("verified");
+        node.textContent = node.textContent.replace(" · ✓ adds up", "");
+      }
+    });
+  }
   invalidatePayload();
   document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"] .attention`)?.remove();
   const card = document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"]`);
@@ -651,12 +967,20 @@ function updateLineOverview(card, candidate) {
   pageLabel.className = "line-page";
   pageLabel.textContent = `Page ${candidate.page}`;
   card.querySelector(".line-name").append(pageLabel);
+  if (candidate.sectionPath) {
+    // The printed section this line sits in, as Groq proposed it; the tick only when Python verified the section.
+    const section = document.createElement("small");
+    section.className = `line-section${candidate.structureVerified ? " verified" : ""}`;
+    section.textContent = candidate.sectionPath + (candidate.structureVerified ? " · ✓ adds up" : "");
+    card.querySelector(".line-name").append(section);
+  }
   card.querySelector(".line-kind").textContent = ROLE_LABELS[candidate.role] || "Choose type";
   card.querySelector(".line-amount").textContent = candidate.rawAmount || "Add amount";
   card.classList.toggle("printed-total", candidate.role === "total" || candidate.role === "subtotal");
 }
 
 function candidateCard(candidate) {
+  if (candidate.reference) return referenceCard(candidate);
   const card = document.createElement("article");
   card.className = `candidate-card${candidate.confirmed ? " confirmed" : ""}`;
   card.dataset.cardId = candidate.id;
@@ -675,6 +999,7 @@ function candidateCard(candidate) {
     invalidatePayload();
     drawHighlights();
     refreshPageControls();
+    refreshTreeHeaders();
     document.querySelector("#undo-remove").hidden = false;
     setStatus("Line removed from this review. Undo remove restores it. Previously saved reviews are unchanged.");
   });
@@ -908,7 +1233,7 @@ function refreshPageControls() {
   progress.replaceChildren();
   const pages = [...reviewState.pageElements.keys()];
   const hint = document.createElement("p");
-  hint.textContent = pages.length > 1 ? "1 · Choose a page" : "Your page";
+  hint.textContent = pages.length > 1 ? `Page ${reviewState.activePage} of ${pages.length}` : "Your page";
   progress.append(hint);
   flow.linesChanged(reviewState.candidates.length);
   elements.candidateCount.textContent = `${reviewState.candidates.length} lines`;
@@ -916,9 +1241,62 @@ function refreshPageControls() {
     button.disabled = groqRequestRunning || !reviewState.lastAreas.has(Number(button.dataset.page));
   });
   document.querySelectorAll("[data-select-area]").forEach(button => { button.disabled = groqRequestRunning; });
+  const wholeButton = document.querySelector("#read-whole-bill");
+  const chosen = pagesToRead(pages, reviewState.skippedPages);
+  if (wholeButton) {
+    wholeButton.disabled = groqRequestRunning || !chosen.length;
+    wholeButton.textContent = readButtonText(chosen.length, pages.length);
+  }
+  const choice = document.querySelector("#page-choice");
+  if (choice) {
+    choice.hidden = pages.length < 2;
+    const boxes = choice.querySelector("#page-choice-boxes");
+    if (boxes.dataset.count !== String(pages.length)) {
+      boxes.dataset.count = String(pages.length);
+      boxes.replaceChildren(...[...pages].sort((a, b) => a - b).map(page => {
+        const label = document.createElement("label");
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.dataset.page = String(page);
+        box.addEventListener("change", () => {
+          if (box.checked) reviewState.skippedPages.delete(page); else reviewState.skippedPages.add(page);
+          refreshPageControls();
+        });
+        label.append(box, document.createTextNode(` Page ${page}`));
+        return label;
+      }));
+    }
+    boxes.querySelectorAll("input").forEach(box => {
+      box.checked = !reviewState.skippedPages.has(Number(box.dataset.page));
+      box.disabled = groqRequestRunning;
+    });
+  }
   for (const child of elements.pages.children) {
     if (child.dataset.page) child.hidden = Number(child.dataset.page) !== reviewState.activePage;
   }
+  // Page viewer: one page at a time, fitted to the panel; Previous/Next and a zoom toggle.
+  const viewer = elements.pages.closest(".document-panel");
+  viewer?.classList.toggle("fit", !reviewState.zoom);
+  const position = pages.indexOf(reviewState.activePage);
+  const step = (offset) => {
+    const target = pages[position + offset];
+    if (target === undefined || groqRequestRunning) return;
+    reviewState.activePage = target;
+    refreshPageControls();
+    if (document.body.dataset.uiStep === "1") flow.reading("select", target);
+    viewer?.scrollTo({ top: 0 });
+  };
+  const navButton = (text, offset, label) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "text-button page-step";
+    button.textContent = text;
+    button.setAttribute("aria-label", label);
+    button.disabled = groqRequestRunning || pages[position + offset] === undefined;
+    button.addEventListener("click", () => step(offset));
+    return button;
+  };
+  if (pages.length > 1) progress.append(navButton("‹ Previous", -1, "Previous page"));
   for (const {page, count} of pageLineCounts(pages, reviewState.candidates)) {
     const button = document.createElement("button");
     button.type = "button";
@@ -928,14 +1306,23 @@ function refreshPageControls() {
     button.disabled = groqRequestRunning;
     button.addEventListener("click", () => {
       if (groqRequestRunning) { setStatus("Wait for the current reading to finish."); return; }
-      flow.read();
+      // Only switch the visible page; never leave the chapter (Check the lines would hide all lines).
       reviewState.activePage = page;
       refreshPageControls();
-      flow.reading("select", page);
+      if (document.body.dataset.uiStep === "1") flow.reading("select", page);
       const shell = reviewState.pageElements.get(page);
       shell?.scrollIntoView({behavior: "instant", block: "nearest"});
     });
     progress.append(button);
+  }
+  if (pages.length > 1) progress.append(navButton("Next ›", 1, "Next page"));
+  if (pages.length) {
+    const zoom = document.createElement("button");
+    zoom.type = "button";
+    zoom.className = "text-button page-zoom";
+    zoom.textContent = reviewState.zoom ? "Fit page" : "Zoom in";
+    zoom.addEventListener("click", () => { reviewState.zoom = !reviewState.zoom; refreshPageControls(); });
+    progress.append(zoom);
   }
   refreshPrintedCheck();
 }
@@ -945,7 +1332,7 @@ function acceptSection(subtotalId, memberIds) {
   const subtotal = reviewState.candidates.find(line => line.id === subtotalId);
   subtotal.sectionAcceptedKey = sectionReviewKey(reviewState.candidates, subtotalId);
   invalidatePayload("Lines linked. Check the printed amounts before calculating.");
-  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  renderLines();
   refreshPageControls();
   setStatus("These lines are linked. Python will check their amounts when you choose Looks right — check it.");
 }
@@ -1009,7 +1396,7 @@ function refreshPrintedCheck() {
     change.setAttribute("aria-label", `Change lines for subtotal on page ${line.page}: ${line.description}`);
     change.addEventListener("click", () => {
       // Rebuild the editor so choices include rows added on later pages.
-      elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+      renderLines();
       const card = document.querySelector(`[data-card-id="${CSS.escape(line.id)}"]`);
       card.querySelector(".line-editor").open = true;
       card.querySelector(".section-editor").open = true;
@@ -1062,7 +1449,7 @@ document.querySelector("#undo-remove").addEventListener("click", () => {
   const removed = reviewState.removedLines.pop();
   if (!removed) return;
   reviewState.candidates.splice(Math.min(removed.index, reviewState.candidates.length), 0, removed.line);
-  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  renderLines();
   invalidatePayload(); drawHighlights(); refreshPageControls();
   document.querySelector("#undo-remove").hidden = reviewState.removedLines.length === 0;
   setStatus("Line restored. Check the combined lines again before continuing.");
@@ -1150,8 +1537,8 @@ function listItem(text, className = "") {
 }
 
 const MATCH_TEXT = {
-  equals_expected: "exactly your expected amount",
-  equals_difference: "exactly the difference from your expected amount",
+  equals_expected: "exactly what you expected to pay",
+  equals_difference: "exactly the difference",
   equals_total_gap: "exactly the gap between the listed charges and the printed total (check whether this line is really part of that total)",
 };
 
@@ -1166,27 +1553,34 @@ function paragraph(text, className = "") {
 function renderGap(result, ai) {
   const nodes = [];
   if (!result.gap.needsExplanation) {
-    elements.resultGap.replaceChildren(paragraph("No difference to explain, so nothing was sent to the AI."));
+    elements.resultGap.replaceChildren(paragraph("Nothing to explain: the bill matches what you expected."));
     return;
   }
-  nodes.push(paragraph("✅ Checked by Python (exact arithmetic)", "gap-heading"));
-  const exact = result.gap.exactMatches.map((match) => listItem(`${match.groupLabel ? `Group "${match.groupLabel}"` : match.labels.join(" + ")} adds up to ${match.amount}: ${MATCH_TEXT[match.kind]}.`));
+  nodes.push(paragraph("Where the difference sits", "gap-heading"));
+  const exact = result.gap.exactMatches.map((match) => listItem(`${match.groupLabel ? match.groupLabel : match.labels.join(" + ")} = ${match.amount}, ${MATCH_TEXT[match.kind]}.`));
   const list = document.createElement("ul");
-  list.replaceChildren(...(exact.length ? exact : [listItem("No line or group adds up exactly to the difference. The cause may be outside this bill (for example a different original quote).")]));
-  if (result.gap.ambiguous) list.append(listItem("Several combinations fit, so the arithmetic alone cannot single out one cause."));
-  nodes.push(list, paragraph("An exact match shows where the amount sits on the bill; it does not prove why it was charged.", "hint"));
+  list.replaceChildren(...(exact.length ? exact : [listItem("No line or section on the bill equals the difference exactly. The reason may be outside this bill, for example a different price you were quoted.")]));
+  if (result.gap.ambiguous) list.append(listItem("Several combinations fit, so the numbers alone cannot show which one it is."));
+  nodes.push(list, paragraph("Checked by Python. This shows where the amount is on the bill, not why it was charged.", "hint"));
 
-  nodes.push(paragraph("💡 AI suggestion (not verified)", "gap-heading"));
-  if (ai.state === "asking") nodes.push(paragraph("Asking Groq (gpt-oss-20b). Only confirmed labels, amounts and Python's results are sent; no image.", "hint"));
-  if (ai.state === "error") nodes.push(paragraph(ai.message, "error"));
-  if (ai.state === "done") {
+  // A failed or rejected AI answer is simply not shown: the Python facts above are complete on their own.
+  if (ai.state === "error") { elements.resultGap.replaceChildren(...nodes); return; }
+  nodes.push(paragraph("Possible reason (AI suggestion, not verified)", "gap-heading"));
+  if (ai.state === "done") nodes.push(paragraph("Written by AI. It can be wrong, so check it against your bill. The amounts in The maths come from Python.", "ai-disclaimer"));
+  if (ai.state === "asking") nodes.push(paragraph("Looking for a likely reason… Only the checked lines and amounts are sent, no picture of your bill.", "hint"));
+  if (ai.state === "done" && ai.explanation.story) {
+    // A short story first; the question and the evidence follow as plain sentences.
+    nodes.push(paragraph(ai.explanation.story, "ai-story"));
+    if (ai.explanation.question) nodes.push(paragraph(`You could ask: “${ai.explanation.question}”`));
+    if (ai.explanation.evidenceToRequest.length) nodes.push(paragraph(`What would settle it: ${ai.explanation.evidenceToRequest.join("; ")}.`, "hint"));
+  } else if (ai.state === "done") {
     const labels = Object.fromEntries(result.lines.map((line) => [line.id, line.description]));
     const causes = document.createElement("ul");
     causes.replaceChildren(...ai.explanation.likelyCauses.map((cause) => listItem(`${cause.lineIds.map((id) => labels[id]).join(" + ")} — ${cause.likelihood} likelihood — ${cause.reason}`)));
     nodes.push(causes);
     if (ai.explanation.unexplained) nodes.push(paragraph(`Still unexplained: ${ai.explanation.unexplained}`));
     if (ai.explanation.evidenceToRequest.length) nodes.push(paragraph(`Evidence that would settle it: ${ai.explanation.evidenceToRequest.join("; ")}`));
-    nodes.push(paragraph(`Model: ${ai.explanation.model}. Its text contains no amounts; every number on this page comes from Python.`, "hint"));
+    nodes.push(paragraph("Every number on this page comes from Python, not from the AI.", "hint"));
   }
   const facts = document.createElement("section");
   facts.className = "python-facts";
@@ -1200,11 +1594,80 @@ function renderGap(result, ai) {
   elements.resultGap.replaceChildren(facts, suggestion);
 }
 
+// One re-check problem with the two ways to fix it: look at the lines, or read the page again.
+function suspectItem(suspect) {
+  const item = listItem(suspect.text, "suspect");
+  const actions = document.createElement("div");
+  actions.className = "suspect-actions";
+  if (suspect.lineIds.length) {
+    const show = document.createElement("button");
+    show.type = "button";
+    show.className = "secondary";
+    show.textContent = suspect.lineIds.length === 1 ? "Show this line" : `Show these ${suspect.lineIds.length} lines`;
+    show.addEventListener("click", () => {
+      flow.check();
+      focusCandidate(suspect.lineIds[0]);
+      setStatus("The lines to check are marked. Compare them with the bill and correct or add what is different.");
+    });
+    actions.append(show);
+  }
+  for (const page of suspect.pages || []) {
+    if (!reviewState.pageElements.has(page)) continue;
+    const reread = document.createElement("button");
+    reread.type = "button";
+    reread.className = "text-button";
+    reread.textContent = `Read page ${page} again`;
+    reread.addEventListener("click", () => {
+      reviewState.activePage = page;
+      refreshPageControls();
+      flow.readPage(page);
+      setStatus(`Page ${page}: select the area with these lines and read it again. New lines are added to the ones you have, so remove any that now appear twice.`);
+    });
+    actions.append(reread);
+  }
+  if (actions.childElementCount) item.append(actions);
+  return item;
+}
+
 function markSuspects(suspects) {
   const notes = new Map();
   for (const suspect of suspects) for (const id of suspect.lineIds) notes.set(id, `Check this line: ${suspect.text}`);
   reviewState.candidates = reviewState.candidates.map((candidate) => ({ ...candidate, attention: notes.get(candidate.id) || candidate.attention }));
-  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  renderLines();
+}
+
+// Tone of the message (warm / neutral / direct): greeting and closing only; Python's sentences stay as written.
+let baseDraft = "";
+let messageTone = "neutral";
+let toneDrafts = null;      // {tones: {warm, neutral, direct}, source: {...}} from /api/draft-message
+const draftFor = (tone) => toneDrafts?.tones?.[tone] || applyTone(baseDraft, tone);
+function showDraftSource() {
+  const fromAi = toneDrafts?.source?.[messageTone] === "ai";
+  elements.draftNote.textContent = fromAi
+    ? "Written by AI from the checked facts. Every amount was filled in by Python. Read it before you send it."
+    : "Written from the checked facts. Every amount comes from Python.";
+}
+document.querySelectorAll(".tone-picker [data-tone]").forEach(button => button.addEventListener("click", () => {
+  if (!baseDraft) return;
+  if (elements.draftText.value !== draftFor(messageTone) && !window.confirm("Changing the tone replaces your edits to the message. Continue?")) return;
+  messageTone = button.dataset.tone;
+  document.querySelectorAll(".tone-picker [data-tone]").forEach(other => other.setAttribute("aria-pressed", String(other === button)));
+  elements.draftText.value = draftFor(messageTone);
+  showDraftSource();
+}));
+
+// Starts as soon as the result is shown, so all three tones are ready by the time the person reaches the message.
+async function prepareToneDrafts(payload) {
+  const generation = reviewGeneration;
+  try {
+    const response = await fetch("/api/draft-message", { method: "POST", headers: apiHeaders("draft-message"), body: JSON.stringify(payload) });
+    const answer = await response.json();
+    if (!response.ok || answer.error || generation !== reviewGeneration || payload !== reviewState.payload) return;
+    const untouched = elements.draftText.value === draftFor(messageTone);
+    toneDrafts = answer;
+    if (untouched) elements.draftText.value = draftFor(messageTone);
+    showDraftSource();
+  } catch { /* the template drafts stay; nothing else depends on this */ }
 }
 
 function renderResult(result, ai = { state: "skipped" }) {
@@ -1222,7 +1685,7 @@ function renderResult(result, ai = { state: "skipped" }) {
   elements.recheckBox.hidden = !needsRecheck;
   elements.draftBox.hidden = needsRecheck;
   if (needsRecheck) {
-    elements.resultSuspects.replaceChildren(...result.suspects.map((suspect) => listItem(suspect.text)));
+    elements.resultSuspects.replaceChildren(...result.suspects.map(suspectItem));
     markSuspects(result.suspects);
   }
   const totals = document.createElement("p");
@@ -1297,7 +1760,9 @@ function renderResult(result, ai = { state: "skipped" }) {
     return listItem(`${line.inMessage ? "★ " : ""}${line.description} — ${line.amount}${row} — ${line.role}${line.group ? ` (${line.group})` : ""} — page ${line.source.page}, ${precision}${correction}`, line.inMessage ? "in-message" : "");
   }));
   elements.resultMissing.replaceChildren(...(result.missingEvidence.length ? result.missingEvidence : ["Nothing listed."]).map((item) => listItem(item)));
-  elements.draftText.value = result.draft ? result.draft.text : "";
+  baseDraft = result.draft ? result.draft.text : "";
+  toneDrafts = null;
+  elements.draftText.value = baseDraft ? applyTone(baseDraft, messageTone) : "";
   const notes = [];
   if (result.questionedBy === "ai") notes.push("The AI chose which lines the message asks about (you had not ticked any).");
   if (result.aiAppendedQuestion) notes.push("The last sentence was suggested by the AI and contains no amounts.");
@@ -1332,6 +1797,7 @@ async function analyzeReview() {
     if (!output.result.gap.needsExplanation) {
       renderResult(output.result);
       showSaved(output);
+      prepareToneDrafts(payload);
       setStatus("Python finished: no difference to explain. Read the checks, then edit the message if needed. Nothing has been sent.");
       return;
     }
@@ -1351,14 +1817,13 @@ async function analyzeReview() {
 function confirmAllReady() {
   reviewState.candidates = confirmReadyLines(reviewState.candidates, elements.currency.value, true);
   const confirmed = reviewState.candidates.filter(candidate => candidate.confirmed).length;
-  const attention = reviewState.candidates.length - confirmed;
-  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  const attention = reviewState.candidates.filter(candidate => !candidate.confirmed && !candidate.reference).length;
+  renderLines();
   invalidatePayload();
   drawHighlights();
   refreshPrintedCheck();
-  const parts = [`Confirmed ${confirmed} line${confirmed === 1 ? "" : "s"}.`];
-  if (attention) parts.push(`${attention} need your attention (red note on the card).`);
-  parts.push("When the selected charges are correct, continue with Looks right — check it.");
+  const parts = [`${confirmed} line${confirmed === 1 ? " is" : "s are"} marked as checked.`];
+  if (attention) parts.push(`${attention} line${attention === 1 ? " needs" : "s need"} a decision: open the line${attention === 1 ? "" : "s"} marked in red.`);
   setStatus(parts.join(" "), attention ? "failure" : "");
 }
 
@@ -1372,7 +1837,7 @@ function recommendExtractor() {
   elements.process.className = photos ? "secondary" : "primary";
   if (files.length) {
     setStatus(photos
-      ? "Photos selected. Recommended: Read with Groq. You will draw a box around the charge table and check it before anything is sent."
+      ? "Photos selected. Recommended: Read with the AI reader. You will draw a box around the charge table and check it before anything is sent."
       : "PDF selected. Recommended: Read bill locally. Nothing is uploaded.");
   }
 }
@@ -1382,12 +1847,12 @@ elements.confirmAll.addEventListener("click", confirmAllReady);
 document.querySelector("#accept-all-lines").addEventListener("change", event => {
   if (event.target.checked) return confirmAllReady();
   reviewState.candidates = confirmReadyLines(reviewState.candidates, elements.currency.value, false);
-  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  renderLines();
   invalidatePayload(); drawHighlights(); refreshPrintedCheck();
   setStatus("Line acceptance cleared. Your lines and amounts are kept; check them before accepting again.");
 });
 async function explainDifference(payload, generation) {
-  setStatus("Python found a difference. Asking Groq (gpt-oss-20b) which lines likely cause it… Only confirmed labels and amounts are sent.", "busy");
+  setStatus("Python found a difference. Looking for a likely reason… Only the checked lines and amounts are sent, no picture of your bill.", "busy");
   try {
     const response = await fetch("/api/explain", {
       method: "POST",
@@ -1398,17 +1863,18 @@ async function explainDifference(payload, generation) {
     if (generation !== reviewGeneration || payload !== reviewState.payload) return;
     if (!response.ok || output.error) throw new Error(output.error || "Explanation request failed");
     showSaved(output);
+    queueMicrotask(() => prepareToneDrafts(payload));
     if (output.explanation) {
       renderResult(output.result, { state: "done", explanation: output.explanation });
       setStatus("Done. Python checked the numbers and the AI suggested likely causes. Check the message, edit it if needed, then copy it. Nothing has been sent.");
     } else {
       renderResult(output.result, { state: "error", message: output.explanationError || output.skipped || "No AI explanation." });
-      setStatus("Numbers checked. The AI explanation was unavailable; your checked draft is ready in Your message.");
+      setStatus("Numbers checked. Your message is ready in Your message.");
     }
   } catch (error) {
     if (generation !== reviewGeneration) return;
     elements.resultGap.querySelector(".hint")?.replaceWith(paragraph(`AI step failed: ${error.message}. The Python result and message are still valid.`, "error"));
-    setStatus("Numbers checked. The AI explanation failed; your checked draft is ready in Your message.", "failure");
+    setStatus("Numbers checked. Your message is ready in Your message.");
   }
 }
 
@@ -1447,11 +1913,10 @@ function checkExpectedAmount() {
 }
 document.querySelector("#start-review").addEventListener("click", () => {
   const files = Array.from(elements.files.files || []);
-  const photos = files.length && files.every((file) => /^image\/(jpeg|png)$/.test(file.type));
-  (photos ? elements.openVision : elements.process).click();
+  elements.openVision.click();
 });
 document.querySelector("#confirm-and-check").addEventListener("click", async (event) => {
-  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+  renderLines();
   const pendingSection = reviewState.candidates.find(line => line.role === "subtotal" && !sectionAccepted(reviewState.candidates, line.id));
   if (pendingSection) {
     refreshPrintedCheck();
@@ -1495,6 +1960,7 @@ elements.reset.addEventListener("click", () => {
   resetReview();
   setStatus("Cleared from this page. Previously saved reviews have not been deleted.");
 });
+document.querySelector("#read-whole-bill").addEventListener("click", readWholeBill);
 elements.previewPayload.addEventListener("click", previewPayload);
 elements.downloadPayload.addEventListener("click", downloadPayload);
 elements.analyze.addEventListener("click", analyzeReview);
@@ -1509,6 +1975,17 @@ elements.copyDraft.addEventListener("click", async () => {
     setStatus("Copy was blocked by the browser. The message is selected; press Ctrl+C.", "failure");
   }
 });
+// Default decimal mark per currency (EUR bills mostly use a comma, INR bills a point) until the person chooses.
+let decimalChosen = false;
+function decimalFromCurrency() {
+  if (decimalChosen) return;
+  elements.decimalSeparator.value = elements.currency.value === "INR" ? "." : ",";
+  elements.expectedAmount.placeholder = elements.decimalSeparator.value === "," ? "For example 19,50" : "For example 19.50";
+  setDecimalHint("Set from the currency. We also check how your bill writes amounts.");
+}
+elements.decimalSeparator.addEventListener("change", () => { decimalChosen = true; setDecimalHint("Chosen by you."); });
+elements.currency.addEventListener("change", decimalFromCurrency);
+decimalFromCurrency();
 elements.currency.addEventListener("change", () => {
   reviewState.candidates = reviewState.candidates.map((candidate) => candidate.id.startsWith("groq-") ? candidate : ({ ...candidate, currency: elements.currency.value }));
   invalidatePayload();

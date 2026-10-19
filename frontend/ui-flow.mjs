@@ -36,7 +36,16 @@ export function createFlow() {
   settings.append(controls, $("#access-box"), $(".privacy-note"), $(".setup .actions"));
   $(".setup").replaceChildren(intro, settings);
 
-  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">READ YOUR BILL</p><h2>One step at a time</h2><ol id="reading-steps" class="reading-steps" aria-label="Reading steps"></ol><p id="reading-guidance" role="status" aria-live="polite"></p><details class="reading-privacy"><summary>What leaves my device?</summary><p>Only the area you preview and approve passes through our server to Groq, our AI reader. Exclude names and personal details. The app does not save this as an image.</p></details>');
+  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">READ YOUR BILL</p><h2>One step at a time</h2><ol id="reading-steps" class="reading-steps" aria-label="Reading steps"></ol><p id="reading-guidance" role="status" aria-live="polite"></p><details class="reading-privacy"><summary>What leaves my device?</summary><p>Only the area you preview and approve passes through our server to <span class="vision-name">Groq</span>, our AI reader. Exclude names and personal details. The app does not save this as an image.</p></details>');
+  // Owner decision 2026-10-19: reading every page is the main route; drawing an area stays the fallback.
+  const whole = make("button", "primary", "Read the whole bill");
+  whole.id = "read-whole-bill";
+  const wholeHint = make("p", "hint", "Every page is read by the AI reader, then Python checks every section. Or select an area on a page below.");
+  // Filled by review-app.mjs when the bill has more than one page: untick a page to keep it on this device.
+  const pageChoice = make("fieldset", "page-choice", "<legend>Pages to send</legend><div id=\"page-choice-boxes\"></div>");
+  pageChoice.id = "page-choice";
+  pageChoice.hidden = true;
+  readAside.append(pageChoice);
   const locally = make("button", "secondary", "Read it on this device instead");
   locally.addEventListener("click", () => {
     if (state.hasLines && !window.confirm("Local reading starts a new extraction of all selected pages and clears the current lines and corrections. Start over?")) return;
@@ -46,7 +55,7 @@ export function createFlow() {
   toCheck.id = "review-read-lines";
   toCheck.disabled = true;
   toCheck.addEventListener("click", () => go(2));
-  readAside.append(locally, toCheck);
+  readAside.append(whole, wholeHint, locally, toCheck);
   $("#review").append(readAside);
   let readingStage = "choose", readingPage = 1, readingCount = 0;
   function paintReading() {
@@ -148,6 +157,8 @@ export function createFlow() {
   return {
     provide() { go(0, true); },
     read() { go(1); },
+    check() { go(2, true); },
+    readPage(page) { readingStage = "select"; readingPage = page; paintReading(); go(1, true); },
     reading(stage, page = readingPage) { readingStage = stage; readingPage = page; paintReading(); },
     linesChanged(count) { readingCount = count; state.hasLines = count > 0; paintReading(); },
     opened(hasLines = false) { state.opened = true; state.hasLines = hasLines; readingStage = hasLines ? "review" : "select"; paintReading(); go(hasLines ? 2 : 1); },

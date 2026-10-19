@@ -23,3 +23,17 @@ test("unknown reading states and invalid pages are rejected", () => {
   assert.throws(() => readingProgress("finished"));
   assert.throws(() => readingInstruction("select", 0));
 });
+
+import { pagesToRead, readButtonText } from "../read-flow.mjs";
+
+test("only the ticked pages are read, in page order", () => {
+  assert.deepEqual(pagesToRead([3, 1, 2], new Set([2])), [1, 3]);
+  assert.deepEqual(pagesToRead([1, 2]), [1, 2]);
+});
+
+test("the read button says how many pages will be sent", () => {
+  assert.equal(readButtonText(3, 3), "Read the whole bill");
+  assert.equal(readButtonText(1, 1), "Read the whole bill");
+  assert.equal(readButtonText(1, 3), "Read 1 of 3 pages");
+  assert.equal(readButtonText(0, 3), "Choose at least one page");
+});

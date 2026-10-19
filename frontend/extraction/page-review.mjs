@@ -136,3 +136,20 @@ export function sectionAccepted(lines, subtotalId) {
   const key = sectionReviewKey(lines, subtotalId);
   return !!key && subtotal?.sectionAcceptedKey === key;
 }
+
+// A subtotal whose section Python verified (rows add up exactly to the printed subtotal) is accepted
+// without a Yes click, but only when today's lines give exactly the rows Python checked. Any later edit
+// changes the review key, so the person is asked again.
+export function acceptVerifiedSections(lines, freshIds) {
+  const fresh = new Set(freshIds);
+  let result = lines;
+  for (const subtotal of lines.filter(line => fresh.has(line.id) && line.role === "subtotal" && line.structureVerified)) {
+    const checked = lines.filter(line => fresh.has(line.id) && line.structureVerified && line.id !== subtotal.id &&
+      ["charge", "discount", "adjustment"].includes(line.role) && sectionName(line.group) === sectionName(subtotal.group)).map(line => line.id);
+    const members = sectionMembers(result, subtotal.id).map(line => line.id);
+    if (!checked.length || members.length !== checked.length || members.some(id => !checked.includes(id))) continue;
+    const key = sectionReviewKey(result, subtotal.id);
+    result = result.map(line => line.id === subtotal.id ? { ...line, sectionAcceptedKey: key } : line);
+  }
+  return result;
+}

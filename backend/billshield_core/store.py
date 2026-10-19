@@ -12,6 +12,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from .edits import blank_private_details, words_changed
+from .tone import apply_tone
 
 
 class StoreError(RuntimeError):
@@ -104,7 +105,8 @@ def save_review(token: str, payload: dict, result: dict, explanation: dict | Non
     return {"billId": saved["bill_id"], "messageId": saved["message_id"]}
 
 
-def record_event(token: str, message_id: str, action: str, final_text: str | None) -> dict:
+def record_event(token: str, message_id: str, action: str, final_text: str | None, tone: str = "neutral",
+                 draft_shown: str | None = None) -> dict:
     if action not in ("copied", "sent"):
         raise StoreError("Unknown action.")
     rows = _call("GET", f"/rest/v1/messages?id=eq.{quote(message_id)}&select=draft_text", token=token)
@@ -113,7 +115,9 @@ def record_event(token: str, message_id: str, action: str, final_text: str | Non
     changed = None
     stored_text = None
     if final_text and final_text.strip():
-        changed = words_changed(rows[0]["draft_text"], final_text)
+        # Words changed are counted against the draft in the tone the person chose, so choosing a tone is not editing.
+        # The AI-written version that was on screen is the baseline when there was one.
+        changed = words_changed(draft_shown or apply_tone(rows[0]["draft_text"], tone), final_text)
         stored_text = blank_private_details(final_text.strip())[:5000]
     _call("POST", "/rest/v1/message_events", {"message_id": message_id, "action": action,
                                                "final_text": stored_text, "words_changed": changed},

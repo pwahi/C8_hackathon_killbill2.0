@@ -346,3 +346,37 @@ class LabelSafetyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MismatchHints(unittest.TestCase):
+    """Re-check messages say how far off a section is, which way, and which page to read again."""
+
+    def review(self, rows, subtotal):
+        line = lambda id, role, amount, page=1: {
+            "id": id, "role": role, "group": "Subscription", "description": id.replace("_", " "),
+            "rawAmount": amount, "extractor": "groq", "currency": "EUR", "source": {"page": page, "precision": "page"}}
+        return {"schemaVersion": 2, "currency": "EUR", "decimalSeparator": ",", "expectedAmount": "31,25",
+                "lines": [line(*row) for row in rows] + [line("subtotal", "subtotal", subtotal, 2)]}
+
+    def test_missing_discount_is_named_with_its_size_and_page(self):
+        # The Vodafone crop read live on 2026-10-19 dropped the -2,10 discount: 33,35 against a printed 31,25.
+        data = self.review([("august", "charge", "20,54"), ("august_discount", "discount", "-4,19"),
+                            ("september", "charge", "24,50"), ("september_discount", "discount", "-5,00"),
+                            ("extra_discount", "discount", "-2,50")], "31,25")
+        result = analyze_confirmed_review(data)
+        self.assertEqual(result["status"], "needs_recheck")
+        suspect = result["suspects"][0]
+        self.assertIn("add up to EUR 33.35, but the printed subtotal is EUR 31.25", suspect["text"])
+        self.assertIn("EUR 2.10 too much: a discount of EUR 2.10 may be missing", suspect["text"])
+        self.assertEqual(suspect["pages"], [1])
+
+    def test_a_line_equal_to_the_surplus_is_pointed_out(self):
+        data = self.review([("plan", "charge", "10,00"), ("fee", "charge", "2,50"), ("fee_again", "charge", "2,50")], "12,50")
+        text = analyze_confirmed_review(data)["suspects"][0]["text"]
+        self.assertIn("EUR 2.50 too much", text)
+        self.assertIn("fee, fee again equals the difference exactly", text)
+
+    def test_too_little_suggests_a_missing_charge(self):
+        data = self.review([("plan", "charge", "10,00")], "12,50")
+        self.assertIn("EUR 2.50 too little: a charge of EUR 2.50 may be missing",
+                      analyze_confirmed_review(data)["suspects"][0]["text"])

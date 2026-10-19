@@ -162,3 +162,19 @@ test("row reveal is staggered but large tables never wait indefinitely", () => {
   assert.equal(rowRevealDelay(1), 65);
   assert.equal(rowRevealDelay(100), 520);
 });
+
+test("verified sections are accepted only when today's lines are exactly the rows Python checked", async () => {
+  const { acceptVerifiedSections } = await import("../extraction/page-review.mjs");
+  const row = (id, role, group, verified = true) => ({ id, role, group, page: 1, description: id, rawAmount: "1.00", structureVerified: verified });
+  const lines = [row("a", "charge", "Plan"), row("b", "discount", "Plan"), row("s", "subtotal", "Plan")];
+  const accepted = acceptVerifiedSections(lines, ["a", "b", "s"]);
+  assert.equal(sectionAccepted(accepted, "s"), true);
+  // An older line with the same section name from another read joins the section: ask the person instead.
+  const mixed = acceptVerifiedSections([row("old", "charge", "Plan", false), ...lines], ["a", "b", "s"]);
+  assert.equal(sectionAccepted(mixed, "s"), false);
+  // Not verified by Python: never accepted automatically.
+  assert.equal(sectionAccepted(acceptVerifiedSections(lines.map(line => ({ ...line, structureVerified: false })), ["a", "b", "s"]), "s"), false);
+  // Editing a row afterwards withdraws the acceptance.
+  const edited = accepted.map(line => line.id === "a" ? { ...line, rawAmount: "2.00" } : line);
+  assert.equal(sectionAccepted(edited, "s"), false);
+});

@@ -25,10 +25,15 @@ from starlette.concurrency import run_in_threadpool
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "backend"))
-from billshield_core.groq_http import read_api_key  # noqa: E402
-from billshield_core.groq_vision import MODEL as VISION_MODEL, IncompleteOutput, extract_crop  # noqa: E402
+from billshield_core.groq_http import OPENROUTER_KEY_NAMES, read_api_key  # noqa: E402
+from billshield_core.groq_vision import MODEL, OPENROUTER_MODEL, READERS, IncompleteOutput, extract_crop  # noqa: E402
+from billshield_core.groq_vision import read_page  # noqa: E402
+from billshield_core.extraction import ExtractionOutput  # noqa: E402
+from billshield_core.whole_bill import link_pages  # noqa: E402
+from billshield_core.message_ai import draft_tones  # noqa: E402
 from billshield_core.review import ReviewError, analyze_confirmed_review  # noqa: E402
 from billshield_core.service import explain_review  # noqa: E402
+from billshield_core.structure_proposal import check_proposal, line_plan  # noqa: E402
 from billshield_core import store  # noqa: E402
 
 # Developer machine: read non-secret-in-code settings from the ignored .env.local (hosting sets real env vars).
@@ -89,10 +94,19 @@ async def read_json(request: Request, limit: int) -> dict | JSONResponse:
     return data
 
 
+def vision_provider() -> str:
+    """Who reads approved crops: VISION_PROVIDER if set, otherwise OpenRouter when its key exists, else Groq."""
+    choice = os.environ.get("VISION_PROVIDER", "").strip().lower()
+    if choice in READERS:
+        return choice
+    return "openrouter" if read_api_key(ROOT, OPENROUTER_KEY_NAMES).strip() else "groq"
+
+
 @app.get("/api/health")
 def health() -> dict:
     """Readiness without secret values."""
     return {"status": "ok", "version": VERSION, "groqKeyConfigured": bool(read_api_key(ROOT).strip()),
+            "visionReader": READERS[vision_provider()],
             "accessCodeRequired": bool(ACCESS_CODE), "databaseConfigured": store.configured()}
 
 
@@ -140,8 +154,10 @@ async def message_event(message_id: str, request: Request):
     if not token:
         return error(401, "No session: reload the page.")
     try:
+        tone = data.get("tone") if data.get("tone") in {"neutral", "warm", "direct"} else "neutral"
+        shown = data.get("draftShown") if isinstance(data.get("draftShown"), str) else None
         recorded = await run_in_threadpool(store.record_event, token, message_id, str(data.get("action", "")),
-                                           data.get("finalText"))
+                                           data.get("finalText"), tone, shown[:5000] if shown else None)
     except store.StoreError as problem:
         return error(422, str(problem))
     return JSONResponse(recorded, headers={"cache-control": "no-store"})
@@ -160,6 +176,24 @@ async def analyze(request: Request):
     # A review with a difference is saved by /api/explain once the explanation is added.
     saved = {"saved": None} if result["gap"]["needsExplanation"] else await try_save(request, data, result, None)
     return JSONResponse({"result": result, **saved}, headers={"cache-control": "no-store"})
+
+
+@app.post("/api/draft-message")
+async def draft_message(request: Request):
+    """Checked review -> the message in three tones, written by AI from Python's fact sheet (amounts filled in by
+    Python). Any tone that breaks a rule falls back to the controlled template. Nothing is saved here."""
+    data = await read_json(request, 200_000)
+    if isinstance(data, JSONResponse):
+        return data
+    try:
+        result = await run_in_threadpool(analyze_confirmed_review, data)
+    except ReviewError as problem:
+        return error(422, str(problem))
+    if result["status"] != "complete" or not result.get("draft"):
+        return error(422, "The numbers need re-checking before a message can be written.")
+    async with groq_lock:  # waits for a running explanation instead of failing
+        drafts = await run_in_threadpool(draft_tones, result, read_api_key(ROOT), CACHE_DIR)
+    return JSONResponse(drafts, headers={"cache-control": "no-store"})
 
 
 @app.post("/api/explain")
@@ -181,7 +215,7 @@ async def explain(request: Request):
 
 @app.post("/api/groq-extract")
 async def groq_extract(request: Request):
-    """One explicitly approved, redacted PNG/JPEG crop -> unconfirmed candidate lines from Groq vision."""
+    """One explicitly approved, redacted PNG/JPEG crop -> unconfirmed candidate lines from the configured AI reader."""
     data = await read_json(request, CROP_LIMIT)
     if isinstance(data, JSONResponse):
         return data
@@ -192,18 +226,86 @@ async def groq_extract(request: Request):
     except (binascii.Error, ValueError):
         return error(400, "The selected area could not be read.")
     if groq_lock.locked():
-        return error(429, "One Groq request is already running. Please wait.")
+        return error(429, "One reading request is already running. Please wait.")
     async with groq_lock:
         try:
-            output = await run_in_threadpool(extract_crop, image, str(data.get("mime", "")), read_api_key(ROOT), CACHE_DIR)
+            # The browser asks for the bill structure (sections, periods, subtotals); Python checks it below.
+            with_structure = data.get("structure") is True
+            provider = vision_provider()
+            key = read_api_key(ROOT, OPENROUTER_KEY_NAMES if provider == "openrouter" else ("GROQ_API_KEY",))
+            output = await run_in_threadpool(extract_crop, image, str(data.get("mime", "")), key, CACHE_DIR,
+                                             with_structure, provider)
         except IncompleteOutput:
-            return error(422, "Groq's answer was cut off because this area has too many lines. Select a smaller part of the "
+            return error(422, "The AI reader's answer was cut off because this area has too many lines. Select a smaller part of the "
                               "table (for example the top half, then the bottom half) and send each part.")
         except RuntimeError as problem:  # provider/network, already safe to show
             return error(502, str(problem))
         except ValueError:
             return error(422, "Unable to validate this crop or the model response. Try a smaller, clearer charge table.")
-    return JSONResponse({"output": output.model_dump(), "model": VISION_MODEL}, headers={"cache-control": "no-store"})
+    plan = None
+    # The decimal mark the reader saw on the bill wins over the default from the currency; the page shows it.
+    mark = output.decimal_mark or data.get("decimalSeparator")
+    if with_structure and mark in {".", ","} and data.get("currency") in {"EUR", "INR"}:
+        check = check_proposal(output, decimal_separator=mark, currency=data["currency"])
+        if check is not None:
+            plan = line_plan(output, check, currency=data["currency"])
+    model = OPENROUTER_MODEL if provider == "openrouter" else MODEL
+    return JSONResponse({"output": output.model_dump(), "model": model, "structure": plan, "decimalMark": mark},
+                        headers={"cache-control": "no-store"})
+
+
+@app.post("/api/read-page")
+async def read_whole_page(request: Request):
+    """One full bill page (owner decision 2026-10-19) -> unconfirmed lines, sections and page kind."""
+    data = await read_json(request, CROP_LIMIT)
+    if isinstance(data, JSONResponse):
+        return data
+    if data.get("wholePage") is not True:
+        return error(400, "Confirm that whole pages may be sent to the AI reader.")
+    try:
+        image = base64.b64decode(str(data.get("imageBase64", "")), validate=True)
+    except (binascii.Error, ValueError):
+        return error(400, "This page could not be read.")
+    page_text = data.get("pageText")
+    page_text = page_text[:20000] if isinstance(page_text, str) else None
+    if groq_lock.locked():
+        return error(429, "One reading request is already running. Please wait.")
+    async with groq_lock:
+        provider = vision_provider()
+        key = read_api_key(ROOT, OPENROUTER_KEY_NAMES if provider == "openrouter" else ("GROQ_API_KEY",))
+        try:
+            output = await run_in_threadpool(read_page, image, str(data.get("mime", "")), key, CACHE_DIR, page_text, provider)
+        except IncompleteOutput:
+            return error(422, "The AI reader's answer for this page was cut off. Draw an area around the price table instead.")
+        except RuntimeError as problem:
+            return error(502, str(problem))
+        except ValueError:
+            return error(422, "The AI reader's answer for this page could not be validated. Draw an area around the price table instead.")
+    model = OPENROUTER_MODEL if provider == "openrouter" else MODEL
+    return JSONResponse({"output": output.model_dump(), "model": model}, headers={"cache-control": "no-store"})
+
+
+@app.post("/api/link-pages")
+async def link_whole_bill(request: Request):
+    """All pages read -> one text-only linking pass (OpenRouter) -> Python-verified structure per line."""
+    data = await read_json(request, 600_000)
+    if isinstance(data, JSONResponse):
+        return data
+    if data.get("decimalSeparator") not in {".", ","} or data.get("currency") not in {"EUR", "INR"}:
+        return error(400, "Choose the currency and decimal mark first.")
+    try:
+        pages = [(int(item["page"]), ExtractionOutput.model_validate(item["output"])) for item in data.get("pages", [])]
+    except (KeyError, TypeError, ValueError):
+        return error(400, "The pages to link are not valid.")
+    if not 1 <= len(pages) <= 10 or len({number for number, _ in pages}) != len(pages) or any(not 1 <= n <= 10 for n, _ in pages):
+        return error(400, "Send between one and ten different pages.")
+    key = read_api_key(ROOT, OPENROUTER_KEY_NAMES) if vision_provider() == "openrouter" else None
+    if groq_lock.locked():
+        return error(429, "One reading request is already running. Please wait.")
+    async with groq_lock:
+        result = await run_in_threadpool(lambda: link_pages(pages, decimal_separator=data["decimalSeparator"],
+                                                            currency=data["currency"], api_key=key, cache_dir=CACHE_DIR))
+    return JSONResponse({"plan": result}, headers={"cache-control": "no-store"})
 
 
 @app.middleware("http")

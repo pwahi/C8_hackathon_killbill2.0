@@ -35,7 +35,10 @@ CURRENCY_MARKS = {"EUR": ("€", "EUR"), "INR": ("₹", "INR")}
 # Same patterns as frontend/extraction/privacy.mjs; Python re-checks rather than trusting the browser.
 PRIVATE_PATTERNS = (
     re.compile(r"\b(?:\d[ -]?){13,19}\b"),
-    re.compile(r"\b(?:account|customer|booking|reference|phone|mobile|address)\b", re.IGNORECASE),
+    # "phone"/"mobile" only when they introduce a number ("mobile number", "phone 0612..."); on their own they
+    # are ordinary telecom product words ("30 GB mobile plan"). The other identifier words always block.
+    re.compile(r"\b(?:account|customer|booking|reference|address)\b|\b(?:phone|mobile)\s*(?:number|no\.?|nr\.?|id)\b"
+               r"|\b(?:phone|mobile)\s*[:#]?\s*\d{4,}", re.IGNORECASE),
     re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b", re.IGNORECASE),
     re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b"),
 )
@@ -489,8 +492,9 @@ def analyze_confirmed_review(payload: dict, ai_suggestion: dict | None = None) -
 
     draft_text = result.draft.text
     appended = None
-    if ai_suggestion and ai_suggestion.get("question") and result.verdict != "checks_passed":
-        appended = ai_suggestion["question"]
+    # Only the checked question (no numbers, no accusations) may join the message the person sends.
+    if ai_suggestion and ai_suggestion.get("questionForMessage") and result.verdict != "checks_passed":
+        appended = ai_suggestion["questionForMessage"]
         draft_text = f"{draft_text} {appended}"
     known = set(amounts)
     support = set(result.draft.supporting_line_ids)
@@ -568,6 +572,7 @@ def _common(review, case, outcome, amounts, rows, matches, ambiguous, money, lin
         "groups": [
             {
                 "label": calculation.label,
+                "amount": money(calculation.result_minor),  # the section's sum, calculated by Python
                 "lineIds": list(calculation.operand_line_ids),
                 "formula": _display_formula(calculation.operand_amounts_minor, calculation.result_minor, review.currency),
                 "printed": money(calculation.expected_minor),
@@ -606,6 +611,21 @@ def _common(review, case, outcome, amounts, rows, matches, ambiguous, money, lin
     }
 
 
+def _gap_hint(gap: int, line_ids, amounts, lines, money) -> str:
+    """Say which way the figures are off and what usually causes it. Every number comes from code."""
+    size = money(abs(gap))
+    if gap > 0:
+        text = f"That is {size} too much: a discount of {size} may be missing, or a charge may be counted twice."
+    else:
+        text = f"That is {size} too little: a charge of {size} may be missing, or a discount may be counted twice."
+    # A line equal to the surplus is the classic double count; amounts are compared exactly, never rounded.
+    same = [line_id for line_id in line_ids if amounts[line_id] == gap]
+    if same:
+        names = ", ".join(" ".join(lines[line_id].description.split()) for line_id in same)
+        text += f" {names} equals the difference exactly; check that it appears on the bill only once."
+    return text + " Compare these lines with the bill, or read the page again."
+
+
 def _needs_recheck(review, case, outcome, amounts, rows, matches, money, lines) -> dict:
     """Outcome A: the confirmed figures do not add up. Point at the most likely reading mistakes."""
     suspects: list[dict] = []
@@ -617,9 +637,10 @@ def _needs_recheck(review, case, outcome, amounts, rows, matches, money, lines) 
                 f"but the {what} reads {money(row.printed_minor)}. Check the price, discount, tax and amount on this row."})
     for calculation in outcome.calculations:
         if calculation.matches is False:
+            gap = calculation.result_minor - calculation.expected_minor
             suspects.append({"lineIds": list(calculation.operand_line_ids), "text":
-                f"Group {calculation.label}: the lines add up to {money(calculation.result_minor)}, but its printed subtotal "
-                f"reads {money(calculation.expected_minor)}."})
+                f"Section {calculation.label}: the lines add up to {money(calculation.result_minor)}, but the printed subtotal "
+                f"is {money(calculation.expected_minor)}. {_gap_hint(gap, calculation.operand_line_ids, amounts, lines, money)}"})
     row_discounts = {}
     for line in review.lines:
         if line.breakdown and line.breakdown.discount and line.breakdown.discount.strip():
@@ -638,9 +659,14 @@ def _needs_recheck(review, case, outcome, amounts, rows, matches, money, lines) 
                 f"{names} adds up to exactly the gap of {money(match.amount_minor)} between the confirmed lines and the "
                 "printed total. It may be counted twice, or already included in another line."})
     if not suspects and case.displayed_total_minor is not None:
+        gap = outcome.calculated_total_minor - case.displayed_total_minor
         suspects.append({"lineIds": [], "text":
-            f"The confirmed lines add up to {money(outcome.calculated_total_minor)}, but the printed total reads "
-            f"{money(case.displayed_total_minor)}. Look for a missing line, a line counted twice, or a misread digit."})
+            f"The confirmed lines add up to {money(outcome.calculated_total_minor)}, but the printed total is "
+            f"{money(case.displayed_total_minor)}. {_gap_hint(gap, case.total_line_ids, amounts, lines, money)}"})
+    all_pages = sorted({line.source.page for line in review.lines})
+    for suspect in suspects:
+        # Pages to re-read; every line ID belongs to a confirmed line, so its page is known.
+        suspect["pages"] = sorted({lines[line_id].source.page for line_id in suspect["lineIds"]}) or all_pages
     return {
         **_common(review, case, outcome, amounts, rows, matches, False, money, lines),
         "status": "needs_recheck",

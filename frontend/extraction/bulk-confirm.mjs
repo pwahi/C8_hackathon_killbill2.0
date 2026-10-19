@@ -50,7 +50,7 @@ export function readiness(candidate, currency) {
   if (candidate.role === "discount" && !SIGNED.test(candidate.rawAmount)) return "Discount needs a minus sign, for example -200.00.";
   if (candidate.role === "charge" && SIGNED.test(candidate.rawAmount)) return "Charge has a minus sign; choose Discount if it reduces the bill.";
   if (containsPossiblePrivateData(candidate.description) || containsPossiblePrivateData(candidate.group || "")) {
-    return "Label may contain private details (for example 'phone' or 'account'). Use a shorter label.";
+    return "Label may contain private details (for example an account or a phone number). Use a shorter label.";
   }
   if (hasAmount(candidate.description) || hasAmount(candidate.group)) {
     return "Label contains an amount. Use words only, for example 'Delivery fee' (the amount goes in the amount box).";
@@ -67,7 +67,9 @@ export function readiness(candidate, currency) {
 }
 
 // Selection bookkeeping only. Ready means structurally complete, not correct money.
+// Reference lines (a summary or total printed again elsewhere) are information, not lines to confirm.
 export function allReadyState(candidates, currency) {
+  candidates = candidates.filter(candidate => !candidate.reference);
   const ready = candidates.filter(candidate => readiness(candidate, currency) === null);
   const selected = ready.filter(candidate => candidate.confirmed).length;
   return {ready: ready.length, blocked: candidates.length - ready.length, selected,
@@ -78,6 +80,7 @@ export function allReadyState(candidates, currency) {
 
 export function confirmReadyLines(candidates, currency, checked) {
   return candidates.map(candidate => {
+    if (candidate.reference) return candidate;
     const reason = checked ? readiness(candidate, currency) : null;
     return {...candidate, confirmed: !!checked && !reason, attention: reason ? `Not confirmed: ${reason}` : null};
   });

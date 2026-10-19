@@ -2,7 +2,8 @@ import { confirmedLine } from "./contracts.mjs";
 
 const PRIVATE_PATTERNS = [
   /\b(?:\d[ -]?){13,19}\b/, // card-like sequence
-  /\b(?:account|customer|booking|reference|phone|mobile|address)\b/i,
+  // "phone"/"mobile" only when they introduce a number; "30 GB mobile plan" is an ordinary label.
+  /\b(?:account|customer|booking|reference|address)\b|\b(?:phone|mobile)\s*(?:number|no\.?|nr\.?|id)\b|\b(?:phone|mobile)\s*[:#]?\s*\d{4,}/i,
   /\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b/i, // IBAN-like sequence
   /\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/,
 ];

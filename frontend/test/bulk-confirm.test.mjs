@@ -58,7 +58,8 @@ test("sign rules are checked, never repaired", () => {
 });
 
 test("private-looking labels and other currencies are not bulk-confirmed", () => {
-  assert.match(readiness({ ...ready, description: "Mobile subscription" }, "INR"), /private/);
+  assert.match(readiness({ ...ready, description: "Mobile number" }, "INR"), /private/);
+  assert.equal(readiness({ ...ready, description: "Mobile subscription" }, "INR"), null); // a product word since 2026-10-19
   assert.match(readiness({ ...ready, currency: "EUR" }, "INR"), /Currency/);
 });
 
@@ -116,4 +117,16 @@ test("ambiguous amounts stay as printed with a note", () => {
   assert.match(result.note, /decimal mark/);
   assert.equal(formatAmount("1.378,80", ".").text, "1378.80");
   assert.match(formatAmount("12,345", ".").text, /^12345$/);
+});
+
+test("reference lines are neither counted as ready nor as blocked, and bulk confirmation leaves them alone", async () => {
+  const { allReadyState, confirmReadyLines } = await import("../extraction/bulk-confirm.mjs");
+  const lines = [
+    { id: "a", role: "charge", rawAmount: "10.00", description: "Plan", page: 1, precision: "page", currency: "EUR", extractor: "groq" },
+    { id: "r", role: "", rawAmount: "10.00", description: "Overview", page: 1, precision: "page", currency: "EUR", extractor: "groq", reference: { text: "Repeats" } },
+  ];
+  const state = allReadyState(lines, "EUR");
+  assert.equal(state.ready + state.blocked, 1);
+  const confirmed = confirmReadyLines(lines, "EUR", true);
+  assert.equal(confirmed[1], lines[1]);
 });

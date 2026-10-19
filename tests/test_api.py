@@ -82,7 +82,8 @@ class ApiTests(unittest.TestCase):
 
     def test_explain_with_difference_uses_validated_suggestion(self):
         suggestion = {"model": "openai/gpt-oss-20b", "likelyCauses": [], "unexplained": None,
-                      "question": "Could you explain what the fees cover?", "evidenceToRequest": [], "line_ids": ["udf"]}
+                      "question": "Could you explain what the fees cover?",
+                      "questionForMessage": "Could you explain what the fees cover?", "evidenceToRequest": [], "line_ids": ["udf"]}
         with patch("billshield_core.service.explain_gap", return_value=suggestion):
             body = self.client.post("/api/explain", json=fixture("BS-004"), headers=ORIGIN).json()
         self.assertEqual(body["result"]["questionedBy"], "ai")
@@ -104,6 +105,44 @@ class ApiTests(unittest.TestCase):
             response = self.client.post("/api/groq-extract", json={"imageBase64": png, "mime": "image/png", "redacted": True}, headers=ORIGIN)
         self.assertEqual(response.status_code, 422)
         self.assertIn("smaller part", response.json()["error"])
+
+    def test_groq_extract_returns_python_checked_structure_only_when_asked(self):
+        from billshield_core.groq_vision import parse_response
+        reply = {"lines": [
+            {"id": "a", "description": "Plan", "raw_amount": "10.00", "page": 1, "confidence": 0.9, "role": "charge"},
+            {"id": "s", "description": "Subtotal", "raw_amount": "10.00", "page": 1, "confidence": 0.9, "role": "subtotal"}],
+            "structure": {"sections": [{"id": "x", "label": "Plan", "subtotal_line_id": "s"}],
+                          "rows": [{"line_id": "a", "section_id": "x"}]}}
+        output = parse_response({"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(reply)}}]})
+        png = base64.b64encode(b"\x89PNG\r\n\x1a\nexample").decode()
+        body = {"imageBase64": png, "mime": "image/png", "redacted": True}
+        with patch.object(api, "extract_crop", return_value=output) as extract:
+            plain = self.client.post("/api/groq-extract", json=body, headers=ORIGIN).json()
+            structured = self.client.post("/api/groq-extract", json={**body, "structure": True, "decimalSeparator": ".",
+                                                                      "currency": "EUR"}, headers=ORIGIN).json()
+        self.assertEqual([call.args[4] for call in extract.call_args_list], [False, True])
+        self.assertIsNone(plain["structure"])
+        self.assertEqual(structured["structure"]["lines"]["a"], {"group": "Plan", "path": "Plan", "verified": True, "hint": None})
+
+    def test_whole_page_reading_needs_explicit_consent(self):
+        png = base64.b64encode(b"\x89PNG\r\n\x1a\nexample").decode()
+        with patch.object(api, "read_page") as read:
+            response = self.client.post("/api/read-page", json={"imageBase64": png, "mime": "image/png"}, headers=ORIGIN)
+        self.assertEqual(response.status_code, 400)
+        read.assert_not_called()
+
+    def test_link_pages_returns_a_python_checked_plan(self):
+        output = {"lines": [
+            {"id": "a", "description": "Fee", "raw_amount": "5.00", "page": 1, "confidence": 0.9, "role": "charge"},
+            {"id": "t", "description": "Total", "raw_amount": "5.00", "page": 1, "confidence": 0.9, "role": "total"}]}
+        body = {"decimalSeparator": ".", "currency": "EUR", "pages": [{"page": 1, "output": output}]}
+        with patch.object(api, "vision_provider", return_value="groq"):
+            plan = self.client.post("/api/link-pages", json=body, headers=ORIGIN).json()["plan"]
+        self.assertEqual((plan["status"], plan["linkedBy"]), ("ok", "pages"))
+        self.assertTrue(plan["lines"]["p1-t"]["verified"])
+        self.assertEqual(plan["ids"]["1:a"], "p1-a")
+        bad = {**body, "pages": [{"page": 1, "output": output}, {"page": 1, "output": output}]}
+        self.assertEqual(self.client.post("/api/link-pages", json=bad, headers=ORIGIN).status_code, 400)
 
     def test_page_is_served_but_secrets_are_not(self):
         page = self.client.get("/")

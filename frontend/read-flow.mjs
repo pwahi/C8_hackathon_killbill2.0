@@ -19,3 +19,14 @@ export function readingInstruction(stage, page = 1) {
     review: "Your lines are ready to review. Read another area or page if needed; earlier lines are kept.",
   }[stage];
 }
+
+// Which pages "Read" sends: every page except the ones the person unticked, in page order.
+export function pagesToRead(pages, skipped = new Set()) {
+  return [...pages].filter(page => !skipped.has(page)).sort((a, b) => a - b);
+}
+
+export function readButtonText(chosen, total) {
+  if (total <= 1 || chosen === total) return "Read the whole bill";
+  if (chosen === 0) return "Choose at least one page";
+  return `Read ${chosen} of ${total} pages`;
+}

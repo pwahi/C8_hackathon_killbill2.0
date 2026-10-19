@@ -55,3 +55,13 @@ test("mixed currencies are blocked before transmission", () => {
     /differs/,
   );
 });
+
+test("identifier words block a label only when they introduce an identifier", async () => {
+  const { containsPossiblePrivateData } = await import("../extraction/privacy.mjs");
+  assert.equal(containsPossiblePrivateData("30 GB mobile plan"), false);
+  assert.equal(containsPossiblePrivateData("Mobile subscription costs"), false);
+  assert.equal(containsPossiblePrivateData("Mobile number"), true);
+  assert.equal(containsPossiblePrivateData("Account no. 1234"), true);
+  assert.equal(containsPossiblePrivateData("phone 0000000000"), true);
+  assert.equal(containsPossiblePrivateData("Billing address"), true);
+});

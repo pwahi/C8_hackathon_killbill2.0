@@ -67,6 +67,41 @@ class CandidateLine(BaseModel):
     role: Literal["charge", "discount", "adjustment", "subtotal", "total", "other"] | None = None
     group: str | None = Field(default=None, max_length=60)
     breakdown: RowColumns | None = None
+    # The label exactly as printed (any language); description is its plain-English version.
+    original_label: str | None = Field(default=None, max_length=300)
+
+
+_ID = r"^[A-Za-z0-9_-]{1,100}$"
+
+
+class ProposedSection(BaseModel):
+    """Model-proposed heading. Untrusted: structure_proposal re-checks every relation in Python."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    id: str = Field(pattern=_ID)
+    label: str = Field(min_length=1, max_length=60)
+    period: str | None = Field(default=None, max_length=60)
+    parent_id: str | None = Field(default=None, pattern=_ID)
+    subtotal_line_id: str | None = Field(default=None, pattern=_ID)
+
+
+class ProposedRow(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    line_id: str = Field(pattern=_ID)
+    section_id: str | None = Field(default=None, pattern=_ID)
+
+
+class ProposedSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    line_id: str = Field(pattern=_ID)
+    section_id: str = Field(pattern=_ID)
+
+
+class ProposedStructure(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    sections: tuple[ProposedSection, ...] = Field(default=(), max_length=30)
+    rows: tuple[ProposedRow, ...] = Field(default=(), max_length=200)
+    summaries: tuple[ProposedSummary, ...] = Field(default=(), max_length=30)
 
 
 class ExtractionOutput(BaseModel):
@@ -77,6 +112,13 @@ class ExtractionOutput(BaseModel):
     displayed_total_raw: str | None = Field(default=None, max_length=50)
     lines: tuple[CandidateLine, ...]
     warnings: tuple[str, ...] = ()
+    # Only present when a structure was requested (H2). Never trusted without verify_structure.
+    structure: ProposedStructure | None = None
+    # Whole-page reading only: what kind of page this is and the printed document name, both unverified.
+    page_kind: Literal["summary", "detail", "invoice", "other"] | None = None
+    # The decimal mark the bill prints for money, as reported by the reader; shown to and changeable by the person.
+    decimal_mark: Literal[".", ","] | None = None
+    invoice_label: str | None = Field(default=None, max_length=80)
 
 
 def validate_text_grounding(output: ExtractionOutput, document: DocumentRead) -> None:

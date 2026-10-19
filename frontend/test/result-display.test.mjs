@@ -37,3 +37,13 @@ test("maths table does not add a summary Python marked reference-only", () => {
   assert.equal(mathRows(value).filter(row => row.kind === "line").length, 3);
   assert.equal(mathRows(value).some(row => row.label === "Section summary"), false);
 });
+
+test("maths table shows one row per section, then a single total when it matches the printed total", () => {
+  const value = {...result, minor: {...result.minor, calculatedTotal: 137880, printedTotal: 137880},
+    groups: [{label: "Bike", amount: "EUR 1299.00", lineIds: ["bike"]}],
+    lines: [{id: "bike", description: "Bike", role: "charge", amount: "EUR 1299.00"},
+      {id: "pack", description: "Packaging", role: "charge", amount: "EUR 19.90"},
+      {id: "total", description: "Total", role: "total", amount: "EUR 1378.80"}]};
+  const rows = mathRows(value);
+  assert.deepEqual(rows.map(row => row.label), ["Bike", "Packaging", "Your bill total (matches the printed total ✓)", "You expected", "Difference from expectation"]);
+});
