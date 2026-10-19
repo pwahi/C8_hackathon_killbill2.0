@@ -159,11 +159,17 @@ function treeHeader(row, byId) {
   amount.className = "tree-amount";
   amount.textContent = row.amountId ? byId.get(row.amountId)?.rawAmount || "" : "";
   header.append(name, kind, amount);
-  if (row.type !== "invoice") {
+  if (row.type === "invoice") {
+    // A total: click to light up every line it adds up on the bill.
+    header.classList.add("shows-lines");
+    header.title = "Show these lines on the bill";
+    header.addEventListener("click", () => showOnBill(linesInNode(row.id), row.id));
+  } else {
     header.setAttribute("role", "button");
     header.tabIndex = 0;
     header.setAttribute("aria-expanded", String(!row.collapsed));
-    const toggle = () => { reviewState.toggles.set(row.id, !row.collapsed); renderLines(); };
+    // A section opens or closes and lights up all its lines on the bill; then a single line can be clicked.
+    const toggle = () => { reviewState.toggles.set(row.id, !row.collapsed); renderLines(); if (row.type === "section") showOnBill(linesInNode(row.id), row.id); };
     header.addEventListener("click", toggle);
     header.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } });
   }
@@ -970,23 +976,44 @@ function focusCandidate(candidateId) {
     if (reviewState.candidates.find(line => line.id === candidateId)?.reference) reviewState.toggles.set("references", false);
     renderLines();
   }
+  if (!reviewState.candidates.some((item) => item.id === candidateId)) return;
+  showOnBill([candidateId], candidateId);
+  document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"] input[data-field="description"]`)?.focus({ preventScroll: true });
+}
+
+// Light up these lines on the bill (only these) and bring the first one into view. A section or total lights up
+// every line inside it; a single line lights up alone.
+function showOnBill(candidateIds, sourceId = null) {
   document.querySelectorAll(".highlight.active, .table-area.active, .page-shell.active").forEach((node) => node.classList.remove("active"));
-  const candidate = reviewState.candidates.find((item) => item.id === candidateId);
-  if (!candidate) return;
-  reviewState.activePage = candidate.page;
+  document.querySelectorAll("#candidate-list .showing").forEach((node) => node.classList.remove("showing"));
+  if (sourceId) document.querySelector(`#candidate-list [data-node-id="${CSS.escape(sourceId)}"], #candidate-list [data-card-id="${CSS.escape(sourceId)}"]`)?.classList.add("showing");
+  const lines = candidateIds.map((id) => reviewState.candidates.find((item) => item.id === id)).filter(Boolean);
+  if (!lines.length) return;
+  const targets = lines.map((candidate) => candidate.precision === "exact"
+    ? document.querySelector(`.highlight[data-candidate-id="${CSS.escape(candidate.id)}"]`)
+    : candidate.precision === "table" ? document.querySelector(`.table-area[data-region-key="${CSS.escape(regionKey(candidate.page, candidate.region))}"]`)
+    : reviewState.pageElements.get(candidate.page));
+  targets.forEach((target) => target?.classList.add("active"));
+  reviewState.activePage = lines[0].page;
   refreshPageControls();
-  let target;
-  if (candidate.precision === "exact") target = document.querySelector(`.highlight[data-candidate-id="${CSS.escape(candidateId)}"]`);
-  else if (candidate.precision === "table") target = document.querySelector(`.table-area[data-region-key="${CSS.escape(regionKey(candidate.page, candidate.region))}"]`);
-  else target = reviewState.pageElements.get(candidate.page);
-  target?.classList.add("active");
+  const target = targets[0];
   // Scroll only the bill panel, so the line list (where the person clicked) stays where it is.
   const panel = target?.closest(".document-panel");
   if (panel) {
     const box = target.getBoundingClientRect(), view = panel.getBoundingClientRect();
     panel.scrollBy({ top: box.top - view.top - view.height / 2 + box.height / 2, behavior: "smooth" });
   } else target?.scrollIntoView({ behavior: "smooth", block: "center" });
-  document.querySelector(`[data-card-id="${CSS.escape(candidateId)}"] input[data-field="description"]`)?.focus({ preventScroll: true });
+}
+
+// Every line inside a section or part (its own rows, its sections' rows and its printed figure).
+function linesInNode(nodeId) {
+  const find = (nodes) => { for (const node of nodes || []) { if (node.id === nodeId) return node; const inner = find(node.sections); if (inner) return inner; } return null; };
+  const node = find(reviewState.tree);
+  if (!node) return [];
+  const gids = new Set();
+  const collect = (part) => { [part.printedLineId, ...part.rows].filter(Boolean).forEach((gid) => gids.add(gid)); part.sections.forEach(collect); };
+  collect(node);
+  return reviewState.candidates.filter((line) => gids.has(line.gid) || (line.roundingFor && gids.has(line.roundingFor))).map((line) => line.id);
 }
 
 function updateCandidate(candidateId, field, value) {

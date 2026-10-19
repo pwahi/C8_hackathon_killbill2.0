@@ -582,3 +582,11 @@ body[data-ui-step='2'] .line-actions { margin-top: 0; }
 .ai-unavailable .secondary { margin-top: 10px; }
 
 /* Every total you pay is the same black band, whether the bill has one part or several (owner 2026-10-19). */
+/* Show on the bill (owner 2026-10-19): while checking the lines the page stays clean; clicking a total or section
+   lights up all its lines, clicking one line lights up only that one. The clicked row in the list is marked too. */
+body[data-ui-step='2'] .table-area:not(.active), body[data-ui-step='2'] .highlight:not(.active) { opacity: 0; pointer-events: none; }
+body[data-ui-step='2'] .table-area.active, body[data-ui-step='2'] .highlight.active {
+  opacity: 1; border: 2px solid #D9A400; background: rgba(245, 196, 0, 0.28); outline: none; }
+body[data-ui-step='2'] .table-area span { display: none; }
+#candidate-list .showing { box-shadow: inset 4px 0 0 #F5C400 !important; }
+.tree-invoice.shows-lines { cursor: pointer; }
