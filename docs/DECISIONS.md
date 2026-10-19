@@ -1,5 +1,30 @@
 # BillShield — Decision log
 
+## D-043 — Push approved implementation; consolidate requirements and Claude handoff
+
+Date: 2026-10-19. Status: Owner explicitly authorized push and documentation/handoff updates; implementation pushed and public serving verified. Final documentation delivery is established by its Git commit/push, not assumed from this entry.
+
+**Authorization:** push the changes made so far first, then detail/update PRD and decisions, lastly produce detailed CLAUDE.md. This authorizes those pushes and their existing main-branch Vercel integration, not new features, model workflows, cloud settings, database migrations or data uploads.
+
+**Delivery evidence:** 114 Python / 73 browser-module tests pass; outgoing file/credential-pattern checks; non-force push fbb050e → db71a4e on origin/main succeeded. Public Vercel health is ok, required configuration flags true; current static UI files expose the ready-line checkbox and plain Read this area action. This is health/static serving verification, **not** fresh hosted end-to-end/model accuracy, saving acceptance or a real-user test.
+
+**Current effective choices:**
+
+| Area | Authoritative choice | Effective status / limit |
+|---|---|---|
+| Numeric claims, outcomes, required draft | D-007/D-008/D-024/D-027/D-028 | Python computes; three verdicts; needs_recheck blocks draft until corrected or explicitly rechecked; AI prose is constrained |
+| Local and vision routes | D-022/D-023/D-026/D-037 | Keep local PDF.js/Tesseract and approved Groq crop; server credential only; no app image persistence; no zero-retention claim |
+| Expected amount | D-037 | Required in main UI; API fixture-only arithmetic path can omit it; unknown is never invented |
+| Presentation | D-038/D-041 | Owner's desktop reference, restrained theme; five chapters plus five reading substeps; no provider jargon on main read actions |
+| Recovery | D-039/D-041 | One selected page, append, reselect/preview, conservative same-area repeats, add/remove/Undo; not general semantic deduplication |
+| Section confirmation | D-041 | Suggest, ask Yes/Change, explicitly accept; prior D-040 automatic membership mutator is not called by main app |
+| Summary/detail arithmetic | D-040 | Unique cross-page label/section/amount rule only; incomplete detail still fails; not a full hierarchy |
+| Accept-all | D-042 | Ready-line checkbox, blocked/partial state, clear acceptance not data; row edits invalidate acceptance; does not accept section links |
+| Full structure-first extraction | Proposal in PRD §16 | Not built or approved; requires owner choice and strict code validation before live use |
+| Hosting status | This entry supersedes earlier local-only notes | Implementation pushed; current UI files served on Vercel; new end-to-end owner acceptance pending |
+
+**Records:** PRD v2.8; app-root CLAUDE.md (detailed receiving-agent context), concise AGENTS/HANDOFF/README; parent PROJECT and work/18. Earlier decisions are preserved as dated history. Parent discovery/evidence files are not automatically available in a fresh app clone; CLAUDE.md is self-contained for implementation context. [Detailed delivery record](../../work/18_PUSH_AND_CLAUDE_HANDOFF.md).
+
 ## D-042 — Visible ready-line acceptance checkbox
 
 Date: 2026-10-19. Status: Owner-requested checkbox implemented and locally verified; owner acceptance/deployment pending.

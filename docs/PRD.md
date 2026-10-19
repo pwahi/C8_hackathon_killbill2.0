@@ -1,12 +1,12 @@
 # BillShield — Product requirements
 
-Version 2.7 · 2026-10-19 · Owner: Prateek Wahi
+Version 2.8 · 2026-10-19 · Owner: Prateek Wahi
 
-This PRD describes **what is required now** and **what exists now**. It was rebased on 2026-10-19 (D-035): outdated directions and superseded proposals were removed. The reasons behind every choice, including superseded ones, stay in [DECISIONS.md](DECISIONS.md) (D-006 to D-035); earlier PRD versions remain in the Git history. When this PRD and the code disagree about what *exists*, the code wins; about what is *required*, this PRD wins — record the difference in DECISIONS.md.
+This PRD describes **what is required now** and **what exists now**. It was rebased on 2026-10-19 (D-035) and consolidated for handoff in D-043. Reasons and dated supersessions remain in [DECISIONS.md](DECISIONS.md), through D-043 at this snapshot; earlier PRD versions remain in Git history. When this PRD and code disagree about what *exists*, inspect the code/tests; about what is *required*, this PRD wins. Record discrepancies instead of assuming planning text was implemented.
 
-**Status:** Stages 0–2 accepted; FastAPI backend live on Vercel (access code required); Supabase saving, smaller version, live and owner-verified. N-1 sequential UI first version is implemented locally (D-036), awaiting owner review and deployment approval. N-2 server OCR evaluation and N-3 chat/database remain planned. No real-user test beyond the owner yet; classmate and stranger tests planned for 2026-10-20.
+**Status:** Stages 0–2 previously accepted; FastAPI/Vercel and smaller Supabase saving implementation exist. Owner authorized pushing all current changes on 2026-10-19 (D-043); implementation through db71a4e is pushed to main. Read-only health/static checks confirm Vercel serves the updated UI. Fresh hosted end-to-end acceptance of these UI changes remains pending. N-2 OCR evaluation, N-3 chat/database expansion and full structure-first extraction are not implemented. No observed known-user/stranger product test recorded; tests planned for 2026-10-20.
 
-Latest N-1 update: D-042 adds a visible ready-line checkbox and reconfirmation after edits, on top of D-041's simple reading flow and D-040 Python summary/detail checks. 114 Python / 73 browser-module tests pass. [Design reference](DESIGN.md); owner acceptance and deployment still pending. Structure-first model extraction is a documented proposal, not built/approved. Offline flow checks are not new OCR accuracy evidence. No new model, storage or hosting changes.
+**Verified baseline:** 114 Python / 73 browser-module tests pass on 2026-10-19. Offline browser replays cover the new UX; Vercel health/static serving verified after push. Neither proves new live extraction accuracy. [CLAUDE.md](../CLAUDE.md) is the detailed continuation guide; [DESIGN.md](DESIGN.md) is the visual reference. Model/provider/storage policies unchanged. Older decision statuses describe their date of entry; D-043 supersedes their delivery status only.
 
 ---
 
@@ -34,14 +34,13 @@ Latest N-1 update: D-042 adds a visible ready-line checkbox and reconfirmation a
 
 ## 3. User flow
 
-Conceptual flow remains Provide → Confirm → Understand → Draft → Finish. The owner's desktop HTML mock-up (D-038) now presents this locally as **Your bill → Read → Check the lines → What we found → Your message**; Finish/sent reporting sits beside the draft. Deployed site retains its earlier layout until an approved deployment. See [DESIGN.md](DESIGN.md).
+Conceptual flow remains Provide → Confirm → Understand → Draft → Finish. The owner's desktop HTML mock-up (D-038) presents it as **Your bill → Read → Check the lines → What we found → Your message**; Finish/sent reporting sits beside the draft. Current UI assets are served on Vercel after the authorized push; hosted end-to-end acceptance remains pending. See [DESIGN.md](DESIGN.md).
 
 | Step | Behaviour |
 |---|---|
 | **Provide** | Choose one PDF or the image pages of one bill (≤ 4,000,000 bytes per file, ≤ 10 pages); currency; decimal mark; **expected amount required** before reading/comparison. Unknown is not replaced with zero or the bill total. |
 | **Read** | Photos: recommended **Groq vision** (`qwen/qwen3.8-27b`) on one table area the person draws, previews and confirms free of personal details (one request per area). PDFs: local PDF.js text. Fallback: local Tesseract OCR, or typing an amount seen on a page. Nothing is uploaded without the explicit preview step. |
 | **Confirm** | Compact expandable rows beside the source bill; label, amount and type visible; open for editing, group, source and printed row columns. **Looks right — check it** explicitly confirms ready lines then calls Python. Problem lines flagged; lines without a type remain unticked. |
-
 | **Understand** | **What we found**: actual checked result and facts left, maths table right; AI causes separately unverified. Re-check shows source page without inferred error boxes. Outcome A/B/C rules below unchanged. |
 | **Draft** | Editable message: numbers and line references from Python; an accepted AI suggestion may pre-select the lines asked about and add one number-free question. **Copy**. |
 | **Finish** | **I sent it** (optionally paste the sent text → changed words counted). Saved privately for this browser. Chat about the bill is planned (N-3). |
@@ -70,16 +69,20 @@ Unreadable input gives an actionable error or a request to confirm, never a fals
 | FR-02 | Extract descriptions, signed amounts, row columns, source locations | Candidates match the contract; raw strings kept; missing fields null, never invented | Partly — periods and invoice metadata not extracted |
 | FR-03 | Traceable source evidence | Every line has page and precision `exact` / `table` / `page`; no guessed box shown as exact; missing exact box does not block confirmation | Done |
 | FR-04 | Confirmation boundary | Calculations use only explicitly confirmed lines; original extraction distinguishable from corrections | Done |
-| FR-05 | Exact money arithmetic | Integer cents/paise, Decimal parsing, explicit decimal mark, signed discounts, tax-included amounts not added twice, no mixed currencies | Done |
+| FR-05 | Exact money arithmetic | Integer cents/paise, Decimal parsing, explicit decimal mark, signed discounts, printed row-column checks, no mixed currencies | Implemented/tested on fixtures; correct extraction/role/group assignment still needed; no general semantic tax/summary guarantee |
 | FR-06 | Compare expectation with the bill | Main UI requires an expected amount; total difference separated from exactly explained parts and the unexplained remainder; expectation is never proof | Partly — required input implemented locally (D-037); promise evidence/effective-date intake and period compatibility missing |
 | FR-07 | Honest verdicts | Only `verified_mismatch`, `unexplained`, `checks_passed`; unexplained is never "wrong"; failed reading is never checks-passed | Done |
 | FR-08 | Chat about the current bill | Uses only the person's review; new facts are proposed corrections needing re-confirmation; no model arithmetic trusted | Planned (N-3) |
 | FR-09 | Required draft | Every completed review reaches a draft (incl. no-issue); only Python numbers and valid line links | Done |
 | FR-10 | Copy/sent events and edits | Append-only events; changed words measured when the sent text is supplied; unknown ≠ zero | Partly — copied and sent recorded; no separate "edited" event |
-| FR-11 | Persistence | Review survives reload/redeploy for the same browser; expectations versioned; findings/messages reference what they used | Partly — saved; reading back a review and stale-revision handling not built |
+| FR-11 | Persistence | Completed structured results saved; intended future retrieval/versioning must preserve what was checked | Partly — saving implemented; unsaved browser review clears on reload; history loading, expectation-change versioning UI and stale-revision handling not built |
 | FR-12 | Least-data storage and deletion | Only confirmed lines and derived results stored; deletion of one review with its dependents | Partly — least-data done; deletion not built |
 | FR-13 | Ownership isolation | Another user cannot read or add to someone's review | Done — verified live with two anonymous users |
 | FR-14 | Failure recovery | Provider timeout/invalid output, write failure never produce a misleading result; duplicate clicks do not duplicate records | Partly — failures safe; duplicate saves on repeated clicks possible |
+| FR-15 | Multi-page and crop recovery | Page switching retains edits; each approved crop appends; last-area preview/reselection; exact repeat signatures preserve multiplicity | Implemented/tested offline; overlapping/different crops can still duplicate |
+| FR-16 | Manual review and confirmation | Add/remove/Undo, required printed check, ready-line checkbox, relevant edits invalidate acceptance/results | Implemented/tested; confirmation is human transcription review, not arithmetic verification |
+| FR-17 | Section membership and reference summaries | Yes/Change proposal confirmation; unique reference-summary exclusion checked by Python, visible in result | Implemented limited heuristic, not general hierarchy; unknown links remain review work |
+| FR-18 | Full bill hierarchy and structural investigation | Validated parent/child/reference links across pages, then code-grounded section-to-row investigation | Proposal only; §16; owner implementation approval required |
 
 ## 5. Rules that must not break
 
@@ -174,7 +177,7 @@ All POSTs: allowed page origin, JSON only, size limits, access code when configu
 | C — Antriksh / Flipkart | invoice totals 39 + 212 + 233 + 5587 + 15757 = 21828 INR, components balance; no expectation → no-issue summary | invented expectation; unauthorized fee; summing unrelated documents without context |
 | D — Divyae / IndiGo | lines total 22434 INR; difference 3000; development fees 2312 + 520 = 2832 do not explain the full gap | 2312 explains 3000; fee illegal/incorrect; send completed |
 
-**Test layers and current results (2026-10-19):** deterministic unit and fixture tests, confirmed-payload replays, gap/explanation validation, storage and API tests — **106 Python tests pass**; browser module tests — **40 pass**; agent-scripted headless-browser runs of A–D through the page (local OCR, PDF.js, intercepted Groq answers); live Supabase checks (session, one-transaction save, sent event, isolation between two anonymous users, blanking, refresh); owner hands-on acceptance of Stage 2 and the live site (owner-reported). Still required: observed real-user tests (§11, stage 6); a documented browser Network-panel privacy check; per-case correction counts with live Groq.
+**Current test layers (2026-10-19):** **114 Python / 73 browser-module tests pass**. Includes deterministic four-case replays, money parsing, rows/subtotals/totals, summary references, gap/AI validation, API/storage and browser contracts, selection/recovery/proposals/checkboxes. New UX browser checks used simulated extraction and real Python. Earlier live Supabase and owner Stage-2/live-app checks are historical evidence, not rerun for this push. Fresh post-push verification is limited to health/configuration flags and current static assets. Still required: owner hosted regression with masked bills; per-case live-model correction/uncertainty records; known user/stranger observed tests; a documented Network-panel privacy check. A self-reported sent event is not an independently observed send.
 
 Record for each test run: input, versions, device/browser, failures and corrections. No all-green claim from simulated extraction alone. Zero unsupported wrong-charge claims is the bar on this limited test set, not a guarantee for unseen bills.
 
@@ -187,7 +190,7 @@ Record for each test run: input, versions, device/browser, failures and correcti
 | 2 Extraction and grounded text | reading, confirmation, row checks, re-check gate, explanation, draft | Done — accepted by owner (D-029) |
 | 3 Backend + database | FastAPI; Supabase saving (smaller version) | Mostly done — chat, link tables, deletion pending (N-3) |
 | 4 Hosted backend | Vercel with access code | Done |
-| 5 UI | owner's step-by-step screens | First version local — owner review and deployment pending (D-036) |
+| 5 UI | owner's step-by-step screens and recovery | Implemented/tested locally, pushed and current assets served; fresh owner hosted acceptance pending (D-043) |
 | 6 Observed user tests | known user (classmate) and stranger with their own bills | Not started — planned 2026-10-20 |
 
 After each stage the developer gives the owner changed files, exact run steps, test results, limitations and the next step, and stops for the owner's go-ahead. Pushing, deployments and settings changes need the owner's approval.
@@ -196,13 +199,13 @@ After each stage the developer gives the owner changed files, exact run steps, t
 
 **Proposal only — structure-first extraction (owner question, not implementation approval).** Replace free-text-only grouping with model-proposed parent/child/reference links across approved structured candidates, strictly validated and calculated by Python before grounded investigation. Requires output-contract design, multi-page/multi-invoice/period boundaries, graph/double-counting verifiers and masked acceptance tests; no new model calls, full-image uploads or storage changes authorized. [Proposal and definition of done](../../work/17_ACCEPT_ALL_AND_STRUCTURE_FIRST_PROPOSAL.md). Existing N-1–N-3 priorities are not silently replaced.
 
-N-1 first version built locally on 2026-10-19 after owner approval; review pending. N-2/N-3 remain planned, not built. Local verification: 106 Python and 42 browser-module tests; A–D structured fixture screen replays with simulated extraction/AI, not live OCR tests. See D-036.
+N-1 implementation and follow-ups D-036–D-042 are pushed (D-043), with 114 Python / 73 browser-module tests and offline UX verification; owner hosted acceptance remains. N-2/N-3 remain planned, not built. Structure-first extraction is an additional proposal, not silently promoted to an approved next stage.
 
 Priority order (D-034). Keep time for the user tests before the deadline (Tue 2026-10-20 22:17 Europe/Amsterdam); if short, reduce these items, not the tests.
 
 **N-1 — User interface (priority 1).** Turn the working page into the owner's step-by-step design (paper UI sequence, E-109): one primary action per step, bill view beside the confirmation list, plain-language result first with details on demand, Copy / I sent it, privacy notes where data leaves the device, mobile-friendly. Reuse the API and modules; rules unchanged; prefer plain HTML/JS (no build step). *Acceptance:* A–D give the same verdicts and drafts as today; all tests pass; a first-time user needs no explanation of internal terms.
 
-**N-2 — Server-side reading with LightOnOCR-3-0.8B (evaluate first).** Model facts (card, 2026-10-19): Apache-2.0, ≈ 0.9B parameters, Markdown output with optional typed blocks and boxes (0–1000 page coordinates), GPU runtimes (Transformers, vLLM, SGLang) and GGUF builds, English tag, not offered by any hosted inference provider; it reads text but does not assign roles. Implications: needs a separate GPU host (cost, cold starts, new data processor); cannot run inside Vercel. *Plan:* time-boxed comparison with Groq vision on A–D (correct amounts, missed/extra lines, ₹/2 and decimal errors, usable boxes, speed, cost); adopt as an optional extractor behind the same confirmation step only if clearly better and approved.
+**N-2 — Optional alternate OCR evaluation (not built).** Earlier LightOnOCR-3-0.8B research is historical, not a current availability/hosting guarantee. Reverify official model/runtime details if this is pursued. Time-box comparison on A–D for correct/missed/extra amounts, ₹/2 and decimals, usable evidence, latency and cost. No GPU host, new data processor, provider replacement or deployment is approved merely by listing this item. Retain current local/vision paths unless evidence and owner approval justify adoption.
 
 **N-3 — Chat about a bill + database update.** Chat panel on the result step; answers grounded only in the saved review and validated like the AI explanation (no numbers outside Python's facts, existing lines only, no accusations or price judgements); new facts become proposed corrections that need re-confirmation. Migration: `chat_turns`, plus `finding_lines` and `message_lines` filled from the existing arrays; consider review deletion. *Acceptance:* chat survives reload in the same browser; another user cannot read it; an answer with an invented amount is rejected in tests.
 
@@ -219,13 +222,13 @@ Priority order (D-034). Keep time for the user tests before the deadline (Tue 20
 
 | Item | Status |
 |---|---|
-| A–D pass the three output rules through the complete local and hosted flow, corrections visible | Done for the local and hosted flow (agent runs + owner checks) |
+| A–D pass the three output rules through the complete local and hosted flow, corrections visible | Four-case core replay passes; prior owner checks historical; current UI offline verified; fresh hosted A–D acceptance pending |
 | Required draft for every completed review; no-issue and uncertain cases honest | Done |
 | Confirmed lines linked to visible source page/table with honest precision | Done |
-| Review, events and line links survive reload for the same user | Done for saved reviews; reading back in the UI not built |
+| Review, events and line links can be recovered by the same user after reload | Saving exists; history retrieval/UI not built; unsaved review does not survive reload |
 | Masked least-data storage and cross-user isolation demonstrated | Done (live check) |
 | Same backend locally and on Vercel; secrets and limits verified | Done |
-| UI follows the owner's sequential design; copying never implies sending | First version local; owner/usability review pending — N-1 |
+| UI follows the owner's sequential design; copying never implies sending | Implemented/pushed/current assets served; owner/usability acceptance pending — N-1 |
 | Real-user evidence (known user + stranger) with actual outcomes and edits | Not yet |
 | Owner has run instructions, schema, decision log and honest limits | Done (README, HANDOFF, this PRD) |
 
@@ -246,6 +249,63 @@ Priority order (D-034). Keep time for the user tests before the deadline (Tue 20
 | 2.5 | 2026-10-19 | Section membership suggestions/picker and Python-owned reference summary exclusion; incomplete details still re-check; 114 Python / 63 browser-module tests | D-040 |
 | 2.6 | 2026-10-19 | Five-step plain-language reading; one active page; explicit review; quick Yes/Change grouping instead of exposed technical editor or silent mutation; 114 Python / 70 browser-module tests | D-041 |
 | 2.7 | 2026-10-19 | Visible ready-line acceptance checkbox, safe blocked/partial states and edit invalidation; 114 Python / 73 browser-module tests; structure-first extraction recorded only as proposal | D-042 |
+| 2.8 | 2026-10-19 | Authorized push/delivery status; consolidated acceptance and limitations; detailed proposed hierarchy specification and Claude handoff; no new feature implementation | D-043 |
+
+## 16. Structure-first extraction — detailed proposal, not implemented or approved
+
+**Problem.** Current candidates are a mostly flat list with role, free-text group and optional printed row columns. The vision request sees one approved crop. It does not receive a reliable map of the whole bill. Section suggestions and unique label/amount summary matching cannot establish every summary/detail relationship, renamed heading, billing period or tax treatment. Better prompting alone is not a correctness guarantee.
+
+**Intended outcome.** Build a source-grounded proposed map of a bill's printed total, sections, component rows and summary references. Use the checked map to investigate the user's specific difference, not to generate a general bill summary. Keep the current model initially; no training/provider change presumed.
+
+### 16.1 Proposed contract (design to approve before coding)
+
+| Entity / relation | Required meaning | Safety condition |
+|---|---|---|
+| Bill/invoice boundary | Which document/invoice a total and rows belong to | Do not combine distinct invoices/periods just because uploaded together |
+| Printed total node | Exact printed final amount linked to source | Never inferred or model-calculated |
+| Section node | Source heading/period or honestly labelled review section | Unknown heading/period stays unknown; no invented tariff/contract facts |
+| Detail row | Original signed raw amount, label, role, optional printed columns | Preserve every digit/sign; code parses later |
+| Component link | Row or section contributes to a named section/total | Existing IDs only; each monetary contribution counted once per calculation path |
+| Summary/reference link | Printed summary repeats another section's amount | Reference not an additional charge; same amount alone is insufficient |
+| Source link | Page plus approved table area or genuine exact position | Do not invent coordinates or present a crop as an exact amount location |
+| Uncertainty / missing area | Specific unresolved relationship or evidence gap | Ask a focused question/re-read, not a fabricated complete map |
+
+Contract field names, schema version and storage representation are **not decided**. Do not treat this table as an implemented API. Section names alone should not remain the only relationship key. Preserve original extraction separately from accepted relationships/corrections. Included tax versus extra tax, billed versus unit price and distinct periods must be explicit when visible or unknown when not.
+
+### 16.2 Proposed processing sequence
+
+1. Read one approved area through existing privacy/size controls. Extract visible candidates and proposed structure; no sums/comparisons/claims from the model.
+2. Collect relevant pages. A possible separate linking pass may use structured candidate IDs/labels/roles/pages and approved context, not another full image or OCR dump. Exact payload, consent, quota/cost and retry policy require design approval before live use.
+3. Validate in Python: IDs exist; no cycles/orphans; correct bill/period scope; unambiguous contribution/reference semantics; each contribution counted once. Reject bad structures before drafting or explanation.
+4. Show a compact proposed breakdown for human correction, with Yes/Change and honest uncertainty. Avoid making the person rebuild the bill manually when a clear proposal is possible.
+5. Python reconciles children with printed subtotal, then sections/standalone rows with the correct printed total. Missing rows/contradictions stay re-check; never discard inconvenient rows to force a match.
+6. Investigate the checked sections against the user's expectation, then drill into supporting rows/periods/discounts. AI may select grounded causes or evidence questions using Python facts, not compute gaps or judge charges as wrong.
+7. Produce the required editable message with only code-owned numeric claims and accepted line/source links. Existing verdicts/privacy/copy-versus-send rules remain.
+
+### 16.3 Proposed staged acceptance gate
+
+- First approve a small schema example and test plan with the owner; do not implement all planned N-items at once.
+- Offline fixtures: summary plus details; identical legitimate charges; duplicate crop; renamed/inconsistent headings; a standalone charge beside a subtotal; periods; tax already included; missing page; multiple invoices; cyclic/unknown/duplicate-parent links.
+- Verifiers: no changed source digits/signs; no invented IDs/amounts/boxes; no double-count path; exact Python arithmetic; missing evidence cannot yield a false pass; existing four-case numeric/draft regression preserved.
+- Display: source-traceable breakdown, compact confirmation and focused correction; ambiguous cases explicit. Checkbox acceptance is not model-structure verification.
+- Privacy/persistence: no full-image upload/storage added by default; proposal IDs/accepted IDs/versioning and saved reference semantics must be designed if persistence changes. Existing saved lines do not contain a full hierarchy.
+- After offline approval, owner chooses whether to run limited approved masked live crops. Record missed/extra/wrong rows and corrections, not just a final answer. Token/rate/cost and model variation remain limitations.
+
+**Not authorized by this PRD update:** model calls, new endpoint/schema migration, graph implementation, external resources, new OCR host, training, image retention or automatic sending. Implementation needs the owner's next explicit go-ahead.
+
+## 17. Current operational acceptance and handoff gate
+
+| Check | Current evidence | Remaining acceptance |
+|---|---|---|
+| Exact core and four sanitized cases | 114 Python tests, fixtures/replays | Unseen bills and correct real extraction are not guaranteed |
+| UI contracts and recovery | 73 browser-module tests plus offline browser replays | Owner retest current hosted UI with masked multi-page bill |
+| Deployment | GitHub push through db71a4e; current Vercel health/UI assets checked | New hosted end-to-end extraction/calculation/draft/save not run for this push |
+| Data isolation/storage | Earlier live verification; current API/storage unit tests | Do not relabel prior checks as new evidence; loading/deletion absent |
+| Privacy | Code boundary and ignored input/cache paths | Network-panel check, provider retention settings and OneDrive sync still require verification |
+| Product success | Discovery cases and owner feedback only | Known-user/stranger observations, actual send/edit outcome evidence |
+| Receiving agent | Repo-contained CLAUDE.md, PRD and decision log | Claude must rerun startup checks and obtain approval for proposed structural work |
+
+Run normal app from application folder with `.venv\Scripts\python.exe app.py`; use existing process if already bound to 4173. Static changes need Ctrl+F5 (unsaved review clears); Python changes need existing server restart. Tests: `.venv\Scripts\python.exe -m unittest discover -s tests` and `npm --prefix frontend test`. Offline acceptance helper `scripts/ui_fixture_server.py` binds 4180, stubs model/storage, and is not a production route or OCR benchmark. See [CLAUDE.md](../CLAUDE.md) for full run/recovery and approval boundaries.
 
 ## Sources checked
 

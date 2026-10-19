@@ -1,24 +1,26 @@
-# Instructions for coding agents (Codex and others)
+# BillShield coding-agent instructions
 
-Latest D-042 / PRD v2.7: visible ready-line checkbox, mixed/blocked states, clear acceptance without deleting, relevant edits require reconfirmation. 114 Python / 73 browser-module tests; offline UI verification only. Structure-first extraction is a proposal in parent work/17_ACCEPT_ALL_AND_STRUCTURE_FIRST_PROPOSAL.md, not approved/built. No push/deployment.
+## Current checkpoint — 2026-10-19
 
-Latest D-041 / PRD v2.6: five-step plain-language Read flow, one active page, explicit Review lines, Yes/Change subtotal proposals and hidden advanced editor. No automatic app-side membership mutation; explicit acceptance required on main checking path. 114 Python / 70 browser-module tests; offline flow proof only. See parent work/16_SIMPLE_READING_AND_SECTION_CONFIRMATION.md. Local, owner review pending; no push/deployment.
+- Authoritative requirements: docs/PRD.md v2.8; append-only decisions through D-043 in docs/DECISIONS.md.
+- Detailed receiving-agent context: **read CLAUDE.md fully**. It applies to Codex/Claude/other coding agents, not just one tool.
+- Implementation through db71a4e pushed with owner approval; Vercel health/current UI assets verified. Fresh hosted end-to-end/model accuracy and owner UX acceptance remain pending.
+- Baseline: 114 Python / 73 browser-module tests. Rerun; do not assume this count proves a new run.
+- Full structure-first bill hierarchy is a **proposal**, not built or approved. Current roles/free-text groups, explicit Yes/Change and limited Python summary/reference matching are not a full hierarchy.
 
-Latest D-040 / PRD v2.5: section membership suggestions and subtotal checkbox picker; Python counts unique matching cross-page summary/detail once, retaining references. Incomplete details still needs_recheck. 114 Python / 63 browser-module tests pass; offline browser check only, not fresh Groq accuracy. Restart local Python server before owner retest. See parent work/15_SECTION_LINKS_AND_SUMMARY_COUNTING.md. No push/deployment.
+## Session start
 
-Latest checkpoint D-039 / PRD v2.4: multi-page append, visible Groq area recovery, manual lines/printed-total prompt, exact same-area repeat suppression, remove/Undo and row fade implemented locally. 107 Python / 58 browser-module tests pass; offline flow verification, not new model accuracy. Owner review/deployment pending. See parent work/14_MULTI_PAGE_AND_REVIEW_RECOVERY.md.
+Follow docs/HANDOFF.md §2: status/log, safe fast-forward sync only when clean, both test suites; read current PRD/newest decisions/parent PROJECT when present and CLAUDE.md. Summarize status, failures/missing context and up to three next actions before changing code.
 
-Start every session with `docs/HANDOFF.md` §2 ("Session-start routine"): check git status, run both test suites, read `docs/PRD.md` (v2.0: status, §4 requirement status, §11 stages, §12 next additions) and the newest entries of `docs/DECISIONS.md`, then summarize where things stand before doing anything else.
+## Non-negotiable rules
 
-Essentials (details in `docs/HANDOFF.md`):
-
-- The owner is learning: explain simply before coding, work in small stages, give exact test instructions after each stage.
-- Ask before pushing, changing Vercel/Supabase settings, deleting data, or anything outward-facing.
-- Code owns every number; models only extract candidates or write validated, number-free prose. Keep the verdicts `verified_mismatch`, `unexplained`, `checks_passed`; every message references confirmed line IDs.
-- Never print, commit or request secrets (`.env.local`); never store or send bill images/OCR text beyond an approved Groq area; use only the publishable Supabase key.
-- Never invent results; separate implemented, verified and owner-reported.
-- **N-1 first UI version is implemented locally (D-036, PRD v2.1).** Owner review and deployment approval are next. Do not restart the build or assume it is deployed; N-2/N-3 remain unbuilt.
-- D-037 / PRD v2.2 follow-up: expected amount required in main UI; 106 Python / 44 browser-module tests pass. See parent work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md for confirmed code-versus-sketch gaps and crop-storage boundary. No push/deployment yet.
-- Latest D-038 / PRD v2.3: UI now follows owner's desktop HTML mock-up, with Your bill → Read → Check the lines → What we found → Your message (Finish in sidebar). 107 Python / 47 browser-module tests pass. See docs/DESIGN.md and parent work/13_DESKTOP_MOCKUP_IMPLEMENTATION.md. Local only; owner review/deployment pending.
-- Hackathon check-in 4 is next (see docs/HANDOFF.md §8): help draft only when asked; ask for the actual prompt first.
-- After material changes update `docs/DECISIONS.md`, `docs/PRD.md` and the parent `../PROJECT.md`.
+- Owner is learning: explain simply before editing; take small stages; give exact commands/clicks, test evidence and limitations afterwards. Be a critical peer, not an automatic yes.
+- Ask before future pushes/deployments/settings changes, migrations, external resources, new model workflows/live testing outside approval, or destructive data operations. Previous push permission is not blanket future authority.
+- Code owns arithmetic, comparisons, verdicts and message numbers. AI extracts candidates and writes validated prose only. Keep verified_mismatch / unexplained / checks_passed; needs_recheck blocks a draft until corrected or explicitly rechecked. Completed reviews require a grounded draft.
+- Never invent decimal marks/signs/source positions, drop a leading 2 as a guessed rupee symbol, merge charges merely because amounts match, or force missing detail to add up.
+- Preserve the minimal UI/five reading substeps. Ready-line acceptance is not arithmetic or section acceptance. Edits invalidate output and relevant confirmations. Do not re-enable silent group mutation.
+- No unmasked bills/secrets in code, logs, screenshots or commits. Only explicitly approved redacted crop may pass through server to Groq; no full-image/OCR upload to analysis/storage or app image persistence. Supabase publishable key + user token only. No unverified zero-retention/OneDrive promises.
+- Do not fabricate interviews, sends, edits, evidence, acceptance or test results. Distinguish implemented, verified, historical/owner-reported and proposed. Contact lookup, automatic sending and legal judgements are out of scope.
+- This is a nested Git repo; work from this application folder. Preserve unrelated edits. No force push/hard reset or killing the owner's server to free a port.
+- Update detailed work first, then append decisions, update PRD and parent PROJECT when present, then handoff if needed. Preserve older decisions as dated history.
+- Parent evidence may be absent in a fresh clone: report that, never copy private sources into the public repo. Participant-made architecture/schema photos remain a submission obligation.
