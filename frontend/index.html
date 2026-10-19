@@ -11,56 +11,26 @@
   </head>
   <body>
     <header class="brand-bar">
-      <a id="home-link" class="logo" href="./" aria-label="Kill Bill 2.0 — about"><span class="logo-left" aria-hidden="true">K<br>B</span><span class="logo-slash" aria-hidden="true"></span><span class="logo-right" aria-hidden="true">LL<br>LL<small>2.0</small></span></a>
+      <a id="home-link" class="brand-logo" href="./"><img src="./assets/kill-bill-logo-small.png" alt="Kill Bill 2.0 — home" width="56" height="48"></a>
     </header>
 
     <main>
       <nav id="flow-nav" class="flow-nav" aria-label="Review progress"></nav>
       <section id="landing" class="landing" data-flow-panel="intro" aria-labelledby="landing-title">
         <div class="landing-hero">
-          <div class="logo logo-large" aria-hidden="true"><span class="logo-left" aria-hidden="true">K<br>B</span><span class="logo-slash" aria-hidden="true"></span><span class="logo-right" aria-hidden="true">LL<br>LL<small>2.0</small></span></div>
-          <div>
-            <h1 id="landing-title" tabindex="-1">Paid more than you expected?</h1>
-            <p class="landing-lead">Kill Bill reads your bill, checks every sum, shows exactly where the difference comes from, and writes a polite message you can send to the company.</p>
-            <button id="start-checking" class="primary" type="button">Start checking my bill</button>
-          </div>
+          <img class="landing-logo" src="./assets/kill-bill-logo.png" alt="Kill Bill 2.0" width="283" height="243">
+          <h1 id="landing-title" tabindex="-1">Paid more than you expected?</h1>
+          <p class="landing-lead">Find out why, and send one clear message.</p>
+          <button id="start-checking" class="primary" type="button">Check my bill</button>
         </div>
-
-        <div class="landing-grid">
-          <section aria-labelledby="how-title">
-            <h2 id="how-title">How to use it</h2>
-            <ol class="landing-steps">
-              <li><strong>Your bill.</strong> Upload a PDF or photos and say what you expected to pay.</li>
-              <li><strong>Read.</strong> The AI reads every price. You choose which pages it sees.</li>
-              <li><strong>Check the lines.</strong> Compare the lines with your bill and fix anything wrong.</li>
-              <li><strong>What we found.</strong> See where any difference comes from, checked by code.</li>
-              <li><strong>Your message.</strong> Copy the ready-made message and send it yourself.</li>
-            </ol>
-          </section>
-
-          <section aria-labelledby="flow-title-landing">
-            <h2 id="flow-title-landing">What the AI does, and what the code does</h2>
-            <ol class="workflow">
-              <li class="wf-you"><span class="wf-tag">You</span>Your bill and the amount you expected</li>
-              <li class="wf-ai"><span class="wf-tag">AI · Claude Haiku</span>Reads the prices and how the bill is grouped</li>
-              <li class="wf-code"><span class="wf-tag">Code · Python</span>Checks every sum and finds the difference</li>
-              <li class="wf-ai"><span class="wf-tag">AI · GPT-OSS</span>Suggests why, and words the message</li>
-              <li class="wf-code"><span class="wf-tag">Code · Python</span>Fills in every amount and checks the wording</li>
-              <li class="wf-you"><span class="wf-tag">You</span>Check the message and send it yourself</li>
-            </ol>
-            <p class="wf-rule">The AI only reads and writes words. <strong>Every number comes from code.</strong></p>
-          </section>
-
-          <section aria-labelledby="data-title">
-            <h2 id="data-title">What happens to your data</h2>
-            <ul class="data-facts">
-              <li><strong>Sent to the AI:</strong> only the pages you tick, when you press Read.</li>
-              <li><strong>Saved:</strong> the checked lines, the result and your message, private to this browser.</li>
-              <li><strong>Never saved:</strong> your bill image or PDF.</li>
-              <li><strong>Never done:</strong> Kill Bill does not contact the company or send anything for you.</li>
-            </ul>
-          </section>
-        </div>
+        <ol class="flow-strip" aria-label="How it works">
+          <li class="fs-you"><span>Your bill</span></li>
+          <li class="fs-ai"><small>AI</small><span>Reads it</span></li>
+          <li class="fs-code"><small>Code</small><span>Checks every sum</span></li>
+          <li class="fs-ai"><small>AI</small><span>Words the message</span></li>
+          <li class="fs-you"><span>You send it</span></li>
+        </ol>
+        <p class="landing-note">Every number comes from code. Your bill image is never saved.</p>
       </section>
 
       <div class="flow-heading"><p id="flow-kicker" class="eyebrow">STEP 1 OF 5</p><div class="step-progress first-step" aria-hidden="true"><span></span></div><h1 id="flow-title" tabindex="-1">YOUR BILL</h1><span class="title-cut" aria-hidden="true"></span><p id="flow-description">Add the bill you want to check and what you expected to pay.</p></div>
