@@ -18,7 +18,11 @@ from .tone import apply_tone
 
 
 class StoreError(RuntimeError):
-    """A storage problem with a message that is safe to show."""
+    """A storage problem with a message that is safe to show. status: the database's HTTP code, if it answered."""
+
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
 
 
 def _secret_key_configured() -> bool:
@@ -49,8 +53,8 @@ def _call(method: str, path: str, body: dict | None = None, token: str | None = 
             raw = response.read(2_000_000)
     except HTTPError as error:
         if error.code in (401, 403):
-            raise StoreError("Your session expired or is not allowed to do this. Reload the page and try again.") from None
-        raise StoreError(f"The database refused the request (HTTP {error.code}).") from None
+            raise StoreError("Your session expired or is not allowed to do this. Reload the page and try again.", error.code) from None
+        raise StoreError(f"The database refused the request (HTTP {error.code}).", error.code) from None
     except URLError:
         raise StoreError("The database could not be reached.") from None
     return json.loads(raw) if raw else None

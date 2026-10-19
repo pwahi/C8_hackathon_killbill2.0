@@ -79,3 +79,23 @@ class Routes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KeepTheBrowsersPass(unittest.TestCase):
+    """A temporary problem must never make the browser give up its identity (and with it, its saved checks)."""
+
+    def setUp(self):
+        self.client = TestClient(server.app)
+        self.headers = {"origin": "http://127.0.0.1:4173", "content-type": "application/json",
+                        "x-billshield-access": server.ACCESS_CODE}
+
+    def renew(self, failure):
+        with patch.object(store, "_call", side_effect=failure):
+            return self.client.post("/api/session", json={"refreshToken": "old"}, headers=self.headers).status_code
+
+    def test_only_a_rejected_refresh_token_allows_a_new_identity(self):
+        self.assertEqual(self.renew(store.StoreError("The database refused the request (HTTP 400).", 400)), 410)
+
+    def test_an_unreachable_database_is_temporary(self):
+        self.assertEqual(self.renew(store.StoreError("The database could not be reached.")), 502)
+        self.assertEqual(self.renew(store.StoreError("The database refused the request (HTTP 503).", 503)), 502)

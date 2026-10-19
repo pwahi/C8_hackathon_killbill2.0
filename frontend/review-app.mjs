@@ -506,16 +506,20 @@ async function ensureSession() {
     try { session = JSON.parse(localStorage.getItem("billshield-session") || "null"); } catch { session = null; }
   }
   if (session && session.expiresAt > Date.now() + 60_000) return;
+  // The stored pass is this browser's only key to its saved checks. It is replaced only when the database says it
+  // can no longer be renewed (410); a missing access code, network or server problem keeps it for the next try.
+  const request = (body) => fetch("/api/session", { method: "POST", headers: apiHeaders("session"), body: JSON.stringify(body) });
   try {
-    const response = await fetch("/api/session", { method: "POST", headers: apiHeaders("session"), body: JSON.stringify(session?.refreshToken ? { refreshToken: session.refreshToken } : {}) });
+    let response = await request(session?.refreshToken ? { refreshToken: session.refreshToken } : {});
+    if (response.status === 410) response = await request({});
     if (response.status === 503) { savingAvailable = false; session = null; return; }
     const answer = await response.json();
     if (!response.ok) throw new Error(answer.error || "session failed");
     session = { accessToken: answer.accessToken, refreshToken: answer.refreshToken, expiresAt: Date.now() + (answer.expiresIn || 3600) * 1000 };
+    try { localStorage.setItem("billshield-session", JSON.stringify(session)); } catch { /* storage unavailable */ }
   } catch {
-    session = null;  // a stale refresh token or network problem: continue without saving
+    session = null;  // continue without saving this time; the stored pass is left untouched
   }
-  try { localStorage.setItem("billshield-session", JSON.stringify(session)); } catch { /* storage unavailable */ }
 }
 
 // "Your earlier checks" (Chapter 1). Only a browser that has saved before has a session; listing never creates one.

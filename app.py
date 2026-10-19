@@ -141,6 +141,10 @@ async def start_session(request: Request):
             return await run_in_threadpool(store.refresh_session, str(data["refreshToken"]))
         return await run_in_threadpool(store.start_anonymous_session)
     except store.StoreError as problem:
+        # 410 only when the database rejects the refresh token itself: the browser may then start a new identity.
+        # Anything else (database unreachable, overloaded) is temporary and must not cost the person their history.
+        if data.get("refreshToken") and problem.status in (400, 401, 403):
+            return error(410, "This browser's saved session can no longer be renewed.")
         return error(502, str(problem))
 
 
