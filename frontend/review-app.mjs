@@ -7,7 +7,7 @@ import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion } from "./extraction/bulk-confirm.mjs";
 import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
 import { resultHeadline, mathRows } from "./result-display.mjs";
-import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay } from "./extraction/page-review.mjs";
+import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, linkUnassignedSections, assignSection } from "./extraction/page-review.mjs";
 
 const elements = {
   files: document.querySelector("#bill-files"),
@@ -176,7 +176,7 @@ groqSend.addEventListener("click", async () => {
       });
     });
     const previousIds = new Set(reviewState.candidates.map(line => line.id));
-    reviewState.candidates = appendPageCandidates(reviewState.candidates, added, selection.page);
+    reviewState.candidates = appendPageCandidates(reviewState.candidates, linkUnassignedSections(added), selection.page);
     const fresh = reviewState.candidates.filter(line => !previousIds.has(line.id));
     elements.candidateList.append(...fresh.map(animatedCandidateCard));
     elements.candidateCount.textContent = `${reviewState.candidates.length} to review`;
@@ -721,6 +721,38 @@ function candidateCard(candidate) {
   group.addEventListener("input", () => updateCandidate(candidate.id, "group", group.value));
   groupLabel.append(group);
   fields.append(amountLabel, descriptionLabel, roleLabel, groupLabel);
+  if (candidate.role === "subtotal") {
+    const picker = document.createElement("fieldset");
+    const legend = document.createElement("legend");
+    legend.textContent = "Which rows does this subtotal cover?";
+    picker.append(legend);
+    const choices = [];
+    for (const line of reviewState.candidates.filter(line => ["charge", "discount", "adjustment"].includes(line.role))) {
+      const label = document.createElement("label");
+      label.className = "confirm-control";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = !!candidate.group?.trim() && line.group?.trim().toLowerCase() === candidate.group.trim().toLowerCase();
+      choices.push({box, id: line.id});
+      label.append(box, document.createTextNode(`Page ${line.page}: ${line.description} — ${line.rawAmount}`));
+      picker.append(label);
+    }
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "secondary";
+    apply.textContent = "Use these rows for this section";
+    apply.addEventListener("click", () => {
+      try {
+        reviewState.candidates = assignSection(reviewState.candidates, candidate.id, choices.filter(choice => choice.box.checked).map(choice => choice.id));
+        invalidatePayload("Section links changed. Check the rows again.");
+        elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+        refreshPageControls();
+        setStatus("Section linked. Check the selected rows against the bill, then choose Looks right — check it.");
+      } catch (error) { setStatus(error.message, "failure"); }
+    });
+    picker.append(apply);
+    fields.append(picker);
+  }
   const questioned = document.createElement("label");
   questioned.className = "confirm-control";
   const questionedBox = document.createElement("input");
@@ -883,6 +915,20 @@ function refreshPrintedCheck() {
   document.querySelector("#printed-check-message").textContent = text[state];
   document.querySelector(".printed-check-prompt").classList.toggle("missing-check", state === "missing" || state === "needs_details");
   document.querySelector("#add-printed-total").textContent = state === "missing" ? "+ Add printed total" : "Review printed total / subtotal";
+  document.querySelector("#section-links").replaceChildren(...reviewState.candidates.filter(line => line.role === "subtotal").map(line => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "text-button";
+    button.textContent = `Choose rows for ${line.group || line.description} (page ${line.page})`;
+    button.addEventListener("click", () => {
+      // Rebuild the editor so choices include rows added on later pages.
+      elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
+      const card = document.querySelector(`[data-card-id="${CSS.escape(line.id)}"]`);
+      card.querySelector(".line-editor").open = true;
+      card.scrollIntoView({block: "center", behavior: "smooth"});
+    });
+    return button;
+  }));
 }
 
 function openManualLine(role = "charge") {
@@ -1137,6 +1183,9 @@ function renderResult(result, ai = { state: "skipped" }) {
   }
 
   const checks = [listItem(`Sum of charges and discounts: ${result.totalFormula}`)];
+  for (const line of result.lines.filter(line => line.summaryOf)) {
+    checks.push(listItem(`${line.description}: summary of a detailed section; kept for reference, not added again.`));
+  }
   if (result.amounts.printedTotal) {
     checks.push(listItem(`Printed grand total ${result.amounts.printedTotal}: ${result.minor.printedTotal === result.minor.calculatedTotal ? "matches" : "does NOT match"}`));
   }
@@ -1315,6 +1364,8 @@ document.querySelector("#start-review").addEventListener("click", () => {
   (photos ? elements.openVision : elements.process).click();
 });
 document.querySelector("#confirm-and-check").addEventListener("click", async (event) => {
+  reviewState.candidates = linkUnassignedSections(reviewState.candidates);
+  elements.candidateList.replaceChildren(...reviewState.candidates.map(candidateCard));
   if (["missing", "needs_details"].includes(printedCheckPresence(reviewState.candidates))) {
     refreshPrintedCheck();
     document.querySelector("#add-printed-total").focus();

@@ -32,4 +32,6 @@ Expected amount required despite optional reference copy. No sample numbers/expl
 
 ## Review recovery follow-up — D-039, 2026-10-19
 
+Follow-up D-040: printed-check panel links to each subtotal's checkbox section picker. Picker spans the editor width, shows page/label/raw amount, and resets affected confirmations when membership changes. Python-owned reference summaries stay in detailed sources with an explanation but are excluded from the maths summation. No silent money repair or invented lines. See parent work/15_SECTION_LINKS_AND_SUMMARY_COUNTING.md.
+
 Retain the desktop reference. Read/Check expose per-page reading, last-area preview and page line counts. Compact rows show source page and visible remove control; Add a line and Undo sit above the list. Printed-total prompt offers exact manual entry before checking. Appended rows use a short staggered fade; reduced motion disables it. Exact same-area repeat suppression does not merge equal charges across pages or areas. See parent work/14_MULTI_PAGE_AND_REVIEW_RECOVERY.md for offline verification and limits. Local only, not deployed.

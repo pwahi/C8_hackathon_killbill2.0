@@ -88,6 +88,8 @@ def build_package(result: dict) -> tuple[dict, dict[str, str]]:
     by_id: dict[str, str] = {}
     lines = []
     for index, line in enumerate(result["lines"], start=1):
+        if line.get("summaryOf"):
+            continue  # Reference copy, not another charge for the model to question.
         ref = f"L{index}"
         refs[ref] = line["id"]
         by_id[line["id"]] = ref

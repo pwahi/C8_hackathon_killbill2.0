@@ -1,6 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay } from "../extraction/page-review.mjs";
+import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, linkUnassignedSections, assignSection } from "../extraction/page-review.mjs";
+
+test("subtotal links preceding unassigned rows in the same read area without changing amounts", () => {
+  const lines = [{id:"a", page:2, role:"charge", rawAmount:"20,54", confirmed:true, extractionSourceKey:"crop"},
+    {id:"b", page:2, role:"discount", rawAmount:"-4,19", extractionSourceKey:"crop"},
+    {id:"s", page:2, role:"subtotal", group:"Monthly costs", extractionSourceKey:"crop"}];
+  const linked = linkUnassignedSections(lines);
+  assert.equal(linked[0].group, "Monthly costs");
+  assert.equal(linked[0].confirmed, false);
+  assert.equal(linked[1].rawAmount, "-4,19");
+  assert.equal(lines[0].group, undefined);
+});
+
+test("automatic linking never overwrites conflicting groups or crosses source areas/pages", () => {
+  for (const change of [{group:"Other"}, {extractionSourceKey:"other"}, {page:1}]) {
+    const lines = [{id:"a", page:2, role:"charge", extractionSourceKey:"crop", ...change},
+      {id:"s", page:2, role:"subtotal", group:"Monthly", extractionSourceKey:"crop"}];
+    assert.deepEqual(linkUnassignedSections(lines), lines);
+  }
+});
+
+test("section picker explicitly moves selected rows and clears deselected membership", () => {
+  const lines = [{id:"a", role:"charge", group:"Wrong", confirmed:true},
+    {id:"b", role:"discount", group:"Monthly", confirmed:true},
+    {id:"s", role:"subtotal", group:"Monthly"}];
+  const assigned = assignSection(lines, "s", ["a"]);
+  assert.equal(assigned[0].group, "Monthly");
+  assert.equal(assigned[0].confirmed, false);
+  assert.equal(assigned[1].group, "");
+  assert.equal(lines[0].group, "Wrong");
+});
+
+test("section picker refuses empty selection or selecting another total", () => {
+  const lines = [{id:"s", role:"subtotal", group:"Monthly"}];
+  assert.throws(() => assignSection(lines, "s", []), /Choose/);
+  assert.throws(() => assignSection(lines, "s", ["s"]), /only/);
+});
 
 test("adding page 2 preserves page 1 values, corrections and confirmation", () => {
   const first = {id: "one", page: 1, rawAmount: "33,75", confirmed: true, corrected: true};

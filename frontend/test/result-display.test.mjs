@@ -31,3 +31,9 @@ test("maths table copies code values; printed total isn't another charge", () =>
   const unknown = {...result, amounts: {...result.amounts, expected: null, difference: null}};
   assert.equal(mathRows(unknown).some(row => row.kind === "expected" || row.kind === "difference"), false);
 });
+
+test("maths table does not add a summary Python marked reference-only", () => {
+  const value = {...result, lines: [...result.lines, {description:"Section summary", role:"charge", amount:"EUR 1299.00", countedInTotal:false, summaryOf:"section_total"}]};
+  assert.equal(mathRows(value).filter(row => row.kind === "line").length, 3);
+  assert.equal(mathRows(value).some(row => row.label === "Section summary"), false);
+});

@@ -29,7 +29,9 @@ printed minus sign in raw_amount, never add one), adjustment (round-off or simil
 subtotal (printed partial total), total (final amount due/paid), other (not a bill amount, e.g. MRP,
 savings summary, points, balance, VAT shown only as information because prices include it).
 group is a short period or section name when the bill groups lines (e.g. "September"); otherwise null.
-Every subtotal needs a group.
+Every subtotal needs a group. Give every charge, discount and adjustment covered by that subtotal
+the SAME group string. Use the printed section heading; do not use different names for the heading
+and its rows. Keep printed row order. Never invent missing rows or calculate a subtotal.
 One table row = one line. raw_amount is the row's final amount column. If the row also prints other
 columns, copy them as printed into breakdown: {"quantity", "unit_price", "discount", "taxable_value",
 "taxes": [tax amounts such as CGST, SGST, IGST]}; use null for columns that are not printed; never copy

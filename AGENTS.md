@@ -1,5 +1,7 @@
 # Instructions for coding agents (Codex and others)
 
+Latest D-040 / PRD v2.5: section membership suggestions and subtotal checkbox picker; Python counts unique matching cross-page summary/detail once, retaining references. Incomplete details still needs_recheck. 114 Python / 63 browser-module tests pass; offline browser check only, not fresh Groq accuracy. Restart local Python server before owner retest. See parent work/15_SECTION_LINKS_AND_SUMMARY_COUNTING.md. No push/deployment.
+
 Latest checkpoint D-039 / PRD v2.4: multi-page append, visible Groq area recovery, manual lines/printed-total prompt, exact same-area repeat suppression, remove/Undo and row fade implemented locally. 107 Python / 58 browser-module tests pass; offline flow verification, not new model accuracy. Owner review/deployment pending. See parent work/14_MULTI_PAGE_AND_REVIEW_RECOVERY.md.
 
 Start every session with `docs/HANDOFF.md` §2 ("Session-start routine"): check git status, run both test suites, read `docs/PRD.md` (v2.0: status, §4 requirement status, §11 stages, §12 next additions) and the newest entries of `docs/DECISIONS.md`, then summarize where things stand before doing anything else.

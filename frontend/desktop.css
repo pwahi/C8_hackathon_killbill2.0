@@ -99,6 +99,9 @@ body[data-ui-step='0'] #status:not(.busy):not(.failure) { display: none; }
 .line-editor[open] > summary { background: #fff8d6; border-bottom: 1px solid var(--line); }
 .candidate-top, .candidate-fields, .line-details { margin: 14px; }
 .candidate-card .candidate-fields { grid-template-columns: 1fr 1fr; }
+.candidate-fields fieldset { grid-column: 1 / -1; min-width: 0; border: 1px solid var(--line, #deded7); border-radius: 6px; padding: 12px; }
+.candidate-fields fieldset .confirm-control { display: flex; align-items: start; gap: 8px; margin-bottom: 10px; }
+#section-links { display: flex; flex-direction: column; align-items: start; gap: 4px; margin-top: 8px; }
 .candidate-card .attention { border-radius: 0; }
 .line-details { margin-top: 8px; }
 .confirm-control { font-size: 12px; }

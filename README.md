@@ -1,5 +1,7 @@
 # BillShield application
 
+**D-040 / PRD v2.5:** section links are suggested within one read area; use **Choose rows for…** to explicitly link a subtotal's breakdown. Python keeps uniquely matching cross-page summaries for reference, not a second charge. Missing detail still requires re-check. 114 Python / 63 browser-module tests pass; offline browser verified, live accuracy pending. Restart the existing Python server (Ctrl+C, then `.venv\Scripts\python.exe app.py`) and Ctrl+F5 to retest; unsaved lines are not restored after reload. No push/deployment.
+
 **Latest D-039 / PRD v2.4:** each page can append another approved Groq reading; visible area controls allow retry/reselection. Exact same-area repeats keep original corrections. Add a line, printed-total prompt, remove/Undo and subtle row fade are implemented locally. 107 Python / 58 browser-module tests pass. Refresh the existing local app with Ctrl+F5; owner review remains pending, no push/deployment. Offline flow checks are not live extraction-accuracy evidence.
 
 **Latest UI checkpoint — D-038, PRD v2.3:** local working UI now follows the owner's desktop mock-up: **Your bill → Read → Check the lines → What we found → Your message**, with Finish/sent reporting beside the draft. Expected amount required; local reading and approved-crop Groq path retained. 107 Python / 47 browser-module tests pass. No push or deployment; owner review pending. Design details: [docs/DESIGN.md](docs/DESIGN.md). Earlier status notes below are historical.

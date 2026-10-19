@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-040 — Repair section membership and count summary/detail once
+
+Date: 2026-10-19. Status: Owner-requested fix implemented and verified locally; owner acceptance/deployment pending.
+
+Owner's multi-page review exposed orphan subtotals and summary/detail double counting. Extractor now requests the same section on subtotal and members. Browser links only unassigned preceding rows within one read area without conflicting groups; explicit subtotal checkbox picker handles ambiguous/wrong memberships and resets affected confirmation. No browser money comparison. Python counts a unique cross-page summary only once when its label matches a unique subtotal's section, parsed amounts agree and detail members exist; reference remains visible. Conflicts/ambiguous cases require review. Incomplete breakdown still triggers re-check, never invented rows or false checks-passed. Model explanation excludes reference summaries; result/math expose counted versus reference rows. Orphan error gives picker instructions.
+
+Extends D-039, not its same-area repeat rule. **Affected:** review/groq_vision/gap_llm, frontend page-review/review-app/ui-flow/result-display/desktop.css and tests; PRD v2.5, README/AGENTS/HANDOFF/DESIGN; parent work/15 and PROJECT. **Verification:** 114 Python / 63 browser-module tests, offline manual-row section-picker browser replay using real Python. No fresh Groq accuracy, owner acceptance, database writes, push or deployment. [Detailed work](../../work/15_SECTION_LINKS_AND_SUMMARY_COUNTING.md).
+
 ## D-039 — Multi-page append, selection recovery and editable review
 
 Date: 2026-10-19. Status: Owner-requested changes implemented and locally verified; owner acceptance and deployment pending.

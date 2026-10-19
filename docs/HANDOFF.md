@@ -1,5 +1,7 @@
 # BillShield — handoff for the next coding agent (Codex)
 
+Latest D-040 / PRD v2.5 supersedes the status below: section linking and subtotal picker, Python-owned summary/detail counting implemented locally; 114 Python / 63 browser-module tests pass. Restart Python server for owner retest. Parent work/15_SECTION_LINKS_AND_SUMMARY_COUNTING.md records safe matching limits, offline browser proof and no new live extraction test. Owner review pending; no push/deployment.
+
 Latest checkpoint: D-039 / PRD v2.4, multi-page/recovery controls local; 107 Python / 58 browser-module tests pass. Owner review next, no push/deployment. See the dated follow-up at the end; earlier status notes are historical where superseded.
 
 Written 2026-10-19 by the previous coding agent. Audience: an AI coding agent continuing this repository for the project owner. Read this file fully at the start of your first session; afterwards follow the session-start routine in §2 every time.

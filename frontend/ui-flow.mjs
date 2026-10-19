@@ -57,7 +57,7 @@ export function createFlow() {
   $("#candidate-list").before(make("div", "line-table-heading", "<span>LINE</span><span>WHAT IS IT</span><span>AMOUNT</span>"));
   const lineActions = make("div", "line-actions", '<button id="add-line" class="secondary" type="button">+ Add a line</button><button id="undo-remove" class="text-button" type="button" hidden>Undo remove</button>');
   $(".line-table-heading").before(lineActions);
-  const totalPrompt = make("section", "printed-check-prompt", '<p id="printed-check-message"></p><button id="add-printed-total" class="secondary" type="button">Add printed total</button>');
+  const totalPrompt = make("section", "printed-check-prompt", '<p id="printed-check-message"></p><button id="add-printed-total" class="secondary" type="button">Add printed total</button><div id="section-links"></div>');
   $("#payload-panel").prepend(totalPrompt);
 
   // Real API results only: sample values from the mock-up are never copied.

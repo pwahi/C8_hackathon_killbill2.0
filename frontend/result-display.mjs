@@ -8,7 +8,7 @@ export function resultHeadline(result) {
 }
 
 export function mathRows(result) {
-  const rows = result.lines.filter(line => ["charge", "discount", "adjustment"].includes(line.role))
+  const rows = result.lines.filter(line => ["charge", "discount", "adjustment"].includes(line.role) && line.countedInTotal !== false)
     .map(line => ({ label: line.description, value: line.amount, kind: "line" }));
   rows.push({ label: "Sum of the confirmed lines", value: result.amounts.calculatedTotal, kind: "total" });
   if (result.amounts.printedTotal) rows.push({ label: "Total printed on the bill", value: result.amounts.printedTotal, kind: "printed" });

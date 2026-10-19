@@ -166,6 +166,38 @@ def _check_label(text: str, what: str) -> str:
     return cleaned
 
 
+def _section_key(text: str | None) -> str:
+    return re.sub(r"[^\w]", "", (text or "").casefold())
+
+
+def summary_links(review: ConfirmedReview, amounts: dict[str, int]) -> dict[str, str]:
+    """Only an unambiguous matching section label AND printed amount link a summary.
+
+    A repeated amount alone is not evidence of duplication. Detail sums are checked
+    later; missing detail rows must still fail reconciliation.
+    """
+    links = {}
+    for subtotal in (line for line in review.lines if line.role == "subtotal" and line.group):
+        key = _section_key(subtotal.group)
+        peers = [line for line in review.lines if line.role == "subtotal" and _section_key(line.group) == key]
+        summaries = [line for line in review.lines if line.role == "charge"
+                     and line.source.page != subtotal.source.page
+                     and _section_key(line.description) == key and not line.breakdown
+                     and (not line.group or _section_key(line.group) == key)]
+        if len(peers) != 1 or len(summaries) != 1:
+            continue
+        summary = summaries[0]
+        details = [line for line in review.lines if line.id != summary.id
+                   and line.role in SUMMED_ROLES and _section_key(line.group) == key]
+        if not details:
+            continue
+        if amounts[summary.id] != amounts[subtotal.id]:
+            raise ReviewError(f"The summary and subtotal for {subtotal.group!r} show different amounts. "
+                              "Check both against the bill before continuing.")
+        links[summary.id] = subtotal.id
+    return links
+
+
 def build_case(review: ConfirmedReview) -> tuple[BillCase, dict[str, int]]:
     """Validate roles and structure, then build a calculation case. Returns amounts by line ID."""
 
@@ -197,7 +229,8 @@ def build_case(review: ConfirmedReview) -> tuple[BillCase, dict[str, int]]:
             groups.setdefault(key, label)
         line_groups[line.id] = key
 
-    summed = [line for line in review.lines if line.role in SUMMED_ROLES]
+    summaries = summary_links(review, amounts)
+    summed = [line for line in review.lines if line.role in SUMMED_ROLES and line.id not in summaries]
     totals = [line for line in review.lines if line.role == "total"]
     subtotals = [line for line in review.lines if line.role == "subtotal"]
     if not summed:
@@ -221,7 +254,10 @@ def build_case(review: ConfirmedReview) -> tuple[BillCase, dict[str, int]]:
         members = tuple(line.id for line in summed if line_groups[line.id] == key)
         printed = printed_by_group.get(key)
         if not members:
-            raise ReviewError(f"group {label!r} has a subtotal but no charge or discount lines")
+            if printed is None:
+                continue  # A reference summary's section is not another calculation.
+            raise ReviewError(f"Choose which rows belong to section {label!r}: open its Printed subtotal row, "
+                              "tick the charges and discounts it covers, then use those rows for this section.")
         reconciliations.append(
             Reconciliation(
                 id=f"group-{index}",
@@ -336,7 +372,7 @@ def _choose_template(
     review: ConfirmedReview, case: BillCase, failed_rows: list[RowCheck]
 ) -> tuple[DraftSpec, str | None, tuple[str, ...]]:
     outcome = calculate(case)
-    questioned = tuple(line.id for line in review.lines if line.questioned)
+    questioned = tuple(line.id for line in review.lines if line.questioned and line.id in case.total_line_ids)
     wanted = review.message_type
     has_difference = outcome.difference_minor not in (None, 0)
     missing: list[str] = []
@@ -506,6 +542,7 @@ def _match_list(matches, money, lines) -> list[dict]:
 
 
 def _common(review, case, outcome, amounts, rows, matches, ambiguous, money, lines) -> dict:
+    summaries = summary_links(review, amounts)
     precision_counts = {name: 0 for name in ("exact", "table", "page")}
     for line in review.lines:
         precision_counts[line.source.precision] += 1
@@ -550,6 +587,8 @@ def _common(review, case, outcome, amounts, rows, matches, ambiguous, money, lin
             {
                 "id": line.id,
                 "role": line.role,
+                "summaryOf": summaries.get(line.id),
+                "countedInTotal": line.id in case.total_line_ids,
                 "group": line.group,
                 "description": " ".join(line.description.split()),
                 "amount": money(amounts[line.id]),
