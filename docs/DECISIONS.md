@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-053 — Read chapter per owner sketch: Prev/Next viewer, page field, one button, notification box
+
+Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.
+
+**Decision (owner sketch "Page 2"):** the page viewer header is only "‹ Previous · Page n of N · Next ›" (per-page line-count buttons removed; Zoom kept only on Check the lines). The right panel is "Read your bill" → a **Select pages** field where the person types "1-2", "1, 3" or "2" (shown only for multi-page bills; invalid input is refused with a plain message, never guessed) → one button ("Read all 2 pages" / "Read 1 page" / "Read my bill") → "Other ways to read". Reading messages appear in a notification box under the panel instead of at the top of the page. On Check the lines, the already-accepted grouping confirmations are hidden when Python verified every section. Supersedes D-046's page checkboxes.
+
+**Verification:** 218 Python / 96 browser-module tests (new: page-list parsing and button text); headless Edge screenshots of the Read chapter with one- and two-page bills, the page field and Next.
+
 ## D-052 — "CHAPTER n/5" label; previous bills in a two-pane window
 
 Date: 2026-10-19. Status: Implemented and tested locally; push pending owner approval.

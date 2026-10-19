@@ -10,7 +10,7 @@ import { resultHeadline, mathRows } from "./result-display.mjs";
 import { lineTreeRows, STATUS_TEXT } from "./line-tree.mjs";
 import { locateAmounts } from "./extraction/locate.mjs";
 import { applyTone } from "./tone.mjs";
-import { pagesToRead, readButtonText } from "./read-flow.mjs";
+import { pagesToRead, readButtonText, parsePageList, formatPageList } from "./read-flow.mjs";
 import { createSavedChecks } from "./saved-checks.mjs";
 import { appendPageCandidates, pageLineCounts, manualCandidateFields, printedCheckPresence, removeCandidateById, rowRevealDelay, assignSection, suggestSection, sectionMembers, sectionReviewKey, sectionAccepted, acceptVerifiedSections } from "./extraction/page-review.mjs";
 
@@ -84,7 +84,7 @@ const groqSend = document.querySelector("#groq-send");
 const groqRedacted = document.querySelector("#groq-redacted");
 
 function emptyState() {
-  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), skippedPages: new Set(), removedLines: [], tree: null, toggles: new Map(), zoom: false };
+  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), skippedPages: new Set(), pageSelectError: null, removedLines: [], tree: null, toggles: new Map(), zoom: false };
 }
 
 // One shape for every candidate, whatever produced it. Evidence precision is never upgraded silently.
@@ -1254,9 +1254,6 @@ function refreshPageControls() {
   }
   progress.replaceChildren();
   const pages = [...reviewState.pageElements.keys()];
-  const hint = document.createElement("p");
-  hint.textContent = pages.length > 1 ? `Page ${reviewState.activePage} of ${pages.length}` : "Your page";
-  progress.append(hint);
   flow.linesChanged(reviewState.candidates.length);
   elements.candidateCount.textContent = `${reviewState.candidates.length} lines`;
   document.querySelectorAll(".retry-area").forEach(button => {
@@ -1266,32 +1263,19 @@ function refreshPageControls() {
   const wholeButton = document.querySelector("#read-whole-bill");
   const chosen = pagesToRead(pages, reviewState.skippedPages);
   if (wholeButton) {
-    wholeButton.disabled = groqRequestRunning || !chosen.length;
+    wholeButton.disabled = groqRequestRunning || !chosen.length || Boolean(reviewState.pageSelectError);
     wholeButton.textContent = readButtonText(chosen.length, pages.length);
   }
+  // "Select pages" (owner sketch): a short field such as "1-2"; only these pages go to the AI reader.
   const choice = document.querySelector("#page-choice");
   if (choice) {
     choice.hidden = pages.length < 2;
-    const boxes = choice.querySelector("#page-choice-boxes");
-    if (boxes.dataset.count !== String(pages.length)) {
-      boxes.dataset.count = String(pages.length);
-      boxes.replaceChildren(...[...pages].sort((a, b) => a - b).map(page => {
-        const label = document.createElement("label");
-        const box = document.createElement("input");
-        box.type = "checkbox";
-        box.dataset.page = String(page);
-        box.addEventListener("change", () => {
-          if (box.checked) reviewState.skippedPages.delete(page); else reviewState.skippedPages.add(page);
-          refreshPageControls();
-        });
-        label.append(box, document.createTextNode(` Page ${page}`));
-        return label;
-      }));
-    }
-    boxes.querySelectorAll("input").forEach(box => {
-      box.checked = !reviewState.skippedPages.has(Number(box.dataset.page));
-      box.disabled = groqRequestRunning;
-    });
+    const input = choice.querySelector("#page-select");
+    if (document.activeElement !== input && !reviewState.pageSelectError) input.value = formatPageList(chosen);
+    input.disabled = groqRequestRunning;
+    input.classList.toggle("invalid", Boolean(reviewState.pageSelectError));
+    choice.querySelector("#page-select-hint").textContent = reviewState.pageSelectError
+      || `This bill has ${pages.length} pages. Type for example 1-${pages.length} or 1.`;
   }
   for (const child of elements.pages.children) {
     if (child.dataset.page) child.hidden = Number(child.dataset.page) !== reviewState.activePage;
@@ -1319,30 +1303,16 @@ function refreshPageControls() {
     return button;
   };
   if (pages.length > 1) progress.append(navButton("‹ Previous", -1, "Previous page"));
-  for (const {page, count} of pageLineCounts(pages, reviewState.candidates)) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "secondary";
-    button.textContent = `Page ${page} · ${count} line${count === 1 ? "" : "s"}`;
-    button.setAttribute("aria-pressed", String(page === reviewState.activePage));
-    button.disabled = groqRequestRunning;
-    button.addEventListener("click", () => {
-      if (groqRequestRunning) { setStatus("Wait for the current reading to finish."); return; }
-      // Only switch the visible page; never leave the chapter (Check the lines would hide all lines).
-      reviewState.activePage = page;
-      refreshPageControls();
-      if (document.body.dataset.uiStep === "1") flow.reading("select", page);
-      const shell = reviewState.pageElements.get(page);
-      shell?.scrollIntoView({behavior: "instant", block: "nearest"});
-    });
-    progress.append(button);
-  }
+  const where = document.createElement("span");
+  where.className = "page-where";
+  where.textContent = pages.length > 1 ? `Page ${reviewState.activePage} of ${pages.length}` : "Page 1";
+  progress.append(where);
   if (pages.length > 1) progress.append(navButton("Next ›", 1, "Next page"));
   if (pages.length) {
     const zoom = document.createElement("button");
     zoom.type = "button";
     zoom.className = "text-button page-zoom";
-    zoom.textContent = reviewState.zoom ? "Fit page" : "Zoom in";
+    zoom.textContent = reviewState.zoom ? "Fit page" : "Zoom";
     zoom.addEventListener("click", () => { reviewState.zoom = !reviewState.zoom; refreshPageControls(); });
     progress.append(zoom);
   }
@@ -1431,7 +1401,9 @@ function refreshPrintedCheck() {
     section.append(title, context, details, note, yes, change);
     return section;
   }));
-  document.querySelector(".printed-check-prompt").hidden = document.querySelector("#printed-check-message").hidden && !document.querySelector("#section-links").children.length;
+  // Python verified every section: the grouping confirmations are already accepted, so they are not shown again.
+  document.querySelector("#section-links").hidden = verified;
+  document.querySelector(".printed-check-prompt").hidden = document.querySelector("#printed-check-message").hidden && (verified || !document.querySelector("#section-links").children.length);
 }
 
 function openManualLine(role = "charge") {
@@ -1979,7 +1951,7 @@ document.querySelector("#open-vision").addEventListener("click", async () => {
     } else { await renderImages(files); }
     showCandidates([], kind === "pdf" ? "pdf_text" : "local_ocr");
     flow.reading("select", 1);
-    setStatus("Your bill is open. Press Read the whole bill. Untick any page you don't want to send.");
+    setStatus("Your bill is open. Choose the pages with prices and press Read.");
   } catch (error) { resetReview({ keepFiles: true }); setStatus(error.message, "failure"); }
   finally { button.disabled = false; }
 });
@@ -2024,5 +1996,12 @@ elements.accessCode.addEventListener("input", () => {
   try { sessionStorage.setItem("billshield-access", elements.accessCode.value.trim()); } catch { /* storage unavailable */ }
 });
 elements.accessCode.addEventListener("change", () => savedChecks.load());
+document.querySelector("#page-select").addEventListener("input", (event) => {
+  const pages = [...reviewState.pageElements.keys()];
+  const { pages: chosen, error } = parsePageList(event.target.value, pages);
+  reviewState.pageSelectError = error;
+  if (!error) reviewState.skippedPages = new Set(pages.filter(page => !chosen.includes(page)));
+  refreshPageControls();
+});
 showAccessBoxIfNeeded().then(() => savedChecks.load());
 window.addEventListener("beforeunload", clearObjectUrls);

@@ -26,7 +26,38 @@ export function pagesToRead(pages, skipped = new Set()) {
 }
 
 export function readButtonText(chosen, total) {
-  if (total <= 1 || chosen === total) return "Read the whole bill";
+  if (total <= 1) return "Read my bill";
   if (chosen === 0) return "Choose at least one page";
-  return `Read ${chosen} of ${total} pages`;
+  return chosen === total ? `Read all ${total} pages` : `Read ${chosen === 1 ? "1 page" : `${chosen} pages`}`;
+}
+
+// "Select pages" field (owner sketch 2026-10-19): the person types "1-2", "1, 3" or "2".
+export function formatPageList(pages) {
+  const sorted = [...new Set(pages)].sort((a, b) => a - b);
+  const parts = [];
+  for (let i = 0; i < sorted.length; i += 1) {
+    let end = i;
+    while (sorted[end + 1] === sorted[end] + 1) end += 1;
+    parts.push(end > i ? `${sorted[i]}-${sorted[end]}` : String(sorted[i]));
+    i = end;
+  }
+  return parts.join(", ");
+}
+
+export function parsePageList(text, available) {
+  const allowed = new Set(available);
+  const pages = new Set();
+  const tokens = String(text || "").split(/[,;\s]+/).filter(Boolean);
+  if (!tokens.length) return { pages: [], error: "Type the pages to read, for example 1-2." };
+  for (const token of tokens) {
+    const match = /^(\d+)(?:[-–](\d+))?$/.exec(token);
+    if (!match) return { pages: [], error: `"${token}" is not a page number. Use for example 1-2 or 1, 3.` };
+    const from = Number(match[1]), to = Number(match[2] || match[1]);
+    if (to < from) return { pages: [], error: `Write the range low to high, for example ${to}-${from}.` };
+    for (let page = from; page <= to; page += 1) {
+      if (!allowed.has(page)) return { pages: [], error: `This bill has page${available.length === 1 ? "" : "s"} ${formatPageList(available)} only.` };
+      pages.add(page);
+    }
+  }
+  return { pages: [...pages].sort((a, b) => a - b), error: null };
 }

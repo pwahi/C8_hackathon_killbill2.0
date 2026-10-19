@@ -32,8 +32,21 @@ test("only the ticked pages are read, in page order", () => {
 });
 
 test("the read button says how many pages will be sent", () => {
-  assert.equal(readButtonText(3, 3), "Read the whole bill");
-  assert.equal(readButtonText(1, 1), "Read the whole bill");
-  assert.equal(readButtonText(1, 3), "Read 1 of 3 pages");
+  assert.equal(readButtonText(3, 3), "Read all 3 pages");
+  assert.equal(readButtonText(1, 1), "Read my bill");
+  assert.equal(readButtonText(1, 3), "Read 1 page");
+  assert.equal(readButtonText(2, 3), "Read 2 pages");
   assert.equal(readButtonText(0, 3), "Choose at least one page");
+});
+
+import { parsePageList, formatPageList } from "../read-flow.mjs";
+
+test("pages can be typed as ranges or lists; anything unclear is refused, never guessed", () => {
+  assert.deepEqual(parsePageList("1-2", [1, 2, 3]), { pages: [1, 2], error: null });
+  assert.deepEqual(parsePageList(" 3, 1 ", [1, 2, 3]).pages, [1, 3]);
+  assert.match(parsePageList("4", [1, 2, 3]).error, /pages 1-3 only/);
+  assert.match(parsePageList("a", [1, 2]).error, /not a page number/);
+  assert.match(parsePageList("", [1, 2]).error, /Type the pages/);
+  assert.match(parsePageList("3-1", [1, 2, 3]).error, /low to high/);
+  assert.equal(formatPageList([5, 1, 2, 3]), "1-3, 5");
 });

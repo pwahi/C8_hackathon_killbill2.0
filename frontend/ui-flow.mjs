@@ -5,7 +5,7 @@ export const STEPS = ["Your bill", "Read", "Check the lines", "What we found", "
 // where you are and what to do now, in one sentence.
 export const STEP_GUIDANCE = [
   "Upload your bill and tell us what you expected to pay.",
-  "Press Read the whole bill. The AI reads every price; untick pages you don't want to send.",
+  "Choose the pages with prices, then press Read. The AI reads every price.",
   "Compare these lines with your bill. ✓ means Python checked the sums. Click a line to fix it, then press Looks right — check it.",
   "Here is what Python found. Next: write the message to the company.",
   "Copy this message and send it to the company yourself. Then come back and press I sent it.",
@@ -54,17 +54,18 @@ export function createFlow() {
   $("#how-back").addEventListener("click", () => go(INTRO));
   $("#home-link").addEventListener("click", (event) => { event.preventDefault(); go(INTRO, true); });
 
-  const readAside = make("aside", "panel read-instructions", '<p class="eyebrow">READ YOUR BILL</p><h2>Let the AI read your bill</h2><p class="read-lead">It finds every price and groups them the way your bill does. Python then checks every sum. About 20 seconds per page.</p>');
+  // Owner sketch 2026-10-19: title, Select pages, one Read button, Other ways to read, then a notification box.
+  const readAside = make("aside", "panel read-instructions", '<h2>Read your bill</h2>');
   // Owner decision 2026-10-19: reading every page is the main route; drawing an area stays the fallback.
   const whole = make("button", "primary", "Read the whole bill");
   whole.id = "read-whole-bill";
-  const wholeHint = make("p", "hint", "The pages you tick go to our AI reader (<span class=\"vision-name\">Groq</span>). Your bill image is never saved.");
+  const wholeHint = make("p", "hint", "Only these pages go to the AI. Your bill image is never saved.");
   // Other ways to read (draw an area, read on this device) stay available but out of the way; opening them shows
   // the area tools on the page and the step-by-step guide for drawing.
   const otherWays = make("details", "other-ways", '<summary>Other ways to read</summary><p>Select an area: draw a box around the prices on a page and check the picture before it is sent.</p><ol id="reading-steps" class="reading-steps" aria-label="Reading steps"></ol><p id="reading-guidance" role="status" aria-live="polite"></p><details class="reading-privacy"><summary>What leaves my device?</summary><p>Only the area you preview and approve passes through our server to <span class="vision-name">Groq</span>, our AI reader. Exclude names and personal details. The app does not save this as an image.</p></details>');
   otherWays.addEventListener("toggle", () => document.body.classList.toggle("area-mode", otherWays.open));
   // Filled by review-app.mjs when the bill has more than one page: untick a page to keep it on this device.
-  const pageChoice = make("fieldset", "page-choice", "<legend>Pages to send</legend><div id=\"page-choice-boxes\"></div>");
+  const pageChoice = make("div", "page-choice", '<label for="page-select">Select pages</label><input id="page-select" autocomplete="off" spellcheck="false" aria-describedby="page-select-hint"><p id="page-select-hint" class="hint"></p>');
   pageChoice.id = "page-choice";
   pageChoice.hidden = true;
   readAside.append(pageChoice);
@@ -79,7 +80,9 @@ export function createFlow() {
   toCheck.addEventListener("click", () => go(2));
   otherWays.append(locally);
   readAside.append(pageChoice, whole, toCheck, wholeHint, otherWays);
-  $("#review").append(readAside);
+  const readColumn = make("div", "read-column");
+  readColumn.append(readAside);
+  $("#review").append(readColumn);
   let readingStage = "choose", readingPage = 1, readingCount = 0;
   function paintReading() {
     $("#reading-steps").replaceChildren(...readingProgress(readingStage).map(({label, state}, index) => {
@@ -158,6 +161,7 @@ export function createFlow() {
   });
   function paint() {
     document.body.dataset.uiStep = current === INTRO ? "intro" : current === HOW ? "how" : String(current);
+    if (current === 1) readColumn.append(status); else if ($("main").firstElementChild !== status) $("main").prepend(status);
     heading.hidden = current <= 0;
     if (current < 0) {
       navButtons.forEach((button, index) => { button.disabled = !canVisit(index, state); button.removeAttribute("aria-current"); });

@@ -453,3 +453,24 @@ dialog.history-dialog { width: min(1100px, calc(100vw - 32px)); height: min(84vh
 .wf-dot.ai { background: #E5512A; } .wf-dot.code { background: #202124; }
 .how-page { padding: 32px 0; }
 @media (max-width: 700px) { .how-details { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Read chapter per owner sketch (2026-10-19): page with Prev/Next, then a small Read panel and a notification box ---- */
+.page-progress { display: flex !important; align-items: center; justify-content: center; gap: 18px; flex-wrap: nowrap; }
+.page-progress .page-where { font-size: 14px; font-weight: 600; color: #202124; min-width: 96px; text-align: center; }
+.page-progress .page-step { font-size: 14px; }
+.page-progress .page-zoom { position: absolute; right: 24px; font-size: 13px; }
+.document-panel { position: relative; }
+body[data-ui-step='1'] .page-zoom { display: none; }
+.read-column { display: grid; gap: 14px; align-content: start; }
+body[data-ui-step='2'] .read-column { display: none; }
+.read-instructions { gap: 14px; }
+.page-choice { display: grid; gap: 6px; border: 0; padding: 0; }
+.page-choice label { font-size: 14px; font-weight: 600; }
+#page-select { font: inherit; font-size: 18px; padding: 10px 12px; border: 1px solid #C9C7C0; border-radius: 6px; width: 100%; box-sizing: border-box; }
+#page-select.invalid { border-color: #C8102E; }
+#page-select-hint { margin: 0; font-size: 13px; }
+#page-select.invalid + #page-select-hint { color: #C8102E; }
+/* Notification box: reading progress and results, right under the Read panel. */
+.read-column #status { margin: 0; padding: 14px 16px; border-radius: 8px; background: #fff; border: 1px solid #E3E1DA; font-size: 14px; line-height: 1.5; }
+.read-column #status.busy { border-color: var(--accent); background: #FFFBEA; }
+.read-column #status.failure { border-color: #C8102E; background: #FDF1F3; }
