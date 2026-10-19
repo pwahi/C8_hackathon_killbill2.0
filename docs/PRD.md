@@ -2,10 +2,71 @@
 
 Authoritative PRD: maintain this file alongside [DECISIONS.md](DECISIONS.md). Parent-workspace evidence remains outside the future app repository.
 
-Version 1.11 · 2026-10-19 · Owner: Prateek Wahi
-Status: D-028: rows may carry printed columns that Python checks (quantity × price − discount = taxable value; + taxes = row amount); only row amounts are summed; round-off is an `adjustment`. When printed figures do not add up the review stops at `needs_recheck` (no verdict, draft or AI) with pointed suspects until the person fixes them or states they re-checked. Flow: Groq reads → person confirms → Python checks → (A) re-check, (B) no issue, (C) Python exact matches + validated GPT-OSS explanation → draft. 80 Python/36 browser tests. Earlier v1.10 status: D-027: when Python finds a difference, it first searches for confirmed groups/lines that exactly match the expected amount or the difference, then sends confirmed labels, amounts and Python's results (no image) to Groq gpt-oss-20b for a suggested cause. Answers are rejected if they cite unknown lines, contain amounts, accuse the provider or judge prices; valid suggestions may pre-select questioned lines and add one digit-free question to the draft. 71 Python/34 browser tests; limited live calls; owner retest pending. Earlier v1.9 status: D-026: Groq is the recommended reader for photos (local OCR kept as fallback; PDFs read locally); Groq pre-fills label, amount, suggested role and group; an explicit Confirm all ready lines action replaces per-line ticking. 59 Python and 34 browser tests pass; live Groq role quality and owner retest pending. Earlier v1.8 status: Stages 0/1 implemented; Stage 2 local OCR and optional Groq browser harness implemented with limited live evidence. D-024 table/page confirmation, explicit line roles, and the local confirmed → Python → editable draft flow are implemented (D-025). Last observed tests: 58 Python and 28 browser tests pass; an agent-scripted browser replay completed all four masked cases. Owner four-case review is pending. A limited localhost vision bridge exists; Stage 3 API/persistence, Supabase, deployment and final UI are not complete. Stage 2 remains open.
+Version 1.12 · 2026-10-19 · Owner: Prateek Wahi
+Status: Stages 0–2 accepted; FastAPI backend live on Vercel with access code; Supabase saving (smaller version) live and owner-verified. Real-user tests scheduled for 2026-10-20. Next development additions N-1 (UI), N-2 (server OCR evaluation) and N-3 (chat + database) are planned, not implemented (D-034). Older status lines are kept in the history sections below.
 
-## Latest confirmed technical direction — client-side extraction
+## Current state — 2026-10-19 (implemented and verified)
+
+This section summarizes D-015 to D-033. Details, evidence and superseded choices stay in [DECISIONS.md](DECISIONS.md) and in the history sections further down.
+
+**Flow (what a user does):** choose a bill (photo or PDF) → read it (photos: Groq `qwen/qwen3.8-27b` on a table area the person draws, previews and confirms as free of personal details; PDFs: local PDF.js text; local Tesseract OCR remains as fallback) → Groq pre-fills label, amount, suggested role and row columns → the person checks against the visible page/table and clicks **Confirm all ready lines** → **Calculate and explain** → Python checks → one of three outcomes:
+
+| Outcome | Condition | What happens |
+|---|---|---|
+| A — re-check | rows, subtotals or the printed total do not add up | No verdict, no message, no AI. Suspect lines are marked (e.g. a discount counted twice). The person fixes them, or states they re-checked; only then a cautious `verified_mismatch` message (D-028). |
+| B — no issue | arithmetic fine and matches (or no) expectation | `checks_passed` summary; nothing sent to an AI. |
+| C — difference | arithmetic fine, differs from the expected amount | Python first finds groups/lines that exactly equal the expected amount or the difference; then Groq `openai/gpt-oss-20b` receives only confirmed labels, amounts and Python's results and suggests likely causes. Answers citing unknown lines, containing numbers, accusing the provider or judging prices are rejected (D-027). Verdict stays `unexplained`. |
+
+The editable message always uses Python's numbers and confirmed line IDs; an accepted AI suggestion may pre-select the lines asked about and add one number-free question. **Copy** and **I sent it** (with the pasted sent text) are recorded; the server counts changed words.
+
+**Core rules in force:** code owns every amount, sum and comparison; amounts are parsed strictly (explicit decimal mark; only unambiguous two-digit decimal marks are converted; a leading 2 is never treated as ₹); explicit roles charge / discount / adjustment / subtotal / total with only charges, discounts and adjustments summed; row columns checked (quantity × price − discount = taxable value; + taxes = row amount); evidence precision exact / table / page, never invented boxes (D-024–D-028).
+
+**Architecture:** browser page (HTML/JS) + FastAPI `app.py` (`/api/health`, `/api/groq-extract`, `/api/analyze`, `/api/explain`, `/api/session`, `/api/messages/{id}/events`) using the Python modules in `backend/billshield_core` (D-030). Hosted on Vercel at https://c8-hackathon-killbill2-0.vercel.app, code at https://github.com/pwahi/C8_hackathon_killbill2.0 (public; owner has permission for the names in these documents). Reading tools served from `frontend/vendor` (D-031, D-032). An access code (`BILLSHIELD_ACCESS_CODE`) is required for every operation that can use the server's Groq key.
+
+**Data:** Supabase with anonymous identity per browser; tables bills, line_items, expectations, findings, messages, message_events; row level security limits every row to its owner; append-only; no bill images or OCR text stored; e-mail addresses and long numbers blanked in stored sent texts (D-033). Deferred: finding_lines, message_lines (line IDs kept as arrays), chat_turns, deletion.
+
+**Verification so far:** 106 Python tests and 40 browser tests pass (2026-10-19); agent-scripted browser replays on the four masked cases; owner hands-on acceptance of Stage 2 and of the live site, including saving (owner-reported). Not yet: any test by a real user other than the owner, any observed send.
+
+**Known limits:** four reference cases only; Groq output varies between runs; local OCR remains weak on photos; links between devices are not possible (anonymous identity is per browser); the page is still the Stage 2 review layout, not the owner's step-by-step UI design.
+
+## Next development additions — planned for 2026-10-20 (not implemented)
+
+Owner direction 2026-10-19 (D-034), in priority order. Each item ends with an owner checkpoint. Real-user tests (A-006/A-007) must keep enough time before the 2026-10-20 22:17 deadline; if time runs short, cut scope inside these items rather than skipping the tests.
+
+### N-1 — User interface (priority 1)
+
+**Goal:** turn the working review page into the owner's sequential design (paper UI sequence, evidence E-109 move 2): Provide → Confirm → Understand → Draft → Finish, so a stranger can complete it without help.
+
+**Scope:** step-by-step screens with one clear primary action per step; bill view beside the confirmation list; plain-language result first (what was checked, what is unknown), details on demand; message step with Copy and I sent it; clear privacy notes at the point where data leaves the device; mobile-friendly layout. Reuse the existing API and modules; no change to numeric rules.
+
+**Acceptance:** all four reference cases complete through the new screens with the same verdicts and drafts as today; existing browser/API tests pass; the owner can walk a first-time user through the flow without explaining terms such as "role" or "precision" (wording reviewed by the owner).
+
+**Open choices:** keep plain HTML/JS (fastest, no build step) or adopt a framework (deferred unless needed); exact screen order from the owner's drawing.
+
+### N-2 — Server-side reading with LightOnOCR-3 (evaluation first)
+
+**Goal:** improve reading of photos and scans, possibly with real position boxes, by running [LightOnOCR-3-0.8B](https://huggingface.co/lightonai/LightOnOCR-3-0.8B) on a server.
+
+**Facts checked 2026-10-19 (model card):** Apache-2.0; about 0.9B parameters (Qwen3.5 vision-language architecture); outputs the page as Markdown and, with the `grounding` prompt, typed blocks (text, table, …) with boxes in 0–1000 page coordinates; runs with Transformers, vLLM or SGLang (GPU examples) and has GGUF quantizations; English language tag; the card states it "isn't deployed by any Inference Provider". It is an OCR model: it does not decide charge/discount roles or row semantics.
+
+**Implications:** cannot run inside a Vercel function (no GPU; size/time limits) — needs a separate GPU host (for example a Hugging Face Inference Endpoint, Modal or RunPod) with its own cost, cold starts and a key; the selected bill area or page would be sent to that host (a new data processor; same consent preview as the Groq route); structured lines would still come from rules or Groq applied to the OCR text, and Python's checks stay unchanged.
+
+**Plan:** (1) time-boxed comparison on the masked cases A–D against Groq vision: correct amounts, missed/extra lines, ₹/2 and decimal-mark errors, boxes usable for exact highlights, latency, cost; (2) only if clearly better, add it as an optional extractor behind the existing confirmation step, keeping Groq and local OCR. **Acceptance for adoption:** measurably fewer corrections on A–D than Groq, no regression in privacy controls, owner approval of host and cost.
+
+**Open choices:** hosting provider and budget; whether to send full pages or only selected areas.
+
+### N-3 — Chat about a bill + database update
+
+**Goal:** answer the owner's question-map item 6 ("what did the user ask about this bill?") and PRD FR-08: the person can ask follow-up questions about the current review.
+
+**Scope:** chat panel on the result step; answers grounded only in the saved review (confirmed lines, Python results, missing information) and generated by a Groq text model; the same validation as D-027 (no numbers outside Python's facts, only existing lines, no accusations or price judgements); new facts from the person are treated as proposed corrections that require re-confirmation and recalculation, never as trusted numbers; no provider contact.
+
+**Database update (migration):** add `chat_turns` (id, bill_id, user_id, role user/assistant, text with private details blanked, created_at, model, refers-to finding) with the same owner-only, append-only policies; at the same time add the deferred `finding_lines` and `message_lines` link tables (filled from the existing arrays); consider review deletion for testers.
+
+**Acceptance:** questions and answers survive a reload for the same browser; another anonymous user cannot read them; an answer with an invented amount is rejected in tests; existing reviews and tests unaffected.
+
+
+## Earlier technical direction (history, superseded where the Current state differs)
 
 D-024 allows visible source-table/page evidence plus explicit line/amount confirmation without requiring a box around every amount. Exact highlights remain optional where reliable and must never be fabricated. Record source precision honestly. Implemented locally under D-025: `exact` / `table` / `page` provenance, a separate table `region` that is never sent as amount bounds, explicit charge/discount/subtotal/total roles, and the loopback confirmed → Python → controlled draft flow. Owner review of the four cases is next; do not declare Stage 2 complete.
 
@@ -40,9 +101,9 @@ Evidence base in parent workspace: [four reference pairs](../../deliverables/GOL
 ### Confirmed product decisions
 
 - Required sequence: Provide → Confirm → Understand / contextual follow-up → Draft message → Finish.
-- Browser PDF/OCR plus simple rules extract candidate fields. User confirms extracted details. Python code owns numeric calculations, comparisons, and controlled drafts. An LLM is optional future fallback only.
+- Extraction: Groq vision on an approved redacted area is the recommended reader for photos; local PDF.js for PDFs; local Tesseract OCR as fallback (D-022–D-026). The person confirms every line. Python owns all calculations, comparisons and controlled drafts. A Groq text model may suggest causes of a difference under strict validation (D-027). *(Earlier wording — "an LLM is optional future fallback only" — superseded.)*
 - Preserve `verified_mismatch`, `unexplained`, and `checks_passed`; arithmetic may pass while promise comparison remains unresolved.
-- Highlight source lines locally. Do not send or persist bill files in the default MVP path. Retain message-to-confirmed-line proof links and event history.
+- Show the source page/table beside lines; exact highlights optional (D-024). Never persist bill files or OCR text; only an approved area is sent to Groq. Retain message-to-line links (as arrays for now) and event history (D-033).
 - No persistent account numbers, phone numbers, postal addresses, card numbers, or unmasked documents.
 - Contact lookup, recipient suggestions, automatic sending, refunds, payment actions, legal judgments, general finance dashboards, and comprehensive tariff research are excluded.
 - No standalone Service table. Bills contain internal User ID, provider, and consistent service label. Expectations link to Bill ID.
@@ -58,7 +119,7 @@ Evidence base in parent workspace: [four reference pairs](../../deliverables/GOL
 
 ### Choices to resolve at their implementation stage
 
-- Whether a future difficult-layout fallback needs any LLM. No provider/model is selected or required for the MVP; revisit only after browser extraction/user-confirmation testing.
+- Whether a server-side OCR model (LightOnOCR-3, N-2) should be added next to Groq vision; decided by measured comparison, not assumed.
 - Existing Supabase/Vercel projects and available plan limits; use user's resources without exposing credentials in chat.
 - Initial local-file policy: PDF/JPEG/PNG, maximum 4,000,000 local file bytes and ten pages per review. Enforce in-browser before processing. The structured server payload is separately capped and contains no file bytes or full OCR/token stream.
 - Retention proposal: keep masked review data through hackathon evaluation, offer review deletion, then purge by the agreed retention deadline. No automatic deletion of existing project evidence without direction.
@@ -143,6 +204,8 @@ Implement the agreed conceptual model with necessary technical fields only; do n
 | message_events | Message ID, action, timestamp, sanitized final text when supplied, measured words_changed, confirmation source when sent is claimed. |
 | chat_turns | Bill ID, role, sanitized text, created_at; revision/context reference. |
 
+**Implementation status (D-033, 2026-10-19):** implemented in Supabase as bills, line_items, expectations, findings, messages and message_events; users are Supabase anonymous auth users. Not yet implemented: finding_lines and message_lines (line IDs stored as arrays in findings/messages), chat_turns (planned in N-3), deletion.
+
 Supporting evidence uses another locally processed bill record containing confirmed structured lines, not file bytes or full OCR in chat. Comparison with earlier bills requires compatible provider/service labels and periods; it does not prove payment. A revision correction invalidates old current findings/drafts: preserve history but mark stale, re-run code, and regenerate before claiming current accuracy.
 
 Word-count convention: normalize whitespace, case and punctuation; tokenize into words; use word-level Levenshtein edits (insertion, deletion, substitution each one). Preserve the convention with the measurement. No final sent text means unknown edits, not zero.
@@ -156,6 +219,8 @@ Use anonymous Supabase Auth identity for the invite-only test session, without a
 The user may select an original bill locally because its bytes stay in browser memory, but the app must not transmit, log, or persist it. The browser builds an allowlisted payload from confirmed commercial lines; private-data pattern checks are warnings/blocks, not proof that text is anonymous. Logs, fixtures, and structured server records exclude credentials, addresses, account/phone/card numbers, booking references, and personal contact details. User-filled personalization stays transient; sanitize persisted final texts. No fully automatic redaction system is being promised.
 
 ## 7. Local and hosted API contract proposal
+
+**Implemented (D-030–D-033):** `GET /api/health`, `POST /api/groq-extract`, `POST /api/analyze`, `POST /api/explain`, `POST /api/session`, `POST /api/messages/{id}/events`, interactive docs at `/docs`. The table below is the original proposal; chat, read-review and delete operations are not built yet (chat planned in N-3).
 
 The same operations must work locally and on Vercel; interactive API docs are sufficient for early stages, not the final user interface.
 
@@ -243,6 +308,7 @@ Vercel's function payload limit is no longer the reason for the bill-file cap be
 | 1.5 | 2026-10-18 | Retained local OCR and added optional Groq Qwen redacted-crop benchmark for later comparison. | D-022; offline tests, live gate pending at that point. |
 | 1.6 | 2026-10-18 | Added explicit Groq crop preview/send in browser, local key-holding bridge and private response cache. | D-023; 32 Python/21 browser tests and three-price D smoke test. |
 | 1.7 | 2026-10-19 | Allow table/page evidence confirmation without mandatory per-amount boxes; prioritize local calculation/draft integration and reconcile current status. | D-024; requirement confirmed, implementation pending; documentation-only audit. |
+| 1.12 | 2026-10-19 | Added Current state summary (D-015–D-033) and Next development additions N-1 UI, N-2 LightOnOCR-3 server reading (evaluation first), N-3 chat + database; corrected outdated statements on LLM use, storage and configuration. | D-034; documentation only, nothing new implemented. |
 | 1.11 | 2026-10-19 | Row columns inspired by EN 16931 and Indian GST e-invoice; re-check gate before any message; adjustment role; unambiguous two-digit decimal marks accepted. | D-028; 80 Python/36 browser tests; scripted B replay with one live GPT-OSS call. |
 | 1.10 | 2026-10-19 | Difference explanation: deterministic exact-match search plus validated GPT-OSS 20B suggestion feeding the draft; button renamed Calculate and explain; privacy text corrected. | D-027; 71 Python/34 browser tests; limited live calls on D reference data. |
 | 1.9 | 2026-10-19 | Groq first for photos, model-suggested roles/groups pre-filled, explicit Confirm all ready lines; amounts and signs never changed by the app. | D-026; owner-approved after hands-on feedback; 59 Python/34 browser tests and scripted D replay. |
@@ -252,7 +318,7 @@ Material future changes link to DECISIONS.md and their implementation/test evide
 
 Keep each model operation within configured function/time budgets, cap pages and token output, use bounded provider timeouts/retries, and surface a recoverable failure. Verify actual plan duration limits during deployment instead of assuming unlimited execution. No queue/worker system in initial MVP; if measured accepted-document processing cannot fit, report the constraint and choose a narrower supported input limit before adding infrastructure.
 
-Environment configuration proposal (names are placeholders, not secrets): SUPABASE_URL, appropriate server/client Supabase key variables, allowed frontend origins, local file/page limits, structured payload limit, and environment name. No LLM key/model is required. Save only example variable names in repository. Local secrets live in ignored environment files; configure deployment secrets in Vercel settings. Do not paste credentials in chat or copy a whole local environment file into frontend assets. Preview and production settings are separate; demo data must not be mixed silently with a production project.
+Environment configuration (names only, never values): `GROQ_API_KEY`, `BILLSHIELD_ACCESS_CODE`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` (publishable key only — a secret/service-role key is refused by the code), optional `BILLSHIELD_ALLOWED_ORIGINS`. Locally they live in the ignored `.env.local`; on Vercel in the project's environment variables, followed by a redeploy. *(Earlier proposal text in this paragraph — no LLM key required — superseded.)*
 
 Supabase project and records remain where they are when the Python application is deployed. Deployment config supplies the same project URL/appropriate credentials (or a separately migrated production project); it does not “transport the database” to Vercel. Private storage and database permissions need verification as well as keys.
 

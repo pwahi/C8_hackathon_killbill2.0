@@ -1,5 +1,19 @@
 # BillShield — Decision log
 
+## D-034 — Next development additions: UI, server OCR evaluation, chat + database
+
+Date: 2026-10-19. Status: Owner direction confirmed; planned for 2026-10-20; **not implemented**.
+
+Owner wants three additions before sending the app to testers, in this order: **N-1 user interface** (priority: the owner's step-by-step design instead of the Stage 2 review layout), **N-2 server-side reading with LightOnOCR-3-0.8B**, and **N-3 chat about a bill with the matching database update** (chat_turns, plus the deferred finding_lines and message_lines link tables). Full scope, acceptance checks and open choices are in [PRD](PRD.md) v1.12, section "Next development additions".
+
+Checked facts for N-2 (model card, 2026-10-19): Apache-2.0, about 0.9B parameters, Markdown output with optional typed blocks and boxes in 0–1000 page coordinates, GPU-oriented runtimes (Transformers, vLLM, SGLang) plus GGUF quantizations, English tag, "isn't deployed by any Inference Provider". It cannot run inside Vercel functions, so it needs a separate GPU host with cost and a new data processor; it reads text but does not assign charge/discount roles. Therefore N-2 starts as a time-boxed comparison against Groq vision on cases A–D and is adopted only if measurably better and approved by the owner.
+
+Reviewer note: real-user tests (A-006 classmate, A-007 stranger) are still at zero and the deadline is 2026-10-20 22:17 Europe/Amsterdam. The plan keeps those tests; if time is short, cut scope inside N-1–N-3 rather than skip them.
+
+Also on 2026-10-19: PRD v1.12 adds a "Current state" summary of D-015–D-033 and corrects outdated statements (LLM use, storage, configuration); earlier text is kept as history.
+
+**Affected:** docs/PRD.md (v1.12), PROJECT.md. **Verification:** documentation only; current suite 106 Python and 40 browser tests pass; no code changed for this decision.
+
 ## D-033 — Supabase storage, smaller first version
 
 Date: 2026-10-19. Status: Implemented and verified locally against the owner's Supabase project; hosted settings pending.
