@@ -1,4 +1,4 @@
-<p align="center"><img src="frontend/assets/kill-bill-logo.png" alt="Kill Bill 2.0 logo" width="220"></p>
+<p align="center"><img src="docs/assets/readme-logo.png" alt="Kill Bill 2.0 logo" width="240"></p>
 
 # Kill Bill 2.0
 
