@@ -658,6 +658,10 @@ body[data-ui-step='4'] #status:not(.failure) { display: none; }
 .bill-summary .bill-summary-text { margin: 0; font-size: 14px; line-height: 1.5; }
 .bill-summary .bill-summary-text.clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .bill-summary .bill-summary-more { font-size: 13px; padding: 0; }
-.bill-summary + .line-actions { margin-top: 12px; }
+body[data-ui-step='2'] #bill-summary { margin-bottom: 16px; }
+/* Two equal buttons that line up with the box and the table; "Undo remove" takes its own row only when shown
+   (a hidden third column still left a gap, so the right edge did not line up). */
+body[data-ui-step='2'] .line-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+body[data-ui-step='2'] .line-actions #undo-remove { grid-column: 1 / -1; justify-self: end; }
 /* Looks right closer to the table it checks. */
 body[data-ui-step='2'] #payload-panel { margin-top: 12px; }
