@@ -242,6 +242,8 @@ function visionCandidate(line, { page, area, sourceKey, outputCurrency, placed, 
     extractionSignature: JSON.stringify({description: line.description, amount: line.raw_amount, role: line.role, group: line.group, currency: line.currency, breakdown: line.breakdown}),
     role: placed && "role" in placed ? placed.role : suggestion.role, group: placed ? placed.group : suggestion.group,
     sectionPath: placed?.path || "", structureVerified: Boolean(placed?.verified), rounding: placed?.rounding || null,
+    // Confirmation by exception (owner 2026-10-20): Python checked this line by maths, so it counts without a tick.
+    autoVerified: Boolean(placed?.autoVerified), confirmed: Boolean(placed?.autoVerified),
     gapHint: placed?.hint || null,
     reference: placed && placed.role === "" ? { text: referenceText(placed) } : null,
     attention: placed && placed.role === "" ? null : placed?.hint || null,
@@ -477,7 +479,16 @@ function wholeBillNote(plan, count, pages) {
     mismatch: " Something does not add up: open the marked lines to see what may be missing or read twice.",
     invalid: " The proposed structure did not check out, so the lines were added without sections. Check them against the bill.",
   }[plan.status] || "";
-  return lead + linked + status + (plan.complex ? ` ${plan.problems.at(-1)}` : "");
+  return lead + linked + status + (plan.complex ? ` ${plan.problems.at(-1)}` : "") + autoNote(plan);
+}
+
+// "Python checked 8 of 11 lines by maths": the person looks only at the rest (PRD_SCALABLE W4).
+function autoNote(plan) {
+  const counted = Object.values(plan.lines).filter(entry => entry.role !== "");
+  const auto = counted.filter(entry => entry.autoVerified).length;
+  if (!auto) return "";
+  const rest = counted.length - auto;
+  return ` Python checked ${auto} of ${counted.length} lines by maths${rest ? ` — look only at the other ${rest}` : " — nothing left to check line by line"}.`;
 }
 
 async function readWholeBill() {
@@ -1069,13 +1080,15 @@ function updateCandidate(candidateId, field, value) {
   const index = reviewState.candidates.findIndex((candidate) => candidate.id === candidateId);
   const candidate = reviewState.candidates[index];
   const affectsValue = ["rawAmount", "description", "role", "group", "breakdown", "currency"].includes(field);
-  reviewState.candidates[index] = { ...candidate, [field]: value, ...(affectsValue ? {confirmed: false, edited: true} : {}), attention: null };
+  reviewState.candidates[index] = { ...candidate, [field]: value, ...(affectsValue ? {confirmed: false, edited: true} : {}),
+    ...(affectsValue || field === "confirmed" ? {autoVerified: false} : {}), attention: null };
   if (affectsValue) queueMicrotask(refreshTreeHeaders);
   if (affectsValue && candidate.structureVerified) {
     // Python's tick was for the section as read; after any edit only a new check can confirm it.
     const section = String(candidate.group || "").trim().toLowerCase();
     reviewState.candidates = reviewState.candidates.map(line => line.id === candidateId ||
-      (line.structureVerified && String(line.group || "").trim().toLowerCase() === section) ? { ...line, structureVerified: false } : line);
+      (line.structureVerified && String(line.group || "").trim().toLowerCase() === section)
+        ? { ...line, structureVerified: false, ...(line.autoVerified ? {autoVerified: false, confirmed: false} : {}) } : line);
     document.querySelectorAll(".line-section.verified").forEach(node => {
       const card = node.closest("[data-card-id]");
       if (!reviewState.candidates.find(line => line.id === card?.dataset.cardId)?.structureVerified) {
@@ -1149,7 +1162,7 @@ function updateLineOverview(card, candidate) {
 function candidateCard(candidate) {
   if (candidate.reference) return referenceCard(candidate);
   const card = document.createElement("article");
-  card.className = `candidate-card${candidate.confirmed ? " confirmed" : ""}`;
+  card.className = `candidate-card${candidate.confirmed ? " confirmed" : ""}${candidate.autoVerified ? " auto-verified" : ""}`;
   card.dataset.cardId = candidate.id;
   const remove = document.createElement("button");
   remove.type = "button";
@@ -1179,7 +1192,7 @@ function candidateCard(candidate) {
   checkbox.type = "checkbox";
   checkbox.checked = candidate.confirmed;
   checkbox.addEventListener("change", () => updateCandidate(candidate.id, "confirmed", checkbox.checked));
-  confirm.append(checkbox, document.createTextNode("I checked this against the bill"));
+  confirm.append(checkbox, document.createTextNode(candidate.autoVerified ? "✓ Checked by maths" : "I checked this against the bill"));
   const locate = document.createElement("button");
   locate.type = "button";
   locate.className = "page-button";
@@ -1202,7 +1215,9 @@ function candidateCard(candidate) {
   context.textContent = candidate.context || "No nearby text was detected.";
   const warning = document.createElement("p");
   warning.className = "hint";
-  warning.textContent = candidate.warning || "Check every digit and decimal mark against the source before using this line.";
+  warning.textContent = candidate.autoVerified
+    ? "Python checked this line: its part adds up exactly to the figure printed on the bill. Change it only if something looks wrong."
+    : candidate.warning || "Check every digit and decimal mark against the source before using this line.";
   const fields = document.createElement("div");
   fields.className = "candidate-fields";
   const amountLabel = document.createElement("label");

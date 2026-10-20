@@ -6,7 +6,7 @@ export const STEPS = ["Your bill", "Read", "Check the lines", "What we found", "
 export const STEP_GUIDANCE = [
   "Upload your bill and tell us what you expected to pay.",
   "Choose the pages with prices, then press Read. The AI reads every price.",
-  ["Compare each line with your bill.", "Click a line to see it on the bill and fix it; × removes it.", "When it all matches, press Looks right — check it."],
+  ["Lines marked ✓ were checked by maths: their part adds up to the figure printed on the bill.", "Look at the other lines; click one to see it on the bill and fix it. × removes it.", "When it all matches, press Looks right — check it."],
   "Here is what Python found. Next: write the message to the company.",
   "Copy this message and send it to the company yourself. Then come back and press I sent it.",
 ];

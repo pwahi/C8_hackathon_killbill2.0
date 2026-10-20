@@ -69,6 +69,8 @@ class CandidateLine(BaseModel):
     breakdown: RowColumns | None = None
     # The label exactly as printed (any language); description is its plain-English version.
     original_label: str | None = Field(default=None, max_length=300)
+    # Set by the server, never by the model: the amount appears as printed in the PDF's own text layer.
+    text_match: bool | None = None
 
 
 _ID = r"^[A-Za-z0-9_-]{1,100}$"

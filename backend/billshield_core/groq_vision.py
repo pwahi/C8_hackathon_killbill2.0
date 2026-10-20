@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from pathlib import Path
 
 from .extraction import Bounds, ExtractionOutput
@@ -108,8 +109,33 @@ def read_page(image: bytes, mime: str, api_key: str, cache_dir: Path | None = No
               provider: str = "openrouter") -> ExtractionOutput:
     request = build_page_request(image, mime, page_text, provider)
     if provider == "openrouter":
-        return parse_response(post_chat(request, api_key, cache_dir, 120, OPENROUTER_ENDPOINT, "OpenRouter"))
-    return parse_response(post_chat(request, api_key, cache_dir))
+        output = parse_response(post_chat(request, api_key, cache_dir, 120, OPENROUTER_ENDPOINT, "OpenRouter"))
+    else:
+        output = parse_response(post_chat(request, api_key, cache_dir))
+    return mark_text_matches(output, page_text)
+
+
+def _amount_pattern(raw: str | None) -> re.Pattern | None:
+    """The digits and marks of a printed amount, allowing a space between them, not inside a longer number."""
+    core = re.sub(r"[^\d.,]", "", raw or "").strip(".,")
+    if sum(char.isdigit() for char in core) < 2:
+        return None  # a single digit would match almost anywhere
+    body = r"\s?".join(re.escape(char) for char in core)
+    return re.compile(rf"(?<![\d.,]){body}(?![.,]?\d)")
+
+
+def mark_text_matches(output: ExtractionOutput, page_text: str | None) -> ExtractionOutput:
+    """Self-check against a searchable PDF: does each amount appear, as printed, in the page's own text layer?
+
+    The language and currency do not matter; only the digits and marks are compared. A match says the amount was
+    copied correctly, not that its role is right. Without a text layer (photos, scans) nothing is marked."""
+    if not page_text or not page_text.strip():
+        return output
+    lines = []
+    for line in output.lines:
+        pattern = _amount_pattern(line.raw_amount)
+        lines.append(line.model_copy(update={"text_match": bool(pattern and pattern.search(page_text))}))
+    return output.model_copy(update={"lines": tuple(lines)})
 
 
 def _clean_structure(data: dict) -> None:
@@ -191,6 +217,8 @@ def parse_response(response: dict) -> ExtractionOutput:
     else:
         data["invoice_label"] = data["invoice_label"][:80]
     for line in data.get("lines", []):
+        if isinstance(line, dict):
+            line.pop("text_match", None)  # set by the server's own check only, never by the model
         if line.get("bounds") is not None and not isinstance(line["bounds"], dict):
             # Do not infer an array's coordinate order or scale. Localization is unavailable.
             line["bounds"] = None

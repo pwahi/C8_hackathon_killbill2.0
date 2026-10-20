@@ -636,3 +636,6 @@ body[data-ui-step='4'] #status:not(.failure) { display: none; }
 @media (max-width: 760px) {
   .message-columns, .message-actions { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
+
+/* Confirmation by exception (PRD_SCALABLE W4): a line Python checked by maths says so instead of asking for a tick. */
+.candidate-card.auto-verified .confirm-control { color: var(--green); font-weight: 600; }

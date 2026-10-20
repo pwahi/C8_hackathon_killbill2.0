@@ -230,8 +230,30 @@ def _gap_text(what: str, node, currency: str, lines: dict | None = None, labels:
     return f"{text} A line may be missing here, or belong to this section but sit elsewhere."
 
 
+# Confirmation by exception (PRD_SCALABLE W4, owner 2026-10-20): a line counts when it is checked by maths or
+# confirmed by the person. Maths alone can be fooled by two reading errors that cancel out, so only plain positive
+# lines that were read cleanly qualify; a minus sign, a discount or an adjustment (where a payment can hide) is
+# always shown to the person.
+AUTO_ROLES = {"charge", "subtotal", "total"}
+AUTO_CONFIDENCE = 0.9
+
+
+def auto_verified(entry: dict, meta: dict | None, lines: dict | None) -> bool:
+    if not entry.get("verified") or meta is None or lines is None:
+        return False
+    line_id = meta["id"]
+    role, minor = lines.get(line_id, (None, None))
+    if role not in AUTO_ROLES or minor is None or minor < 0 or entry.get("role", role) != role:
+        return False
+    if meta.get("warning"):
+        return False
+    # A searchable PDF's own text holding the amount is a stronger check than the reader's confidence.
+    return bool(meta.get("text_match")) or meta.get("confidence", 0) >= AUTO_CONFIDENCE
+
+
 def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str], currency: str,
-         notes: dict[str, str] | None = None, lines: dict | None = None, decimal_separator: str = ".") -> dict:
+         notes: dict[str, str] | None = None, lines: dict | None = None, decimal_separator: str = ".",
+         meta: dict[str, dict] | None = None) -> dict:
     """Per line: the checked group it joins in today's flat line list, its printed path, Python's tick and hints."""
     notes = notes or {}
     if check.status == "invalid":
@@ -358,6 +380,7 @@ def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str]
         note = notes.get(line_id)
         if note:
             entry["note"] = note
+        entry["autoVerified"] = auto_verified(entry, (meta or {}).get(line_id), lines)
     problems = [p.message for p in check.problems if p.severity != "note"]
     if complex_bill:
         problems.append("This upload has several invoices that also have their own sections. Check the invoice totals "
@@ -414,7 +437,9 @@ def link_pages(pages: list[tuple[int, ExtractionOutput]], *, decimal_separator: 
             rank = {"ok": 0, "incomplete": 1, "mismatch": 2, "invalid": 3}
             if rank[ai_check.status] <= rank[check.status]:
                 structure, check, linked_by = proposal, ai_check, "ai"
-    result = plan(structure, check, labels, currency, notes if linked_by == "ai" else {}, lines, decimal_separator)
+    meta = {ids[(page, line.id)]: {"id": ids[(page, line.id)], "confidence": line.confidence, "warning": line.warning,
+                                   "text_match": line.text_match} for page, output in pages for line in output.lines}
+    result = plan(structure, check, labels, currency, notes if linked_by == "ai" else {}, lines, decimal_separator, meta)
     result["linkedBy"] = linked_by
     result["decimalMark"] = decimal_separator
     result["ids"] = {f"{page}:{local}": gid for (page, local), gid in ids.items()}
