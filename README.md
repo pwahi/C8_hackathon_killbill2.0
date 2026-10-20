@@ -1,3 +1,5 @@
+<p align="center"><img src="frontend/assets/kill-bill-logo.png" alt="Kill Bill 2.0 logo" width="220"></p>
+
 # Kill Bill 2.0
 
 **Paid more than you expected?** Upload a bill, say what you expected to pay, and the app shows where the difference comes from and drafts one clear message to the company. You send it yourself; the app never contacts anyone.
