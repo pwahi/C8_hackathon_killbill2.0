@@ -103,3 +103,40 @@ class Hyphens(unittest.TestCase):
         text = "The three lines for the 6\u201131 August period add up to {difference}."
         self.assertEqual(check_and_fill(text, {"difference": "EUR 14.25"}, ["6-31 August"]),
                          "The three lines for the 6-31 August period add up to EUR 14.25.")
+
+
+class CheckedCausesInTheMessage(unittest.TestCase):
+    """Owner 2026-10-20: causes Python graded "explains it all" or "explains part" go into the message; others do not."""
+
+    def setUp(self):
+        self.result = result_for("BS-002")  # expected 1299.00, bill 1378.80: difference 79.80
+
+    def test_only_full_and_part_causes_are_kept_and_python_grades_them_again(self):
+        from billshield_core.message_ai import checked_causes
+        causes = [{"lineIds": ["packaging", "delivery"], "grade": "part"},  # the browser's grade is ignored
+                  {"lineIds": ["delivery"]}, {"lineIds": ["bicycle"]}, {"lineIds": ["discount"]}, {"lineIds": ["ghost"]}]
+        found = checked_causes(self.result, causes)
+        self.assertEqual([(c["ids"], c["grade"], c["covered"], c["remaining"]) for c in found],
+                         [(["packaging", "delivery"], "full", "EUR 79.80", None), (["delivery"], "part", "EUR 59.90", "EUR 19.90")])
+
+    def test_the_fact_sheet_gives_the_model_placeholders_for_them(self):
+        from billshield_core.message_ai import checked_causes
+        sheet, values = fact_sheet(self.result, checked_causes(self.result, [{"lineIds": ["delivery"]}]))
+        self.assertEqual(sheet["checked_causes"], [{"lines": ["delivery"], "explains": "part", "amount": "{cause:c1}",
+                                                    "remaining": "{remaining:c1}"}])
+        self.assertEqual((values["cause:c1"], values["remaining:c1"]), ("EUR 59.90", "EUR 19.90"))
+
+    def test_the_template_says_it_too_when_the_ai_is_not_available(self):
+        drafts = draft_tones(self.result, None, None, [{"lineIds": ["packaging", "delivery"]}])
+        self.assertIn("“packaging” and “delivery” add up to the full difference of EUR 79.80.", drafts["tones"]["neutral"])
+        drafts = draft_tones(self.result, None, None, [{"lineIds": ["delivery"]}])
+        self.assertIn("“delivery” accounts for EUR 59.90 of the EUR 79.80 difference.", drafts["tones"]["neutral"])
+        self.assertIn("the remaining EUR 19.90?", drafts["tones"]["neutral"])
+
+    def test_an_ai_version_may_use_the_cause_placeholders(self):
+        answer = {tone: "The delivery line accounts for {cause:c1} of the {difference} difference; what makes up the remaining {remaining:c1}?"
+                  for tone in ("warm", "neutral", "direct")}
+        with patch("billshield_core.message_ai.post_chat", return_value=reply(answer)):
+            drafts = draft_tones(self.result, "k", None, [{"lineIds": ["delivery"]}])
+        self.assertEqual(drafts["tones"]["neutral"],
+                         "The delivery line accounts for EUR 59.90 of the EUR 79.80 difference; what makes up the remaining EUR 19.90?")

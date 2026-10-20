@@ -224,6 +224,8 @@ async def draft_message(request: Request):
     data = await read_json(request, 200_000)
     if isinstance(data, JSONResponse):
         return data
+    # The causes from What we found travel beside the review (line ids only); message_ai grades them again.
+    causes = data.pop("causes", None) if isinstance(data, dict) else None
     try:
         result = await run_in_threadpool(analyze_confirmed_review, data)
     except ReviewError as problem:
@@ -231,7 +233,7 @@ async def draft_message(request: Request):
     if result["status"] != "complete" or not result.get("draft"):
         return error(422, "The numbers need re-checking before a message can be written.")
     async with groq_lock:  # waits for a running explanation instead of failing
-        drafts = await run_in_threadpool(draft_tones, result, read_api_key(ROOT), CACHE_DIR)
+        drafts = await run_in_threadpool(draft_tones, result, read_api_key(ROOT), CACHE_DIR, causes)
     return JSONResponse(drafts, headers={"cache-control": "no-store"})
 
 

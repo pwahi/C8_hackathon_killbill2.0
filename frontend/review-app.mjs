@@ -2017,10 +2017,13 @@ document.querySelectorAll(".tone-picker [data-tone]").forEach(button => button.a
 }));
 
 // Starts as soon as the result is shown, so all three tones are ready by the time the person reaches the message.
-async function prepareToneDrafts(payload) {
+// causes: the AI causes from What we found; only their line ids are sent and Python grades them again (owner
+// 2026-10-20: "explains it all" and "explains part" belong in the message).
+async function prepareToneDrafts(payload, causes = []) {
   const generation = reviewGeneration;
   try {
-    const response = await fetch("/api/draft-message", { method: "POST", headers: apiHeaders("draft-message"), body: JSON.stringify(payload) });
+    const body = { ...payload, causes: (causes || []).filter((cause) => ["full", "part"].includes(cause.grade)).map((cause) => ({ lineIds: cause.lineIds })) };
+    const response = await fetch("/api/draft-message", { method: "POST", headers: apiHeaders("draft-message"), body: JSON.stringify(body) });
     const answer = await response.json();
     if (!response.ok || answer.error || generation !== reviewGeneration || payload !== reviewState.payload) return;
     const untouched = elements.draftText.value === draftFor(messageTone);
@@ -2247,7 +2250,7 @@ async function explainDifference(payload, generation) {
     if (generation !== reviewGeneration || payload !== reviewState.payload) return;
     if (!response.ok || output.error) throw new Error(output.error || "Explanation request failed");
     showSaved(output);
-    queueMicrotask(() => prepareToneDrafts(payload));
+    queueMicrotask(() => prepareToneDrafts(payload, output.explanation?.likelyCauses));
     if (output.explanation) {
       renderResult(output.result, { state: "done", explanation: output.explanation });
       setStatus("Done. Python checked the numbers and the AI suggested likely causes. Check the message, edit it if needed, then copy it. Nothing has been sent.");

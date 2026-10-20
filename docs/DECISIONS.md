@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-068 — The message names the causes Python confirmed, worded by how much they explain
+
+Date: 2026-10-20. Status: built and tested on branch `feature/message-causes`; push pending owner. Source: owner: causes graded "explains it all" or "explains part" belong in the message; "offset" and "bill text only" do not; the wording should depend on whether the lines explain all or part of the difference.
+
+**What changed:** the browser sends the causes' line ids with `/api/draft-message` (`causes`); `message_ai.checked_causes` grades them again with `gap_llm.grade_cause` (the browser's grade is ignored) and keeps only full and part (at most three). The fact sheet gets `checked_causes` with Python placeholders `{cause:cN}` and, for part, `{remaining:cN}` (difference minus what the lines cover). The AI is told: all → the lines add up to the full difference, ask what they are for and whether they were in the agreed or quoted price; part → they account for that amount of the difference, ask about them and what makes up the remaining amount. If the AI's versions fail a check, the template adds the same as plain sentences.
+
+**Tested:** four Python tests; local browser runs to Your message: Canyon ("add up to the full difference of EUR 79.80 … whether they were part of the quoted price") and the generated bill ("account for EUR 18.60 of the difference … what comprises the remaining EUR 3.91"), all three tones, amounts filled by Python. No "sent" event was written.
+
 ## D-067 — A discount printed without a minus counts as a deduction only when the printed totals prove it
 
 Date: 2026-10-20. Status: merged to main with owner approval ("push it to main"), 2026-10-20. Source: owner's electricity bill on the live app: "GOVT SUBSIDY 184.50" (no minus) read correctly as a discount but counted as +184.50, so "Bill after subsidy" and the bill total did not add up and the whole-bill pass was rejected.
