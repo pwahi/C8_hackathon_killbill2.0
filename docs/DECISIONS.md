@@ -2,7 +2,7 @@
 
 ## D-068 — The message names the causes Python confirmed, worded by how much they explain
 
-Date: 2026-10-20. Status: built and tested on branch `feature/message-causes`; push pending owner. Source: owner: causes graded "explains it all" or "explains part" belong in the message; "offset" and "bill text only" do not; the wording should depend on whether the lines explain all or part of the difference.
+Date: 2026-10-20. Status: merged to main with owner approval ("great push it"), 2026-10-20. Source: owner: causes graded "explains it all" or "explains part" belong in the message; "offset" and "bill text only" do not; the wording should depend on whether the lines explain all or part of the difference.
 
 **What changed:** the browser sends the causes' line ids with `/api/draft-message` (`causes`); `message_ai.checked_causes` grades them again with `gap_llm.grade_cause` (the browser's grade is ignored) and keeps only full and part (at most three). The fact sheet gets `checked_causes` with Python placeholders `{cause:cN}` and, for part, `{remaining:cN}` (difference minus what the lines cover). The AI is told: all → the lines add up to the full difference, ask what they are for and whether they were in the agreed or quoted price; part → they account for that amount of the difference, ask about them and what makes up the remaining amount. If the AI's versions fail a check, the template adds the same as plain sentences.
 
