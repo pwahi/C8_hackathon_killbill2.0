@@ -31,6 +31,13 @@ class AutoVerify(unittest.TestCase):
                             line("t", "15,50", "total")], rows="ab"))
         self.assertEqual(result, {"a": True, "b": True, "sub": True, "t": True})
 
+    def test_lines_directly_under_a_bill_total_that_adds_up_are_accepted(self):
+        # Seen 2026-10-20 (order confirmation without sections): the total checks the lines, so they count.
+        result = auto(page([line("a", "1.299,00", "charge"), line("b", "19,90", "charge"), line("t", "1.318,90", "total")]))
+        self.assertEqual(result, {"a": True, "b": True, "t": True})
+        result = auto(page([line("a", "1.299,00", "charge"), line("b", "19,90", "charge"), line("t", "1.300,00", "total")]))
+        self.assertFalse(any(result.values()))
+
     def test_a_section_that_does_not_add_up_is_asked_about(self):
         result = auto(page([line("a", "10,00", "charge"), line("b", "5,00", "charge"), line("sub", "15,50", "subtotal")],
                            rows="ab"))

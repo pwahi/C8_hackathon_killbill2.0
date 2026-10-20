@@ -238,8 +238,10 @@ AUTO_ROLES = {"charge", "subtotal", "total"}
 AUTO_CONFIDENCE = 0.9
 
 
-def auto_verified(entry: dict, meta: dict | None, lines: dict | None) -> bool:
-    if not entry.get("verified") or meta is None or lines is None:
+def auto_verified(entry: dict, meta: dict | None, lines: dict | None, checked: bool | None = None) -> bool:
+    """checked: whether the nearest printed figure above this line (its section's subtotal, or the bill total when
+    the line sits directly under it) matches. Falls back to the flat list's own tick."""
+    if not (entry.get("verified") if checked is None else checked) or meta is None or lines is None:
         return False
     line_id = meta["id"]
     role, minor = lines.get(line_id, (None, None))
@@ -376,11 +378,26 @@ def plan(structure: BillStructure, check: StructureCheck, labels: dict[str, str]
             if line_id not in result:
                 result[line_id] = {"group": "", "path": "", "verified": False, "hint": None, "role": "",
                                    "referenceText": "For information only — the bill adds up without it, so it is not counted."}
+    def nearest_check(parent):
+        # The innermost section with a printed subtotal, else the invoice when it prints a total.
+        found, invoice = chain(parent)
+        for section in found:
+            if section.subtotal_line_id and section.id in check.nodes:
+                return check.nodes[section.id].matches
+        if invoice in invoices and invoices[invoice].total_line_id and invoice in check.nodes:
+            return check.nodes[invoice].matches
+        return None
+
+    checked = {row.line_id: nearest_check(row.parent_id) is True for row in structure.rows}
+    checked.update({s.subtotal_line_id: check.nodes[s.id].matches is True for s in structure.sections
+                    if s.subtotal_line_id and s.id in check.nodes})
+    checked.update({i.total_line_id: check.nodes[i.id].matches is True for i in structure.invoices
+                    if i.total_line_id and i.id in check.nodes})
     for line_id, entry in result.items():
         note = notes.get(line_id)
         if note:
             entry["note"] = note
-        entry["autoVerified"] = auto_verified(entry, (meta or {}).get(line_id), lines)
+        entry["autoVerified"] = auto_verified(entry, (meta or {}).get(line_id), lines, checked.get(line_id))
     problems = [p.message for p in check.problems if p.severity != "note"]
     if complex_bill:
         problems.append("This upload has several invoices that also have their own sections. Check the invoice totals "
