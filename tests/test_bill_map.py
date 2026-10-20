@@ -66,6 +66,13 @@ class BillMap(unittest.TestCase):
         self.assertFalse(lines["p1-a"]["verified"])
         self.assertIn("Not placed", lines["p1-b"]["referenceText"])  # a line the AI did not classify
 
+    def test_a_detail_that_carries_the_whole_amount_by_itself_is_a_repeat(self):
+        others = [*GOOD["others"], {"id": "p1-b", "kind": "detail", "of": "p2-b"}]
+        others = [o for o in others if o["id"] != "p1-b" or o["kind"] == "detail"]
+        lines = run({**GOOD, "others": others})["lines"]
+        self.assertIn("✓ same amount", lines["p1-b"]["referenceText"])
+        self.assertTrue(lines["p1-b"]["verified"])
+
     def test_a_payment_role_from_the_reader_is_no_charge(self):
         self.assertEqual(PAGES[1][1].lines[3].role, "other")
 
