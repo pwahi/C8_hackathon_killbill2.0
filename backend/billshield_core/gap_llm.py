@@ -239,8 +239,12 @@ def grade_cause(line_ids: list[str], note_ids: list[int], result: dict, notes: l
         return {**base, "grade": "lines"}
     if covered == difference:
         return {**base, "grade": "full"}
+    if covered and (covered > 0) == (difference > 0) and abs(covered) < abs(difference):
+        return {**base, "grade": "part"}
     if covered and (covered > 0) == (difference > 0):
-        return {**base, "grade": "part" if abs(covered) < abs(difference) else "over"}
+        # More than the difference: with a bill note (a price change, a discount that ended) the note is the evidence
+        # and the lines only show where it lands; without one the lines explain it only with something offsetting.
+        return {**base, "grade": "text" if noted else "over"}
     return {**base, "grade": "text" if noted else "unsupported"}
 
 
