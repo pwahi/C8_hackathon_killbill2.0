@@ -554,6 +554,13 @@ async function readWholeBill() {
       if (!response.ok || result.error) throw new Error(`Page ${page}: ${result.error || "reading failed"}`);
       outputs.push({ page, output: result.output, model: result.model });
     }
+    // The bill's own currency before Python reads any amount (seen 2026-10-20: "₹15,800" under the default EUR was
+    // refused as unreadable, so a bill that adds up was reported as not checking out).
+    const currency = outputs.map(item => item.output.currency).find(value => ["EUR", "INR"].includes(value));
+    if (currency && currency !== elements.currency.value) {
+      elements.currency.value = currency;
+      elements.currency.dispatchEvent(new Event("change"));
+    }
     setStatus("Connecting the pages and checking every section with Python…", "busy");
     const response = await fetch("/api/link-pages", {
       method: "POST", headers: apiHeaders("whole-bill"),
@@ -581,11 +588,6 @@ async function readWholeBill() {
       } catch { /* the first result stays */ }
     }
     useBillDecimalMark(plan.decimalMark);
-    const currency = outputs.map(item => item.output.currency).find(value => ["EUR", "INR"].includes(value));
-    if (currency && currency !== elements.currency.value) {
-      elements.currency.value = currency;
-      elements.currency.dispatchEvent(new Event("change"));
-    }
     const added = outputs.flatMap(({ page, output, model }) => output.lines.map(line => {
       const gid = plan.ids[`${page}:${line.id}`];
       return visionCandidate(line, { page, area: null, sourceKey: `whole:${page}`, outputCurrency: output.currency,

@@ -1,5 +1,19 @@
 # BillShield — Decision log
 
+## D-065 — Make sense of the whole bill; numbers in labels; payments are no charge (branch feature/scalable-check)
+
+Date: 2026-10-20. Status: implemented and tested on the branch; preview test by the owner pending. Source: the owner ran the participant's 10-page bill on the D-064 preview: 23 review items, duplicates, "Infinity Family 699 Plan" refused, a payment asked to be typed as a charge or discount.
+
+**Decision (owner):** the AI should make sense of what is what on the bill; a minus sign alone does not say whether a line is a discount or a payment; product names may contain numbers.
+
+**What changed:**
+- **Whole-bill map** (`bill_map.py`, `/api/link-pages` with `mode: "map"`). When the pages do not link up, one text-only AI pass returns the amount due, the lines that make it up (each charge once, one level of detail), what every other line is (copy, detail, earlier bill, payment, balance, empty, information) and a short summary. Python uses it only when the counted lines add up exactly to the amount due; a copy must have the same amount, details must add up to what they itemise, an empty table must be zero; a failed claim stays visible with "✗ compare them". The summary is shown above the lines, labelled as AI. A separate request keeps each call within Vercel's 60 s.
+- **Labels** may contain plain numbers; only money-like text is refused (a currency sign or EUR/INR/Rs next to a number, or two decimals).
+- **Payments, balances and earlier bills** from the reader count as not a charge; a read line without a type sits under "Also on the bill — not counted" without a red mark.
+- **Fixes found while testing:** the bill's currency is adopted before linking (a "₹" amount under the default EUR made a bill that adds up look broken); internal L/N references are stripped from AI text; a note that only repeats a line label is dropped; the explainer groups lines that share one reason.
+
+**Measured:** the participant's 49 read lines (replayed, text only): today's linking invalid; the map counts 3 lines + total, folds 45 with a checked reason, 0 left to review. A generated 3-page image bill (overview, details, call records, history, payment) through the full local flow: 5 of 5 lines checked by maths, 16 folded, roaming explained by the bill's own sentence and graded "EUR 18.60 of EUR 22.51". Generated causes still 13/13. Masked bills A, B and D read, checked and explained locally. The participant's PDF itself has not been run end to end yet.
+
 ## D-064 — Confirmation by exception; the bill's own text and Python-graded causes (branch feature/scalable-check)
 
 Date: 2026-10-20. Status: implemented and tested on the branch; preview and merge pending owner. Source: the failed Harsh test (confirmation effort above his threshold, roaming cause missed) and [PRD_SCALABLE.md](PRD_SCALABLE.md).
