@@ -88,6 +88,14 @@ Also return page_kind: "summary" (an overview that repeats amounts detailed else
 rows), "invoice" (a complete invoice with its own rows and total) or "other" (no bill amounts); and
 invoice_label: the printed document title or period of this page in a few words, without any numbers that
 identify a person or account (null if none).
+Context notes: also return notes, at most 8: [{quote, about, line_ids}] for text printed on this page that may explain
+why a charge is there or why the bill changed, for example usage outside the bundle (roaming, extra data, calls
+abroad), a price change or yearly indexation, a one-off or late fee, a promotion or discount that ended, a contract
+change, an estimated meter reading, or a period that differs from the usual one. quote is the printed words exactly as
+on the page, in the page's own language (at most 200 characters); about is one short plain-English sentence saying what
+it means, adding nothing that is not in the quote (no advice, no judgement, no numbers that are not in the quote); line_ids are the ids of the lines it explains ([] if none). Skip general terms,
+payment instructions, advertising and anything personal: never copy names, addresses, or customer, account, phone or
+bank numbers. Return notes [] when the page has none.
 Location: unlike the crop instructions below, give bounds for every line: the box around its printed amount,
 as fractions of the page: {"x0": left, "top": top, "x1": right, "bottom": bottom}, each between 0 and 1
 (0 = left or top edge, 1 = right or bottom edge). Use null if you are not sure.
@@ -135,7 +143,11 @@ def mark_text_matches(output: ExtractionOutput, page_text: str | None) -> Extrac
     for line in output.lines:
         pattern = _amount_pattern(line.raw_amount)
         lines.append(line.model_copy(update={"text_match": bool(pattern and pattern.search(page_text))}))
-    return output.model_copy(update={"lines": tuple(lines)})
+    # A context note is verified when its quote is in the text layer word for word (spacing and case aside).
+    flat = lambda text: " ".join(text.split()).casefold()
+    page = flat(page_text)
+    notes = tuple(note.model_copy(update={"verified": flat(note.quote) in page}) for note in output.notes)
+    return output.model_copy(update={"lines": tuple(lines), "notes": notes})
 
 
 def _clean_structure(data: dict) -> None:
@@ -164,6 +176,28 @@ def _clean_structure(data: dict) -> None:
                 continue
             good.append(entry)
         cleaned[key] = good
+
+
+def _clean_notes(notes, line_ids: set) -> list[dict]:
+    """Keep well-shaped notes only. A note with anything that looks personal is dropped, not repaired; a link to a
+    line that does not exist is dropped from the note. The model can never mark a note as verified."""
+    from .extraction import ContextNote
+    from .review import private_text
+    kept = []
+    for note in notes if isinstance(notes, list) else []:
+        if not isinstance(note, dict) or not isinstance(note.get("quote"), str) or not isinstance(note.get("about"), str):
+            continue
+        quote, about = " ".join(note["quote"].split())[:240], " ".join(note["about"].split())[:200]
+        if not quote or not about or private_text(quote) or private_text(about):
+            continue
+        ids = note.get("line_ids") if isinstance(note.get("line_ids"), list) else []
+        entry = {"quote": quote, "about": about, "line_ids": [i for i in ids if isinstance(i, str) and i in line_ids][:8]}
+        try:
+            ContextNote.model_validate(entry)
+        except ValueError:
+            continue
+        kept.append(entry)
+    return kept[:8]
 
 
 def build_request(image: bytes, mime: str, with_structure: bool = False, provider: str = "groq") -> dict:
@@ -206,7 +240,7 @@ def parse_response(response: dict) -> ExtractionOutput:
         raise ValueError("Model output is not a JSON object")
     # Unknown top-level keys are dropped, not trusted; known optional ones are cleaned before validation.
     known = {"provider", "document_kind", "currency", "displayed_total_raw", "lines", "warnings", "structure",
-             "page_kind", "invoice_label", "decimal_mark"}
+             "page_kind", "invoice_label", "decimal_mark", "notes"}
     data = {key: value for key, value in data.items() if key in known}
     if data.get("page_kind") not in {None, "summary", "detail", "invoice", "other"}:
         data["page_kind"] = None
@@ -248,6 +282,7 @@ def parse_response(response: dict) -> ExtractionOutput:
         if line.get("group") is not None and (not isinstance(line["group"], str) or len(line["group"]) > 60):
             line["group"] = None
     _clean_structure(data)
+    data["notes"] = _clean_notes(data.get("notes"), {line.get("id") for line in data.get("lines", []) if isinstance(line, dict)})
     output = ExtractionOutput.model_validate(data)
     ids = [line.id for line in output.lines]
     if len(set(ids)) != len(ids) or any(line.page != 1 for line in output.lines):

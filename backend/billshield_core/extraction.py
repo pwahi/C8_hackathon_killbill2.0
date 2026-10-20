@@ -106,6 +106,19 @@ class ProposedStructure(BaseModel):
     summaries: tuple[ProposedSummary, ...] = Field(default=(), max_length=30)
 
 
+class ContextNote(BaseModel):
+    """Text printed on the bill that may explain a charge (PRD_SCALABLE W2). Never summed, never confirmed.
+
+    quote is the printed text as the reader saw it; about is its short plain-English meaning. verified is set by the
+    server only: True when the quote appears in the PDF's own text layer, None when there is no text layer."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    quote: str = Field(min_length=1, max_length=240)
+    about: str = Field(min_length=1, max_length=200)
+    line_ids: tuple[str, ...] = Field(default=(), max_length=8)
+    verified: bool | None = None
+
+
 class ExtractionOutput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     provider: str | None = Field(default=None, max_length=200)
@@ -121,6 +134,7 @@ class ExtractionOutput(BaseModel):
     # The decimal mark the bill prints for money, as reported by the reader; shown to and changeable by the person.
     decimal_mark: Literal[".", ","] | None = None
     invoice_label: str | None = Field(default=None, max_length=80)
+    notes: tuple[ContextNote, ...] = Field(default=(), max_length=8)
 
 
 def validate_text_grounding(output: ExtractionOutput, document: DocumentRead) -> None:

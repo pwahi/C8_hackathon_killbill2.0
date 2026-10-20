@@ -241,11 +241,14 @@ async def explain(request: Request):
     data = await read_json(request, 200_000)
     if isinstance(data, JSONResponse):
         return data
+    # Context notes printed on the bill (PRD_SCALABLE W2) travel beside the review, not inside it: they help the AI
+    # explain, are checked again in gap_llm, and are never saved.
+    notes = data.pop("contextNotes", None) if isinstance(data, dict) else None
     if groq_lock.locked():
         return error(429, "One Groq request is already running. Please wait.")
     async with groq_lock:
         try:
-            output = await run_in_threadpool(explain_review, data, read_api_key(ROOT), CACHE_DIR)
+            output = await run_in_threadpool(explain_review, data, read_api_key(ROOT), CACHE_DIR, notes)
         except ReviewError as problem:
             return error(422, str(problem))
     if not HOSTED and output.get("explanationError"):

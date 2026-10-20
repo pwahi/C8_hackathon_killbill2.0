@@ -2,7 +2,7 @@ import { findAmountCandidates } from "./extraction/amount-candidates.mjs";
 import { nearbyText } from "./extraction/candidate-context.mjs";
 import { extractImageTokens } from "./extraction/ocr-client.mjs";
 import { extractPdfTokens } from "./extraction/pdf-client.mjs";
-import { buildServerPayload } from "./extraction/privacy.mjs";
+import { buildServerPayload, containsPossiblePrivateData } from "./extraction/privacy.mjs";
 import { prepareImage } from "./extraction/image-preparation.mjs";
 import { cleanVisionColumns, formatAmount, readiness, toContractInput, visionSuggestion, allReadyState, confirmReadyLines } from "./extraction/bulk-confirm.mjs";
 import { createFlow, requireExpectedAmount } from "./ui-flow.mjs";
@@ -87,7 +87,7 @@ const groqSend = document.querySelector("#groq-send");
 const groqRedacted = document.querySelector("#groq-redacted");
 
 function emptyState() {
-  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), skippedPages: new Set(), pageSelectError: null, removedLines: [], tree: null, toggles: new Map(), zoom: false, areaReads: new Map() };
+  return { tokens: [], candidates: [], pageElements: new Map(), objectUrls: [], payload: null, extractor: null, rechecked: false, activePage: 1, lastAreas: new Map(), skippedPages: new Set(), pageSelectError: null, removedLines: [], tree: null, toggles: new Map(), zoom: false, areaReads: new Map(), notes: [] };
 }
 
 // One shape for every candidate, whatever produced it. Evidence precision is never upgraded silently.
@@ -482,6 +482,15 @@ function wholeBillNote(plan, count, pages) {
   return lead + linked + status + (plan.complex ? ` ${plan.problems.at(-1)}` : "") + autoNote(plan);
 }
 
+// Text printed on the bill that may explain a charge (PRD_SCALABLE W2): never summed, never confirmed, only given to
+// the explanation. Anything that looks personal is dropped here and again on the server.
+function billNotes(outputs, plan) {
+  return outputs.flatMap(({ page, output }) => (output.notes || []).map(note => ({
+    page, quote: note.quote, about: note.about, verified: note.verified === true,
+    lineIds: (note.line_ids || []).map(id => plan.ids[`${page}:${id}`]).filter(Boolean).map(gid => `whole-${gid}`),
+  }))).filter(note => !containsPossiblePrivateData(note.quote) && !containsPossiblePrivateData(note.about)).slice(0, 12);
+}
+
 // "Python checked 8 of 11 lines by maths": the person looks only at the rest (PRD_SCALABLE W4).
 function autoNote(plan) {
   const counted = Object.values(plan.lines).filter(entry => entry.role !== "");
@@ -560,6 +569,7 @@ async function readWholeBill() {
     const kept = reviewState.candidates.filter(line => !String(line.extractionSourceKey || "").startsWith("whole:"))
       .map(line => String(line.extractionSourceKey || "").startsWith("area:") ? { ...line, gid: null, structureVerified: false } : line);
     reviewState.areaReads = new Map();
+    reviewState.notes = billNotes(outputs, plan);
     reviewState.candidates = acceptVerifiedSections([...kept, ...added], added.map(line => line.id));
     reviewState.tree = plan.status === "invalid" ? null : plan.tree || null;
     reviewState.toggles = new Map();
@@ -1760,13 +1770,15 @@ function renderGap(result, ai) {
   } else if (ai.state === "asking") {
     box.append(paragraph("Looking for a likely reason… Only the checked lines and amounts are sent, no picture of your bill.", "hint"));
   } else if (ai.state === "done") {
+    const labels = Object.fromEntries(result.lines.map((line) => [line.id, line.description]));
     if (ai.explanation.story) box.append(paragraph(ai.explanation.story, "ai-story"));
-    else {
-      const labels = Object.fromEntries(result.lines.map((line) => [line.id, line.description]));
+    else if (!ai.explanation.likelyCauses.some((cause) => cause.grade)) {
       const causes = document.createElement("ul");
       causes.replaceChildren(...ai.explanation.likelyCauses.map((cause) => listItem(`${cause.lineIds.map((id) => labels[id]).join(" + ")} — ${cause.reason}`)));
       box.append(causes);
     }
+    const graded = gradedCauses(ai.explanation, labels);
+    if (graded) box.append(graded);
     box.append(paragraph("Written by AI and can be wrong. Every amount comes from Python.", "ai-disclaimer"));
   }
   if (result.missingEvidence?.length) box.append(paragraph(`Still unknown: ${result.missingEvidence.join("; ")}.`, "hint unknown-line"));
@@ -1781,6 +1793,45 @@ function renderGap(result, ai) {
   summary.textContent = "Math explanation";
   facts.append(summary, list, paragraph("Checked by Python. This shows where the amount is on the bill, not why it was charged.", "hint"));
   elements.resultGap.replaceChildren(box, facts);
+}
+
+// Every AI cause with Python's check of its evidence (PRD_SCALABLE W5). Causes that failed the check never reach here.
+const GRADE_TEXT = {
+  full: (cause, difference) => `✓ Checked by Python: accounts for the full difference of ${difference}`,
+  part: (cause, difference) => `◐ Checked by Python: accounts for ${cause.covered} of the ${difference} difference`,
+  over: (cause, difference) => `◐ Checked by Python: these lines add up to ${cause.covered}, more than the ${difference} difference, so something else on the bill offsets part of them`,
+  text: () => "Based on text printed on the bill; the amount cannot be checked",
+  lines: () => "Lines on the bill (there is no difference to compare with)",
+};
+function gradedCauses(explanation, labels) {
+  const causes = (explanation.likelyCauses || []).filter((cause) => cause.grade);
+  if (!causes.length) return null;
+  const list = document.createElement("ul");
+  list.className = "graded-causes";
+  for (const cause of causes) {
+    const item = document.createElement("li");
+    item.className = `cause cause-${cause.grade}`;
+    const lines = cause.lineIds.map((id) => labels[id]).filter(Boolean);
+    const title = document.createElement("strong");
+    title.textContent = lines.length ? lines.map((label) => `“${label}”`).join(" + ") : "Text on the bill";
+    const grade = document.createElement("small");
+    grade.className = "cause-grade";
+    grade.textContent = GRADE_TEXT[cause.grade](cause, explanation.difference);
+    item.append(title, grade, paragraph(cause.reason, "cause-reason"));
+    for (const index of cause.noteIds || []) {
+      const note = explanation.notes?.[index];
+      if (!note) continue;
+      const quote = document.createElement("blockquote");
+      quote.className = "bill-note";
+      quote.textContent = `“${note.quote}”`;
+      const where = document.createElement("small");
+      where.textContent = `${note.page ? `Page ${note.page} · ` : ""}${note.verified ? "found word for word in the PDF text" : "as read by the AI from the page"}${note.about && note.about !== note.quote ? ` · ${note.about}` : ""}`;
+      quote.append(where);
+      item.append(quote);
+    }
+    list.append(item);
+  }
+  return list;
 }
 
 // One re-check problem with the two ways to fix it: look at the lines, or read the page again.
@@ -2060,7 +2111,7 @@ async function explainDifference(payload, generation) {
     const response = await fetch("/api/explain", {
       method: "POST",
       headers: apiHeaders("explain-difference"),
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, contextNotes: reviewState.notes || [] }),
     });
     const output = await response.json();
     if (generation !== reviewGeneration || payload !== reviewState.payload) return;

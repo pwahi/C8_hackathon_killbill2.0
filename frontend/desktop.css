@@ -639,3 +639,14 @@ body[data-ui-step='4'] #status:not(.failure) { display: none; }
 
 /* Confirmation by exception (PRD_SCALABLE W4): a line Python checked by maths says so instead of asking for a tick. */
 .candidate-card.auto-verified .confirm-control { color: var(--green); font-weight: 600; }
+
+/* AI causes with Python's check of their evidence (PRD_SCALABLE W5), and the bill's own words behind them (W2). */
+.graded-causes { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.graded-causes .cause { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; display: grid; gap: 4px; }
+.graded-causes .cause-full { border-left-color: var(--green); }
+.graded-causes .cause-part { border-left-color: var(--accent); }
+.graded-causes .cause-grade { color: var(--muted); font-size: 13px; }
+.graded-causes .cause-full .cause-grade { color: var(--green); font-weight: 600; }
+.graded-causes .cause-reason { margin: 0; }
+.graded-causes .bill-note { margin: 4px 0 0; padding: 8px 12px; background: #f4f4ef; border-radius: 4px; font-style: italic; }
+.graded-causes .bill-note small { display: block; font-style: normal; color: var(--muted); font-size: 12px; margin-top: 4px; }

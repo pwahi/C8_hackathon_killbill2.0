@@ -42,6 +42,16 @@ PRIVATE_PATTERNS = (
     re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b", re.IGNORECASE),
     re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b"),
 )
+# Free text from the bill (context notes, PRD_SCALABLE W2) may hold dates and amounts, but never a long number such as
+# a phone, customer or account number, in any language: seven digits in a row, or nine spread over spaces and dashes.
+LONG_NUMBER = re.compile(r"\d{7,}|(?:\d[ -]?){9,}")
+
+
+def private_text(text: str) -> bool:
+    cleaned = " ".join(str(text).split())
+    return bool(LONG_NUMBER.search(cleaned)) or any(pattern.search(cleaned) for pattern in PRIVATE_PATTERNS)
+
+
 # Labels are copied into the message, so they must not smuggle in amounts code did not check.
 # A currency word on its own ("TOTAL EUR") is harmless; a currency next to a number is an amount.
 AMOUNT_IN_LABEL = re.compile(

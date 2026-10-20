@@ -7,7 +7,7 @@ from .gap_llm import MODEL, explain_gap
 from .review import analyze_confirmed_review
 
 
-def explain_review(payload: dict, api_key: str, cache_dir: Path | None) -> dict:
+def explain_review(payload: dict, api_key: str, cache_dir: Path | None, notes: list | None = None) -> dict:
     """Python result first; only for a real difference, add a validated Groq explanation.
 
     Raises ReviewError for an invalid review. Provider problems never hide the Python result.
@@ -16,7 +16,7 @@ def explain_review(payload: dict, api_key: str, cache_dir: Path | None) -> dict:
     if not result["gap"]["needsExplanation"]:
         return {"result": result, "explanation": None, "skipped": "No difference to explain, so nothing was sent to Groq."}
     try:
-        explanation = explain_gap(result, api_key, cache_dir)
+        explanation = explain_gap(result, api_key, cache_dir, notes)
     except RuntimeError as error:  # provider/network problem with a safe message
         return {"result": result, "explanation": None, "explanationError": str(error)}
     except (ValueError, KeyError, IndexError):
