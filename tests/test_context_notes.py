@@ -122,3 +122,20 @@ class Endpoint(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Cleanup(unittest.TestCase):
+    def test_internal_references_never_reach_the_customer(self):
+        result = analyze_confirmed_review(review("BS-002"))
+        package, refs = build_package(result, [])
+        answer = {"story": "The fees (L3 and L4) explain it, as noted in N1.",
+                  "likely_causes": [{"refs": ["L3", "L4"], "reason": "Added fees (L3, L4), as noted in N2.", "likelihood": "high"}],
+                  "question_for_provider": "Could you confirm the fees?"}
+        explanation = parse_explanation(reply(answer), refs, [], "above", result, [])
+        self.assertEqual(explanation["story"], "The fees explain it.")
+        self.assertEqual(explanation["likelyCauses"][0]["reason"], "Added fees.")
+
+    def test_a_note_that_only_repeats_a_line_label_is_dropped(self):
+        output = page([{"quote": "Roaming outside EU", "about": "Roaming."},
+                       {"quote": "Usage abroad is charged per use", "about": "Usage abroad costs extra."}])
+        self.assertEqual([note.quote for note in output.notes], ["Usage abroad is charged per use"])

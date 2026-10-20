@@ -650,3 +650,10 @@ body[data-ui-step='4'] #status:not(.failure) { display: none; }
 .graded-causes .cause-reason { margin: 0; }
 .graded-causes .bill-note { margin: 4px 0 0; padding: 8px 12px; background: #f4f4ef; border-radius: 4px; font-style: italic; }
 .graded-causes .bill-note small { display: block; font-style: normal; color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+/* The AI's summary of the whole bill (bill_map), above the lines. */
+.bill-summary { border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 16px 20px; margin: 0 0 16px; display: grid; gap: 8px; }
+.bill-summary[hidden] { display: none; }
+.bill-summary .bill-summary-title { margin: 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.bill-summary .bill-summary-text { margin: 0; line-height: 1.55; }
+.bill-summary .ai-disclaimer { margin: 0; font-size: 13px; }

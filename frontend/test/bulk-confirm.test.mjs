@@ -133,3 +133,14 @@ test("reference lines are neither counted as ready nor as blocked, and bulk conf
   const confirmed = confirmReadyLines(lines, "EUR", true);
   assert.equal(confirmed[1], lines[1]);
 });
+
+test("a read line without a type is left uncounted without a red mark (owner 2026-10-20)", () => {
+  const payment = { ...ready, id: "whole-p3-l1", gid: "p3-l1", role: "", description: "Payment via autopay", rawAmount: "-824.82" };
+  const [line] = confirmReadyLines([payment], "INR", true);
+  assert.equal(line.confirmed, false);
+  assert.equal(line.attention, null);
+  assert.equal(allReadyState([ready, payment], "INR").blocked, 0);
+  // A line the person typed in still needs a type.
+  const [typed] = confirmReadyLines([{ ...payment, gid: undefined }], "INR", true);
+  assert.match(typed.attention, /Choose a role/);
+});

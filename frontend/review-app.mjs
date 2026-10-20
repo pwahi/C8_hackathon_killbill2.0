@@ -479,7 +479,25 @@ function wholeBillNote(plan, count, pages) {
     mismatch: " Something does not add up: open the marked lines to see what may be missing or read twice.",
     invalid: " The proposed structure did not check out, so the lines were added without sections. Check them against the bill.",
   }[plan.status] || "";
+  if (plan.linkedBy === "map") {
+    return `${lead} The AI made sense of the whole bill and Python checked it: the counted lines add up exactly to the amount due. Repeats, details, earlier bills, payments and empty tables are folded away under “Shown on the bill — not counted”.${autoNote(plan)}`;
+  }
   return lead + linked + status + (plan.complex ? ` ${plan.problems.at(-1)}` : "") + autoNote(plan);
+}
+
+// The AI's plain summary of the whole bill (bill_map), shown above the lines and labelled as AI.
+function showBillSummary(summary) {
+  let box = document.querySelector("#bill-summary");
+  if (!box) {
+    box = document.createElement("section");
+    box.id = "bill-summary";
+    box.className = "bill-summary";
+    elements.candidateList.before(box);
+  }
+  box.hidden = !summary;
+  if (!summary) return;
+  box.replaceChildren(paragraph("About this bill", "bill-summary-title"), paragraph(summary, "bill-summary-text"),
+    paragraph("Written by AI and can be wrong. Python checked that the counted lines add up exactly to the amount due.", "ai-disclaimer"));
 }
 
 // Text printed on the bill that may explain a charge (PRD_SCALABLE W2): never summed, never confirmed, only given to
@@ -545,7 +563,23 @@ async function readWholeBill() {
     const linked = await response.json();
     if (generation !== reviewGeneration) return;
     if (!response.ok || linked.error) throw new Error(linked.error || "The pages could not be connected.");
-    const plan = linked.plan;
+    let plan = linked.plan;
+    if (plan.status !== "ok") {
+      // Owner 2026-10-20 (participant's 10-page bill): ask the AI to make sense of the whole bill — what is counted,
+      // what is a repeat, a detail, an earlier bill, a payment or an empty table. Used only if Python finds that the
+      // counted lines add up exactly to the amount due; otherwise the first result stays.
+      setStatus("Some parts did not add up. Asking the AI to make sense of the whole bill; Python checks its answer…", "busy");
+      try {
+        const second = await fetch("/api/link-pages", {
+          method: "POST", headers: apiHeaders("whole-bill"),
+          body: JSON.stringify({ mode: "map", decimalSeparator: elements.decimalSeparator.value, currency: elements.currency.value,
+            pages: outputs.map(({ page, output }) => ({ page, output })) }),
+        });
+        const mapped = second.ok ? (await second.json()).plan : null;
+        if (generation !== reviewGeneration) return;
+        if (mapped) plan = mapped;
+      } catch { /* the first result stays */ }
+    }
     useBillDecimalMark(plan.decimalMark);
     const currency = outputs.map(item => item.output.currency).find(value => ["EUR", "INR"].includes(value));
     if (currency && currency !== elements.currency.value) {
@@ -570,6 +604,7 @@ async function readWholeBill() {
       .map(line => String(line.extractionSourceKey || "").startsWith("area:") ? { ...line, gid: null, structureVerified: false } : line);
     reviewState.areaReads = new Map();
     reviewState.notes = billNotes(outputs, plan);
+    showBillSummary(plan.summary || null);
     reviewState.candidates = acceptVerifiedSections([...kept, ...added], added.map(line => line.id));
     reviewState.tree = plan.status === "invalid" ? null : plan.tree || null;
     reviewState.toggles = new Map();
@@ -706,6 +741,7 @@ function resetReview({ keepFiles = false } = {}) {
   document.querySelector("#manual-line-dialog").close();
   clearObjectUrls();
   reviewState = emptyState();
+  showBillSummary(null);
   document.querySelector("#page-progress")?.replaceChildren();
   document.querySelector("#undo-remove").hidden = true;
   document.querySelector("#accept-all-lines").checked = false;

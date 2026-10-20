@@ -71,7 +71,7 @@ export function readiness(candidate, currency) {
 // Selection bookkeeping only. Ready means structurally complete, not correct money.
 // Reference lines (a summary or total printed again elsewhere) are information, not lines to confirm.
 export function allReadyState(candidates, currency) {
-  candidates = candidates.filter(candidate => !candidate.reference);
+  candidates = candidates.filter(candidate => !candidate.reference && !(candidate.gid && !candidate.role));
   const ready = candidates.filter(candidate => readiness(candidate, currency) === null);
   const selected = ready.filter(candidate => candidate.confirmed).length;
   return {ready: ready.length, blocked: candidates.length - ready.length, selected,
@@ -83,6 +83,9 @@ export function allReadyState(candidates, currency) {
 export function confirmReadyLines(candidates, currency, checked) {
   return candidates.map(candidate => {
     if (candidate.reference) return candidate;
+    // A line the reader found but did not count (a payment, an earlier bill, information) stays under "Also on the
+    // bill — not counted" without a red mark (owner 2026-10-20); choosing a type for it counts it.
+    if (!candidate.role && candidate.gid) return { ...candidate, confirmed: false, attention: null };
     const reason = checked ? readiness(candidate, currency) : null;
     return {...candidate, confirmed: !!checked && !reason, attention: reason ? `Not confirmed: ${reason}` : null};
   });

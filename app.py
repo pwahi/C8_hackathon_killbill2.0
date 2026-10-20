@@ -29,7 +29,7 @@ from billshield_core.groq_http import OPENROUTER_KEY_NAMES, read_api_key  # noqa
 from billshield_core.groq_vision import MODEL, OPENROUTER_MODEL, READERS, IncompleteOutput, extract_crop  # noqa: E402
 from billshield_core.groq_vision import read_page  # noqa: E402
 from billshield_core.extraction import ExtractionOutput  # noqa: E402
-from billshield_core.whole_bill import link_pages  # noqa: E402
+from billshield_core.whole_bill import link_pages, map_pages  # noqa: E402
 from billshield_core.message_ai import draft_tones  # noqa: E402
 from billshield_core.review import ReviewError, analyze_confirmed_review  # noqa: E402
 from billshield_core.service import explain_review  # noqa: E402
@@ -346,6 +346,15 @@ async def link_whole_bill(request: Request):
     key = read_api_key(ROOT, OPENROUTER_KEY_NAMES) if vision_provider() == "openrouter" else None
     if groq_lock.locked():
         return error(429, "One reading request is already running. Please wait.")
+    # mode "map": the second, whole-bill pass for a bill whose pages did not link up (bill_map). A separate request so
+    # each one stays within the host's time limit. No result means the AI's reading did not add up; nothing changes.
+    if data.get("mode") == "map":
+        if not key:
+            return JSONResponse({"plan": None}, headers={"cache-control": "no-store"})
+        async with groq_lock:
+            result = await run_in_threadpool(lambda: map_pages(pages, decimal_separator=data["decimalSeparator"],
+                                                               currency=data["currency"], api_key=key, cache_dir=CACHE_DIR))
+        return JSONResponse({"plan": result}, headers={"cache-control": "no-store"})
     async with groq_lock:
         result = await run_in_threadpool(lambda: link_pages(pages, decimal_separator=data["decimalSeparator"],
                                                             currency=data["currency"], api_key=key, cache_dir=CACHE_DIR))

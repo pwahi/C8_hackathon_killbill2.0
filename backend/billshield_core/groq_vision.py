@@ -31,7 +31,8 @@ confidence (0..1), warning (string or null), role, group. Totals/subtotals must 
 role is one of: charge (adds to the bill), discount (a separate line that reduces the bill; keep the
 printed minus sign in raw_amount, never add one), adjustment (round-off or similar small correction),
 subtotal (printed partial total), total (final amount due/paid), other (not a bill amount, e.g. MRP,
-savings summary, points, balance, VAT shown only as information because prices include it).
+savings summary, points, balance, a payment already made, an earlier bill's amount, VAT shown only as information
+because prices include it). Decide by what the line means, not by its sign: a minus can be a discount or a payment.
 group is a short period or section name when the bill groups lines (e.g. "September"); otherwise null.
 Every subtotal needs a group. Give every charge, discount and adjustment covered by that subtotal
 the SAME group string. Use the printed section heading; do not use different names for the heading
@@ -89,7 +90,7 @@ rows), "invoice" (a complete invoice with its own rows and total) or "other" (no
 invoice_label: the printed document title or period of this page in a few words, without any numbers that
 identify a person or account (null if none).
 Context notes: also return notes, at most 8: [{quote, about, line_ids}] for text printed on this page that may explain
-why a charge is there or why the bill changed, for example usage outside the bundle (roaming, extra data, calls
+why a charge is there or why the bill changed (a sentence or remark, never a line's own label or amount), for example usage outside the bundle (roaming, extra data, calls
 abroad), a price change or yearly indexation, a one-off or late fee, a promotion or discount that ended, a contract
 change, an estimated meter reading, or a period that differs from the usual one. quote is the printed words exactly as
 on the page, in the page's own language (at most 200 characters); about is one short plain-English sentence saying what
@@ -277,12 +278,17 @@ def parse_response(response: dict) -> ExtractionOutput:
                 line["breakdown"] = keep if any(keep[key] for key in keep) else None
         if line.get("original_label") is not None and not isinstance(line["original_label"], str):
             line["original_label"] = None
+        if line.get("role") in {"payment", "balance", "previous_balance", "history"}:
+            line["role"] = "other"  # the reader knew it is no charge of this bill (owner 2026-10-20: payment via Autopay)
         if line.get("role") not in {None, "charge", "discount", "adjustment", "subtotal", "total", "other"}:
             line["role"] = None
         if line.get("group") is not None and (not isinstance(line["group"], str) or len(line["group"]) > 60):
             line["group"] = None
     _clean_structure(data)
-    data["notes"] = _clean_notes(data.get("notes"), {line.get("id") for line in data.get("lines", []) if isinstance(line, dict)})
+    lines = [line for line in data.get("lines", []) if isinstance(line, dict)]
+    labels = {" ".join(str(line.get(key) or "").split()).casefold() for line in lines for key in ("description", "original_label")}
+    data["notes"] = [note for note in _clean_notes(data.get("notes"), {line.get("id") for line in lines})
+                     if note["quote"].casefold() not in labels]  # a note that only repeats a line's label adds nothing
     output = ExtractionOutput.model_validate(data)
     ids = [line.id for line in output.lines]
     if len(set(ids)) != len(ids) or any(line.page != 1 for line in output.lines):

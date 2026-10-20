@@ -461,3 +461,49 @@ def link_pages(pages: list[tuple[int, ExtractionOutput]], *, decimal_separator: 
     result["decimalMark"] = decimal_separator
     result["ids"] = {f"{page}:{local}": gid for (page, local), gid in ids.items()}
     return result
+
+
+def map_pages(pages: list[tuple[int, ExtractionOutput]], *, decimal_separator: str, currency: str, api_key: str,
+              cache_dir: Path | None = None) -> dict | None:
+    """Second opinion for a bill whose pages do not link up (see bill_map). Returns a plan in the same shape as
+    link_pages, or None when the AI's reading of the bill does not add up exactly to the amount due."""
+    from .bill_map import map_request, parse_map, structure_from_map, verify_map
+
+    marks = {output.decimal_mark for _, output in pages if output.decimal_mark}
+    if len(marks) == 1:
+        decimal_separator = marks.pop()
+    ids = global_ids(pages)
+    labels = {ids[(page, line.id)]: line.description for page, output in pages for line in output.lines}
+    amounts = {}
+    for page, output in pages:
+        for line in output.lines:
+            try:
+                minor = None if line.raw_amount is None else parse_confirmed_amount(
+                    line.raw_amount, decimal_separator=decimal_separator, currency=currency)
+            except ReviewError:
+                minor = None
+            amounts[ids[(page, line.id)]] = (line.role, minor)
+    try:
+        proposal = parse_map(post_chat(map_request(pages, ids), api_key, cache_dir, 120, OPENROUTER_ENDPOINT, "OpenRouter"))
+    except (RuntimeError, ValueError, KeyError, IndexError):
+        return None
+    checked = verify_map(proposal, amounts, labels, currency)
+    if checked is None:
+        return None
+    structure, lines = structure_from_map(checked, amounts)
+    check = verify_structure(structure, lines)
+    if check.status != "ok":
+        return None
+    meta = {ids[(page, line.id)]: {"id": ids[(page, line.id)], "confidence": line.confidence, "warning": line.warning,
+                                   "text_match": line.text_match} for page, output in pages for line in output.lines}
+    result = plan(structure, check, labels, currency, {}, lines, decimal_separator, meta)
+    for line_id, (role, _) in lines.items():
+        result["lines"][line_id]["role"] = role  # a printed subtotal chosen as a counted line counts as a charge
+    for line_id, (text, ok) in checked["texts"].items():
+        result["lines"][line_id] = {"group": "", "path": "", "verified": ok, "hint": None, "role": "",
+                                    "referenceText": text, "autoVerified": False}
+    result["summary"] = checked["summary"]
+    result["linkedBy"] = "map"
+    result["decimalMark"] = decimal_separator
+    result["ids"] = {f"{page}:{local}": gid for (page, local), gid in ids.items()}
+    return result

@@ -46,6 +46,7 @@ Return JSON only:
  "unexplained": "... or null",
  "question_for_provider": "one polite sentence asking about the likely cause",
  "evidence_to_request": ["..."]}
+Put lines that share one reason in ONE cause (for example all usage abroad together), not one cause per line.
 Each cause needs refs, notes or both. "covers" is your claim of how much of the difference those lines explain;
 Python checks it against the amounts. Use at most five causes and four evidence items. Keep each text under two hundred characters.
 The story is what the customer reads first. Tell it calmly, like a helpful friend: which lines on the bill
@@ -209,6 +210,9 @@ def _for_message(text: str | None, labels: list[str]) -> str | None:
     return text
 
 
+# "L3", "(L3 and L4)", "N2", "as noted in N2": internal references the customer should never see.
+REFS = re.compile(r"\s*\((?:\s*(?:and|,|or)?\s*\b[LN]\d{1,3}\b)+\s*\)|,?\s*as (?:noted|shown|stated) in\s+[LN]\d{1,3}\b"
+                  r"|\s*\b[LN]\d{1,3}\b")
 GRADE_ORDER = {"full": 0, "part": 1, "over": 2, "text": 3, "lines": 4}
 LIKELIHOOD_ORDER = {"high": 0, "medium": 1, "low": 2}
 SUMMED = {"charge", "discount", "adjustment"}
@@ -263,7 +267,7 @@ def parse_explanation(response: dict, refs: dict[str, str], labels: list[str], d
         cited = [int(refs[ref][5:]) for ref in cause.notes if refs.get(ref, "").startswith("note:")]
         if known or cited:
             causes.append({"lineIds": [refs[ref] for ref in known], "noteIds": cited, "covers": cause.covers,
-                           "reason": cause.reason, "likelihood": cause.likelihood})
+                           "reason": " ".join(REFS.sub("", cause.reason).split()), "likelihood": cause.likelihood})
     unsupported = False
     if result is not None:
         for cause in causes:
@@ -272,7 +276,8 @@ def parse_explanation(response: dict, refs: dict[str, str], labels: list[str], d
         # Python's verdict decides what is shown: unsupported causes are hidden, the rest ranked by how much they explain.
         causes = sorted((cause for cause in causes if cause["grade"] != "unsupported"),
                         key=lambda cause: (GRADE_ORDER[cause["grade"]], LIKELIHOOD_ORDER[cause["likelihood"]]))
-    clean = lambda text: None if text is None else " ".join(str(text).split())
+    # The model is told never to show its references to the customer; any that slip through are removed.
+    clean = lambda text: None if text is None else " ".join(REFS.sub("", str(text)).split()).replace(" ,", ",").replace(" .", ".")
     # The story was written before Python graded the causes; if any cause failed the check, the story may lean on
     # it, so it is not shown and the graded causes speak instead.
     story = None if unsupported else clean(explanation.story)
