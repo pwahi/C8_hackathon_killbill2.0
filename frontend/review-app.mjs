@@ -492,12 +492,23 @@ function showBillSummary(summary) {
     box = document.createElement("section");
     box.id = "bill-summary";
     box.className = "bill-summary";
-    elements.candidateList.before(box);
+    // Above the buttons and the table (owner 2026-10-20: inside the table it pushed the lines and buttons apart).
+    (document.querySelector(".line-actions") || elements.candidateList).before(box);
   }
   box.hidden = !summary;
   if (!summary) return;
-  box.replaceChildren(paragraph("About this bill", "bill-summary-title"), paragraph(summary, "bill-summary-text"),
-    paragraph("Written by AI and can be wrong. Python checked that the counted lines add up exactly to the amount due.", "ai-disclaimer"));
+  const text = paragraph(summary, "bill-summary-text clamped");
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "link-button bill-summary-more";
+  more.textContent = "Show more";
+  more.addEventListener("click", () => {
+    const open = text.classList.toggle("clamped") === false;
+    more.textContent = open ? "Show less" : "Show more";
+  });
+  box.replaceChildren(paragraph("About this bill · written by AI, can be wrong", "bill-summary-title"), text, more);
+  // Only offer "Show more" when the text is actually cut off.
+  requestAnimationFrame(() => { more.hidden = text.scrollHeight <= text.clientHeight + 1; });
 }
 
 // Text printed on the bill that may explain a charge (PRD_SCALABLE W2): never summed, never confirmed, only given to

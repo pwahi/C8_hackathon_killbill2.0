@@ -652,8 +652,12 @@ body[data-ui-step='4'] #status:not(.failure) { display: none; }
 .graded-causes .bill-note small { display: block; font-style: normal; color: var(--muted); font-size: 12px; margin-top: 4px; }
 
 /* The AI's summary of the whole bill (bill_map), above the lines. */
-.bill-summary { border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 16px 20px; margin: 0 0 16px; display: grid; gap: 8px; }
+.bill-summary { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; background: #fff; padding: 12px 16px; margin: 0; display: grid; gap: 6px; justify-items: start; }
 .bill-summary[hidden] { display: none; }
-.bill-summary .bill-summary-title { margin: 0; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.bill-summary .bill-summary-text { margin: 0; line-height: 1.55; }
-.bill-summary .ai-disclaimer { margin: 0; font-size: 13px; }
+.bill-summary .bill-summary-title { margin: 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.bill-summary .bill-summary-text { margin: 0; font-size: 14px; line-height: 1.5; }
+.bill-summary .bill-summary-text.clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.bill-summary .bill-summary-more { font-size: 13px; padding: 0; }
+.bill-summary + .line-actions { margin-top: 12px; }
+/* Looks right closer to the table it checks. */
+body[data-ui-step='2'] #payload-panel { margin-top: 12px; }
