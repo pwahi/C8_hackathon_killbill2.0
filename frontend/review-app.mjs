@@ -1889,7 +1889,7 @@ function gradedCauses(explanation, labels) {
   const lead = document.createElement("strong");
   lead.textContent = "Python's check:";
   legend.append(lead);
-  for (const [kind, text] of [["full", "explains it all"], ["part", "explains part"], ["other", "offset, or text only"]]) {
+  for (const [kind, text] of [["full", "explains it all"], ["part", "explains part"], ["other", "offset, or bill text only"]]) {
     const key = document.createElement("span");
     key.className = `legend-key legend-${kind}`;
     key.textContent = text;
