@@ -1,12 +1,12 @@
 # BillShield — Product requirements
 
-Version 3.0 · 2026-10-19 · Owner: Prateek Wahi
+Version 3.1 · 2026-10-20 · Owner: Prateek Wahi
 
-This PRD describes **what is required now** and **what exists now**. Reasons and dated supersessions are in [DECISIONS.md](DECISIONS.md), through D-049 at this snapshot; earlier PRD versions remain in Git history. When this PRD and code disagree about what *exists*, inspect the code/tests; about what is *required*, this PRD wins.
+This PRD describes **what is required now** and **what exists now**. Reasons and dated supersessions are in [DECISIONS.md](DECISIONS.md), through D-066 at this snapshot; earlier PRD versions remain in Git history. When this PRD and code disagree about what *exists*, inspect the code/tests; about what is *required*, this PRD wins.
 
-**Status:** Structure-first whole-bill reading (D-044), Claude Haiku via OpenRouter (D-046), hierarchical line check (D-045), AI explanation as a story with a disclaimer (D-047), AI messages in three tones (D-048) and reopening saved checks (D-049) are implemented, pushed to main (3845f5f, 490b2fc, 431a7c9) and served on Vercel. Owner ran the main link end to end, including save, browser restart and reopen. **One stranger test done** (E-210): self-reported ~80% independent; barriers were a goal that was not clear at first, an overwhelming UI and an unclear next step. Known-user test with an observed send, chat (N-3) and alternate OCR (N-2) are not done.
+**Status (2026-10-20, main 9861c5b and later docs):** after the failed participant test (Harsh: confirmation effort, roaming cause missed, payment read as a discount), branch `feature/scalable-check` was built and merged to main with owner approval (D-064–D-066, [PRD_SCALABLE.md](PRD_SCALABLE.md)): lines that add up are **checked by maths** instead of by the person; a **whole-bill pass** says what every line is (counted, repeat, detail, earlier bill, payment, empty) and Python checks it; every bill gets an **About this bill** summary; the reader keeps **notes from the bill's own text**; **Python grades every AI cause** and the cause lines are marked in The maths. Earlier: structure-first whole-bill reading (D-044), Claude Haiku via OpenRouter (D-046), hierarchical line check (D-045), AI story (D-047), three tones (D-048), saved checks (D-049). **Evidence:** one stranger test (E-210, self-reported ~80% independent) and one assisted, failed participant test on the previous version; **no user has tested the merged version yet**, no observed send.
 
-**Verified baseline:** 218 Python / 92 browser-module tests pass on 2026-10-19. [CLAUDE.md](../CLAUDE.md) is the detailed continuation guide; [DESIGN.md](DESIGN.md) the visual reference.
+**Verified baseline:** 262 Python / 103 browser-module tests pass on 2026-10-20. [CLAUDE.md](../CLAUDE.md) is the detailed continuation guide; [DESIGN.md](DESIGN.md) the visual reference.
 
 ---
 
@@ -39,9 +39,9 @@ Conceptual flow remains Provide → Confirm → Understand → Draft → Finish.
 | Step | Behaviour |
 |---|---|
 | **Provide** | Choose one PDF or the image pages of one bill (≤ 4,000,000 bytes per file, ≤ 10 pages); currency; decimal mark; **expected amount required** before reading/comparison. Unknown is not replaced with zero or the bill total. |
-| **Read** | Main route: **Read the whole bill** — each page the person ticks goes to the vision reader (**OpenRouter `anthropic/claude-haiku-5.5`**, fallback Groq `qwen/qwen3.8-27b`) with the PDF text layer when available; a text-only linking pass connects the pages; Python verifies the structure (D-044/D-046). A confirmation states that the pages, including personal details, are sent. Fallbacks: draw one area (previewed and approved), local PDF.js/Tesseract, or typing a line. One page shown at a time with Previous/Next. |
-| **Confirm** | The bill's hierarchy: what you pay → sections (collapsed with ✓ when Python verified them) → indented breakdown rows; reference lines (summaries, zero/nested subtotals) listed once, not counted. A section that does not add up shows one plain explanation and names a line equal to the gap. Rows open for editing; an edit withdraws Python's tick. **Looks right — check it** confirms ready lines then calls Python. AI-located rows are marked with a legend: AI-generated, may contain errors. |
-| **Understand** | **What we found**: actual checked result and facts left, maths table right (one row per section); the AI explanation is a short story with a disclaimer, separate from Python's facts. Re-check shows source page without inferred error boxes. Outcome A/B/C rules below unchanged. |
+| **Read** | Main route: **Read the whole bill** — each page the person ticks goes to the vision reader (**OpenRouter `anthropic/claude-haiku-5.5`**, fallback Groq `qwen/qwen3.8-27b`) with the PDF text layer when available; a text-only linking pass connects the pages; Python verifies the structure (D-044/D-046). Then one text-only **whole-bill pass** (D-065/D-066) says what every line is and summarises the bill; it replaces the structure only when the linking did not check out, and is used only when its counted lines add up exactly to the amount due. The reader also returns short **notes** quoted from the bill (D-064). A confirmation states that the pages, including personal details, are sent. Fallbacks: draw one area (previewed and approved), local PDF.js/Tesseract, or typing a line. One page shown at a time with Previous/Next. |
+| **Confirm** | **About this bill** (AI summary, three lines, labelled) above the buttons. Lines whose part adds up to a printed figure and were read cleanly start as **✓ Checked by maths**; discounts, minus signs and unsure readings are always shown to the person (D-064). Repeats, details, earlier bills, payments and empty tables sit under "Shown on the bill — not counted", each with the reason Python checked. The bill's hierarchy: what you pay → sections (collapsed with ✓ when Python verified them) → indented breakdown rows; reference lines (summaries, zero/nested subtotals) listed once, not counted. A section that does not add up shows one plain explanation and names a line equal to the gap. Rows open for editing; an edit withdraws Python's tick. **Looks right — check it** confirms ready lines then calls Python. AI-located rows are marked with a legend: AI-generated, may contain errors. |
+| **Understand** | **What we found**: actual checked result and facts left, maths table right (one row per section); the AI explanation is a short story with a disclaimer, separate from Python's facts. Each AI cause shows Python's check of its evidence (green: explains the whole difference; blue: explains part; grey: offset by other lines, or bill text only; unsupported causes hidden) with the bill note it rests on, and its lines are marked "likely cause" in The maths (D-064, D-066). Re-check shows source page without inferred error boxes. Outcome A/B/C rules below unchanged. |
 | **Draft** | Editable message in **Warm / Neutral / Direct**, written by AI from Python's fact sheet using placeholders only; Python checks each version and fills in every amount; a failing tone falls back to the controlled template (D-048). Line references from Python. **Copy**. |
 | **Finish** | **I sent it** (optionally paste the sent text → changed words counted against the version shown). Saved privately for this browser and listed under **Your earlier checks** in Chapter 1; a saved check opens read-only with Copy / I sent it (D-049). Chat about the bill is planned (N-3). |
 
@@ -52,6 +52,8 @@ Section and summary requirements (D-040): subtotals and their members use identi
 D-041 presentation/confirmation override: show Choose page → Select prices → Check preview → Read → Review lines with current step highlighted and one short instruction. Use plain-language actions, one selected page at a time, and explicit Review lines after reading; preserve other pages' lines. Approved-crop consent/provider/privacy stay explicit. Suggest subtotal membership from consistent labels/table order, not amounts; show proposed rows and ask Yes/Change before normal checking. Do not silently apply the old automatic membership mutator. Hide section naming/full picker behind Change; accepted grouping is not verified arithmetic, and edits/removal/reassignment require acceptance again. Python's D-040 summary exclusion and re-check rules are unchanged.
 
 D-044 – D-049 (current): whole-bill reading with a Python-verified structure replaces manual grouping as the main route; D-039–D-042 controls (append, remove/Undo, manual lines, Yes/Change, ready-line checkbox) remain for drawn areas, typed lines and corrections. Page checkboxes choose which pages are sent. Decimal mark follows the currency; the mark the reader saw on the bill wins. Labels in English with the original label kept. A tax line printed after a subtotal is outside it.
+
+D-064 – D-066 (current, 2026-10-20): **a counted line is either checked by maths or confirmed by the person** (owner-approved change of the rule that every counted line is confirmed by the user). A read line without a type is shown as not counted, without a red mark. Labels may contain plain numbers ("Infinity Family 699 Plan"); only money-like text is refused. The bill's currency is adopted before linking. See D-064–D-066 and PRD_SCALABLE.
 
 D-042: provide a visible I checked all ready lines against the bill checkbox. It selects only rows passing readiness, shows blocked/partial state, clears acceptance rather than deleting on uncheck, and never approves grouping or arithmetic. Relevant row edits clear row acceptance and invalidate output. Existing explicit Looks right check shortcut remains.
 
@@ -87,6 +89,10 @@ Unreadable input gives an actionable error or a request to confirm, never a fals
 | FR-18 | Full bill hierarchy and structural investigation | Validated parent/child/reference links across pages, then code-grounded section-to-row investigation | Done (D-044) — invoices/sections/rows/summary links verified by Python; hierarchy not persisted |
 | FR-19 | Whole-bill reading with page choice | Each ticked page read once; pages linked; unverifiable structure falls back to plain lines; the person is told which pages are sent | Done (D-046); 60 s Vercel limit per page not timed on dense pages |
 | FR-20 | AI message in three tones | One request; placeholders only; Python rejects unknown placeholders, typed numbers, accusations; fills amounts; template fallback per tone | Done (D-048) |
+| FR-22 | Confirmation by exception | A line counts when its part adds up to a printed figure and it was read cleanly (confidence ≥ 0.9 or the amount is in the PDF text layer), or when the person confirms it; discounts/minus signs/warnings always shown; an edit withdraws the check | Done (D-064) |
+| FR-23 | Make sense of the whole bill | One AI pass names the amount due, the lines that make it up and what every other line is; Python accepts it only when the counted lines equal the amount due and checks copies/details/empty claims; every bill gets a labelled summary | Done (D-065/D-066); replayed on the participant's lines (45 of 49 folded with a checked reason); the participant's PDF itself not yet run end to end |
+| FR-24 | Bill notes in the explanation | The reader quotes text that explains charges; personal data drops the note in any language; quotes verified against the PDF text layer when present; notes are never saved | Done (D-064) |
+| FR-25 | Python-graded causes | Every AI cause is graded by its evidence (full / part / over / text, unsupported hidden); cause lines marked in The maths with a colour key | Done (D-064, D-066); 13/13 on self-written generated bills, not a real-bill accuracy figure |
 | FR-21 | Reopen earlier checks | List and read-only view of the same browser's saved checks; another browser sees nothing; a temporary failure never loses the identity | Done (D-049); no delete, no cross-device |
 
 ## 5. Rules that must not break
@@ -94,6 +100,7 @@ Unreadable input gives an actionable error or a request to confirm, never a fals
 **Numbers**
 - Code owns every amount, sum, comparison and verdict. Models may extract candidates and write validated prose only.
 - Amounts are parsed strictly in minor units with the review's explicit decimal mark. A single separator followed by exactly one or two final digits is accepted as a printed decimal mark; anything ambiguous (e.g. `1,499` under the comma setting) is rejected or flagged, never repaired. Only literal currency marks are removed; a leading `2` is never treated as a misread ₹; signs are never flipped.
+- A counted line is checked by maths or confirmed by the person (D-064): maths-checked only when its nearest printed figure matches exactly, it is a plain positive charge/subtotal/total and it was read cleanly. Discounts, minus signs and adjustments always need a person, because a payment read as a discount adds up just as well.
 - Every confirmed line has an explicit role: **charge** (≥ 0, summed), **discount** (typed negative, summed), **adjustment** (e.g. round-off, either sign, summed), **subtotal** (belongs to a group, checked), **total** (at most one, checked). At least one printed total or subtotal is required.
 - Row columns are checked when printed: quantity × unit price − discount = taxable value; taxable value (or price − discount) + taxes = row amount. Only row amounts are summed, so a discount inside a row cannot be counted again. (Structure inspired by EN 16931 and the Indian GST e-invoice; not a compliance claim.)
 - A user-entered expectation is never verified evidence: a difference stays `unexplained`.
@@ -101,13 +108,15 @@ Unreadable input gives an actionable error or a request to confirm, never a fals
 **Explanation and AI**
 - Exact matches found by Python are shown as checked facts, labelled as "where the amount sits", not proof of why it was charged; coincidental line combinations are hidden when a whole group matches; more than five matches are reported as ambiguous.
 - AI explanation text is shown with an "AI-generated, may contain errors" disclaimer; references to lines that do not exist are dropped (D-047). Text that enters the message (appended question, AI-written tones) must contain no numbers outside placeholders/confirmed labels and no accusations; amounts are filled in by Python only (D-048). Failed AI never hides the Python result.
+- Every AI cause is graded by Python on its evidence (cited lines exist and how much of the difference they cover; quoted notes exist); an unsupported cause is hidden and then the AI story is hidden too. Internal line/note references are removed from AI text (D-064, D-065).
+- The whole-bill pass and its summary are used only when Python finds that its counted lines add up exactly to the amount due; the summary's other numbers are AI-written and labelled as such (D-066).
 - Every message references confirmed line IDs; Python refuses a draft without them.
 
 **Evidence and privacy**
 - Never fabricate coordinates or present a table area as an exact location.
 - The bill file stays in the browser. With **Read the whole bill**, each ticked page image (and its PDF text) goes through the app server to OpenRouter/Claude Haiku after an explicit confirmation; the owner waived the crop-only rule for now (D-046). Drawing an area remains the least-data route. Only confirmed labels, amounts and Python results go to the text models.
 - Page images and crops pass through the app server in memory; they are not saved by the app to disk or Supabase (no file storage is used). OpenRouter is asked not to retain data (`data_collection: deny`); actual provider retention is not verified. Local provider-response cache contains extracted information (not request images); hosted cache is off. Separate benchmark-preparation scripts save masked test crops. Groq retention settings are not established by this code audit; Git ignore does not prevent OneDrive sync. See D-037 and the [sketch/privacy audit](../../work/12_SKETCH_ALIGNMENT_AND_PRIVACY_AUDIT.md).
-- Stored: confirmed structured lines and derived results. Sent texts are stored with e-mail addresses, IBANs and numbers of seven or more digits blanked (after counting changed words). Labels with amounts or likely private data are rejected.
+- Stored: confirmed structured lines and derived results. Sent texts are stored with e-mail addresses, IBANs and numbers of seven or more digits blanked (after counting changed words). Labels with money-like text (a currency sign or code next to a number, or a number with two decimals) or likely private data are rejected; plain numbers in product names are allowed (D-065).
 - The server uses only the **publishable** Supabase key and each user's own token; secret keys are refused in code; row level security is the access control.
 - Bill text is data, never instructions.
 
@@ -116,8 +125,9 @@ Unreadable input gives an actionable error or a request to confirm, never a fals
 ```text
 Browser page (frontend/)              FastAPI app.py (Vercel function)                  External
  ├ page viewer, page checkboxes        ├ /api/health
- ├ Read the whole bill ──────────────► ├ /api/read-page (one page) ─────────────────►  OpenRouter Claude Haiku 5.5 (or Groq Qwen)
+ ├ Read the whole bill ──────────────► ├ /api/read-page (one page + notes) ─────────►  OpenRouter Claude Haiku 5.5 (or Groq Qwen)
  │                         ──────────► ├ /api/link-pages → whole_bill.py, structure.py ► OpenRouter (text-only linking)
+ │                         ──────────► ├ /api/link-pages mode "map" → bill_map.py ──────► OpenRouter (whole-bill pass + summary)
  ├ draw area (fallback) ─────────────► ├ /api/groq-extract ─────────────────────────►  same vision reader
  ├ hierarchical line check             ├ /api/analyze   → review.py, engine, drafting
  ├ What we found ────────────────────► ├ /api/explain   → gap.py, gap_llm.py ──────►  Groq gpt-oss-120b (outcome C)
@@ -127,7 +137,7 @@ Browser page (frontend/)              FastAPI app.py (Vercel function)          
                                        └ serves the page and frontend/vendor
 ```
 
-Python package `backend/billshield_core`: `review.py` (payload validation, roles, row checks, outcomes), `engine.py` and `drafting.py` (calculations, controlled templates), `gap.py` and `gap_llm.py` (exact matches, AI explanation and validation), `groq_vision.py` and `groq_http.py` (vision prompts and parsing for Groq and OpenRouter, guarded provider call, local-only cache), `structure.py`, `structure_flat.py`, `structure_proposal.py` and `whole_bill.py` (bill structure, verification, page linking), `message_ai.py` and `tone.py` (AI messages in three tones), `service.py`, `store.py` and `edits.py` (storage as the user, word changes, blanking), `money.py`. Browser modules in `frontend/extraction/` (contracts, privacy, bulk confirmation and amount formatting). The same code runs locally (`python app.py`) and on Vercel.
+Python package `backend/billshield_core`: `review.py` (payload validation, roles, row checks, outcomes), `engine.py` and `drafting.py` (calculations, controlled templates), `gap.py` and `gap_llm.py` (exact matches, AI explanation and validation), `groq_vision.py` and `groq_http.py` (vision prompts and parsing for Groq and OpenRouter, guarded provider call, local-only cache), `structure.py`, `structure_flat.py`, `structure_proposal.py` and `whole_bill.py` (bill structure, verification, page linking, maths-checked lines), `bill_map.py` (whole-bill pass and its checks), `message_ai.py` and `tone.py` (AI messages in three tones), `service.py`, `store.py` and `edits.py` (storage as the user, word changes, blanking), `money.py`. Browser modules in `frontend/extraction/` (contracts, privacy, bulk confirmation and amount formatting). The same code runs locally (`python app.py`) and on Vercel.
 
 ## 7. Data model
 
@@ -161,11 +171,11 @@ All tables carry `user_id`; row level security allows each user to read and add 
 | `GET /api/health` | readiness: version, Groq key configured, access code required, database configured | never shows values |
 | `POST /api/groq-extract` | one approved crop → unconfirmed candidate lines | `redacted: true` required; ≤ 4.4 MB; one provider request at a time; no retries; clear message if the answer was cut off |
 | `POST /api/analyze` | confirmed payload (schema 2) → result | no provider call; saves outcome B (and re-checked A) when a session is present |
-| `POST /api/explain` | outcome C → result + validated AI explanation | saves the review once |
+| `POST /api/explain` | outcome C → result + validated AI explanation with Python-graded causes | optional `contextNotes` beside the review (checked again, never saved); saves the review once |
 | `POST /api/session` | start or refresh the browser's anonymous session | |
 | `POST /api/messages/{id}/events` | record `copied` / `sent` (+ optional sent text, tone, version shown) | counts changed words against the version shown; blanks private details |
 | `POST /api/read-page` | one whole page → unconfirmed lines, sections, page kind | `wholePage: true` required |
-| `POST /api/link-pages` | read pages → Python-verified structure and line plan | text only; deterministic merge fallback |
+| `POST /api/link-pages` | read pages → Python-verified structure and line plan; `mode: "map"` → the checked whole-bill pass with summary, or `plan: null` | text only; deterministic merge fallback; two separate requests so each stays within 60 s |
 | `POST /api/draft-message` | checked review → message in three tones | placeholders filled by Python; template fallback; nothing saved |
 | `POST /api/reviews` | this browser's saved checks, newest first | read-only; needs the browser's token |
 | `POST /api/reviews/open` | one saved check in full | 404 for another browser's check |
@@ -191,7 +201,7 @@ All POSTs: allowed page origin, JSON only, size limits, access code when configu
 | C — Antriksh / Flipkart | invoice totals 39 + 212 + 233 + 5587 + 15757 = 21828 INR, components balance; no expectation → no-issue summary | invented expectation; unauthorized fee; summing unrelated documents without context |
 | D — Divyae / IndiGo | lines total 22434 INR; difference 3000; development fees 2312 + 520 = 2832 do not explain the full gap | 2312 explains 3000; fee illegal/incorrect; send completed |
 
-**Current test layers (2026-10-19):** **218 Python / 92 browser-module tests pass**: four-case replays, money parsing, rows/subtotals/totals, structure verification and page linking (incl. the VAT-after-subtotal case), AI message checks and tone fallback, saved-check summaries/routes/session renewal, line tree, page choice, locate, privacy. Live evidence: owner runs on Vodafone (two pages), IndiGo and an Anthropic invoice with Haiku; Claude's save → list → open → second-browser isolation round trip on the real database; owner's save and reopen after browser restart on Vercel (E-111); one stranger test (E-210). Still required: known-user test with an observed send and changed-word count; A–D regression with Haiku on the hosted app; a Network-panel privacy check. A self-reported sent event is not an independently observed send.
+**Current test layers (2026-10-20):** **262 Python / 103 browser-module tests pass**, adding maths-checked lines, text-layer matching, notes and their privacy, cause grading, the whole-bill map and label rules. Measurement scripts: `scripts/eval_confirmation_load.py` (cached reads: 93 of 166 counted lines no longer need a look), `scripts/eval_synthetic_causes.py` (13/13 generated bills), `scripts/eval_bill_map.py` (replays private reader lines). Earlier layers: four-case replays, money parsing, rows/subtotals/totals, structure verification and page linking (incl. the VAT-after-subtotal case), AI message checks and tone fallback, saved-check summaries/routes/session renewal, line tree, page choice, locate, privacy. Live evidence: owner runs on Vodafone (two pages), IndiGo and an Anthropic invoice with Haiku; Claude's save → list → open → second-browser isolation round trip on the real database; owner's save and reopen after browser restart on Vercel (E-111); one stranger test (E-210). Still required: known-user test with an observed send and changed-word count; A–D regression with Haiku on the hosted app; a Network-panel privacy check. A self-reported sent event is not an independently observed send.
 
 Record for each test run: input, versions, device/browser, failures and corrections. No all-green claim from simulated extraction alone. Zero unsupported wrong-charge claims is the bar on this limited test set, not a guarantee for unseen bills.
 
@@ -207,21 +217,23 @@ Record for each test run: input, versions, device/browser, failures and correcti
 | 5 UI | owner's chapters, whole-bill reading, hierarchy, tones, saved checks | Done and live; owner end-to-end run on Vercel (D-044–D-049) |
 | 6 Structure-first reading | Haiku structure + Python verification across pages | Done (D-044/D-046) |
 | 7 Observed user tests | known user and stranger with their own bills | Stranger done (E-210, ~80% alone); known user with observed send pending |
-| 8 UI clarity from the stranger test | purpose line, one clear next step per screen, less at once | Next |
+| 8 UI clarity from the stranger test | purpose line, one clear next step per screen, less at once | Done (D-050–D-061) |
+| 9 Less checking, better explanations | maths-checked lines, whole-bill pass and summary, bill notes, graded causes | Done and merged (D-064–D-066); no user test of it yet |
 
 After each stage the developer gives the owner changed files, exact run steps, test results, limitations and the next step, and stops for the owner's go-ahead. Pushing, deployments and settings changes need the owner's approval.
 
 ## 12. Next development additions
 
-Deadline Tue 2026-10-20 22:17 Europe/Amsterdam. Keep time for the known-user test and the submission; reduce scope, not tests.
+The hackathon deadline was Tue 2026-10-20 22:17 Europe/Amsterdam. Remaining work, in order (details in [PRD_SCALABLE.md](PRD_SCALABLE.md)):
 
-**Next 1 — UI clarity (from E-210) — implemented locally (D-050), retest with a new person pending.** One-line purpose at the top of Chapter 1; one clearly marked next action per screen; fewer simultaneous elements (fold away reading options and advanced controls); update the outdated "Nothing is uploaded" status text. *Acceptance:* a new person reaches the message without asking what to do next.
+1. **A user test of the merged version** — a stranger with their own bill; time to finish Check the lines; whether the explanation names the real cause; observed send and changed words. Nothing has been claimed about users yet.
+2. **W1 — any currency and language**: today only EUR/INR pass the reader and the review contract, and every amount uses 2 decimals; currency and number format should be proposed by the reader and verified by Python (decimals from ISO 4217). Remove the Dutch-only reader rule and the hard-coded names in `amount-candidates.mjs`.
+3. **Balance check in Python** (previous balance − payments + this period's charges = amount payable) for lines the whole-bill pass marks as payment or balance.
+4. **Repeats on bills that already add up**: the whole-bill pass only replaces the structure when linking fails.
+5. **W6 — never stuck**: bills such as C (Flipkart) can still stop at "First confirm which lines belong together".
+6. **Held-out real bills** from other countries and sectors for the evaluation scripts.
 
-**Next 2 — Hosted regression with Haiku.** A–D masked bills on the main link; record misses/corrections; time the slowest page against Vercel's 60 s limit.
-
-**Next 3 — Known-user test.** Observed send and changed-word count from `message_events`.
-
-**Deferred (not for this deadline):** N-2 alternate OCR evaluation; N-3 chat and join tables; delete a saved check; provider name in the saved list (needs a `save_review` change); cross-device sign-in; persisting the hierarchy.
+**Deferred:** N-2 alternate OCR evaluation; N-3 chat and join tables; delete a saved check; provider name in the saved list; cross-device sign-in; persisting the hierarchy.
 
 ## 13. Open choices and risks
 
@@ -230,7 +242,10 @@ Deadline Tue 2026-10-20 22:17 Europe/Amsterdam. Keep time for the known-user tes
 - **Identity per browser** — acceptable for tests; cross-device history would need a real sign-in (out of scope now).
 - **Model variability** — reader and text-model answers differ between runs; everything stays behind confirmation and Python verification.
 - **Privacy trade-off** — whole pages go to OpenRouter/Anthropic (D-046); retention requested off, not verified.
-- **Vercel time limit** — 60 s per request; dense pages untested on Vercel.
+- **Vercel time limit** — 60 s per request; dense pages untested on Vercel. Local page reads took 5–30 s.
+- **Extra AI calls** — every bill now makes one more text call (the whole-bill pass) besides linking, explanation and tones.
+- **AI summary numbers** — only the total is checked by Python; other numbers in the summary are labelled AI.
+- **Maths-checked lines** — two reading errors that cancel out would still add up; minus signs, discounts and unsure readings stay with the person to limit this.
 - **Per-browser history** — browsers that wipe site data on close lose the list (data stays in the database).
 - **Coverage** — four reference cases only; unusual layouts, languages, multi-invoice bundles and handwritten receipts are untested.
 - **Time** — real-user evidence is still missing close to the deadline.

@@ -1,8 +1,21 @@
 # BillShield — Decision log
 
+## D-066 — A summary for every bill; cause lines marked in The maths; merge to main
+
+Date: 2026-10-20. Status: merged to main (9861c5b) with the owner's approval ("lets push this to the main"); Vercel serves it. Source: owner's preview tests of the D-064/D-065 branch.
+
+**Decisions (owner):**
+- Every bill gets **About this bill**, not only bills whose pages fail to link. The whole-bill pass now runs for every bill; a bill that already checks out keeps its own structure and only gains the summary; the summary is shown only when Python finds that the pass's counted lines add up exactly to the amount due.
+- The summary sits **above** Check all lines / Add a line as a compact three-line box (Show more), not inside the table; the box, buttons and table share one left and right edge (a hidden third grid column for Undo remove had shortened the button row); Looks right sits closer to the table.
+- The lines behind an AI cause are **marked in The maths** ("· likely cause", a bar in the colour of Python's check) instead of a cut-out of the bill inside the explanation; a "Show on page N of the bill" link remains.
+- Colours of Python's check: **green** explains the whole difference, **blue** explains part (yellow is the brand and the "Written by AI" mark), **grey** offset by other lines or based on bill text only; a one-line key under the causes ("Python's check: explains it all · explains part · offset, or bill text only").
+- The explainer may not spell amounts out in words ("eighteen", "three point seven eight"); Python shows every amount.
+
+**Verified before the merge:** 262 Python / 103 browser-module tests pass; local browser runs of the Vodafone, IndiGo and Canyon bills and a generated three-page bill (summary shown, cause rows marked, key on one line). **Not verified before the merge:** the participant's PDF end to end on the merged version, the 6-page Flipkart bill with the whole-bill pass, and the new elements at phone width. No user has tested the merged version.
+
 ## D-065 — Make sense of the whole bill; numbers in labels; payments are no charge (branch feature/scalable-check)
 
-Date: 2026-10-20. Status: implemented and tested on the branch; preview test by the owner pending. Source: the owner ran the participant's 10-page bill on the D-064 preview: 23 review items, duplicates, "Infinity Family 699 Plan" refused, a payment asked to be typed as a charge or discount.
+Date: 2026-10-20. Status: merged to main (9861c5b, owner approval) and live. Source: the owner ran the participant's 10-page bill on the D-064 preview: 23 review items, duplicates, "Infinity Family 699 Plan" refused, a payment asked to be typed as a charge or discount.
 
 **Decision (owner):** the AI should make sense of what is what on the bill; a minus sign alone does not say whether a line is a discount or a payment; product names may contain numbers.
 
@@ -16,7 +29,7 @@ Date: 2026-10-20. Status: implemented and tested on the branch; preview test by 
 
 ## D-064 — Confirmation by exception; the bill's own text and Python-graded causes (branch feature/scalable-check)
 
-Date: 2026-10-20. Status: implemented and tested on the branch; preview and merge pending owner. Source: the failed Harsh test (confirmation effort above his threshold, roaming cause missed) and [PRD_SCALABLE.md](PRD_SCALABLE.md).
+Date: 2026-10-20. Status: merged to main (9861c5b, owner approval) and live. Source: the failed Harsh test (confirmation effort above his threshold, roaming cause missed) and [PRD_SCALABLE.md](PRD_SCALABLE.md).
 
 **Decision (owner):** development reopened on a branch only; scope for 2026-10-20 is W0-lite, W4, W2 and W5. A line counts when it is checked by maths **or** confirmed by the person (changes the rule "every counted line is confirmed by the user").
 

@@ -1,18 +1,20 @@
 # BillShield — detailed Claude Code handoff
 
-Updated 2026-10-19 (evening) · PRD v3.0 · decisions through D-049. Read this before proposing or changing code. This is continuation context, not permission to implement every proposal.
+Updated 2026-10-20 · PRD v3.1 (+ PRD_SCALABLE for what is left) · decisions through D-066. Read this before proposing or changing code. This is continuation context, not permission to implement every proposal.
 
 ## 1. Start here: outcome and current checkpoint
 
 BillShield helps a person check a real bill against what they expected and prepare one accurate complaint or clarification message. It is not a generic bill summarizer. A message is required after every completed review, including a truthful no-issue message. The app never finds provider contacts or sends messages automatically.
 
-**Built and live (main through 431a7c9, Vercel):** deterministic Python checks/drafts; **Read the whole bill** with Claude Haiku via OpenRouter (Groq Qwen fallback) and page checkboxes; Python-verified bill structure (invoices → sections → rows, summary links) with a cross-page linking pass; hierarchical "Check the lines"; AI explanation as a story with a disclaimer (gpt-oss-120b); AI-written message in Warm/Neutral/Direct with Python-filled placeholders; Supabase saving; **Your earlier checks** (list + read-only view per browser). Area drawing, local PDF.js/Tesseract, manual lines, Yes/Change and the ready-line checkbox remain as fallbacks/corrections.
+**Newest (2026-10-20, main 9861c5b, live; D-064–D-066):** after the failed participant test, branch `feature/scalable-check` was built and merged with the owner's approval: maths-checked lines (`autoVerified` in `whole_bill.plan`; PDF text-layer match `text_match` set by the server); context notes from the reader (`ExtractionOutput.notes`, verified against the text layer, privacy-filtered, sent beside the review as `contextNotes`, never saved); Python-graded AI causes (`gap_llm.grade_cause`: full/part/over/text, unsupported hidden with the story); the whole-bill pass (`bill_map.py`, `/api/link-pages` `mode: "map"`) that names the amount due, the counted lines and what every other line is, used only when Python finds the counted lines equal the amount due, plus **About this bill** for every bill; cause lines marked in The maths with a colour key; labels may contain plain numbers; reader payment/balance/history roles become `other`; currency adopted before linking. Details and measurements in D-064–D-066 and docs/PRD_SCALABLE.md §10b.
 
-**Verification:** 218 Python / 92 browser-module tests pass. Owner live runs (Vodafone two pages, IndiGo, Anthropic invoice). Claude's live save → list → open → second-browser isolation test on the real database. Owner saved and reopened a check after a browser restart on Vercel (parent evidence E-111). One stranger test (E-210): self-reported ~80% independent; barriers: goal unclear at first, UI overwhelming in parts, next step unclear.
+**Built and live before that (main through 431a7c9, Vercel):** deterministic Python checks/drafts; **Read the whole bill** with Claude Haiku via OpenRouter (Groq Qwen fallback) and page checkboxes; Python-verified bill structure (invoices → sections → rows, summary links) with a cross-page linking pass; hierarchical "Check the lines"; AI explanation as a story with a disclaimer (gpt-oss-120b); AI-written message in Warm/Neutral/Direct with Python-filled placeholders; Supabase saving; **Your earlier checks** (list + read-only view per browser). Area drawing, local PDF.js/Tesseract, manual lines, Yes/Change and the ready-line checkbox remain as fallbacks/corrections.
+
+**Verification:** 262 Python / 103 browser-module tests pass (2026-10-20). Earlier: Owner live runs (Vodafone two pages, IndiGo, Anthropic invoice). Claude's live save → list → open → second-browser isolation test on the real database. Owner saved and reopened a check after a browser restart on Vercel (parent evidence E-111). One stranger test (E-210): self-reported ~80% independent; barriers: goal unclear at first, UI overwhelming in parts, next step unclear.
 
 **Not built:** chat; delete; cross-device history; persisting the hierarchy; provider name in saved list; finding_lines/message_lines tables; alternate OCR.
 
-**Next checkpoint:** UI clarity from the stranger test (purpose line, one next action per screen, less at once, fix the outdated "Nothing is uploaded" status); hosted A–D regression with Haiku and dense-page timing; known-user test with an observed send. Deadline 2026-10-20 22:17 Europe/Amsterdam.
+**Next checkpoint:** a user test of the merged version (nobody has tried it yet); then PRD_SCALABLE W1 (any currency: today EUR/INR only and 2 decimals), the Python balance check, repeats on bills that already add up, and W6 (never stuck, e.g. Flipkart C). The hackathon deadline was 2026-10-20 22:17 Europe/Amsterdam.
 
 ## 2. Working agreement with the owner
 
@@ -58,11 +60,13 @@ npm --prefix frontend test
 
 Read PRD current status, §3–5, §10–12, §16–17; newest decisions; parent PROJECT if present; this guide. Report stage/status, tests, dirty work, missing context, delivery versus acceptance and up to three next actions before starting changes. If remote sync fails, say so; do not reset/rebase/overwrite to conceal it. A failed network command is not a failed application test.
 
-Expected baseline 218 Python / 92 browser-module tests; rerun, do not copy this count as evidence. Do not run benchmark scripts that call Groq or write the real database as a routine startup action.
+Expected baseline 262 Python / 103 browser-module tests; rerun, do not copy this count as evidence. Do not run benchmark scripts that call Groq or write the real database as a routine startup action.
 
 ## 5. What the person sees now
 
 Five chapters: **Your bill → Read → Check the lines → What we found → Your message**. Finish/self-reported send stays beside the message, not an extra hidden stage.
+
+**Since D-064–D-066:** Check the lines starts with **About this bill** (AI summary, three lines, labelled) above Check all lines / Add a line; lines Python checked by maths say "✓ Checked by maths" and start confirmed; discounts, minus signs and unsure readings stay for the person; repeats, details, earlier bills, payments and empty tables are folded under "Shown on the bill — not counted" with Python's reason. What we found shows each AI cause with Python's grade (green full, blue part, grey offset/bill text only), the bill note behind it, a "Show on page N" link, and its lines marked "· likely cause" in The maths.
 
 **Current main route (D-044–D-049), above the older detail below:** Chapter 1 has upload, expected amount, currency (sets the decimal mark) and **Your earlier checks**. Read shows one page at a time with Previous/Next, page checkboxes and **Read the whole bill** (confirmation names the pages). Check the lines shows the verified hierarchy with ✓ sections, indented breakdowns, one explanation under a section that does not add up, and reference lines folded away. What we found adds the AI story with a disclaimer. Your message has a Warm/Neutral/Direct picker. The subsections below describe the area-drawing fallback and correction tools, which still exist.
 
@@ -135,6 +139,8 @@ Results expose `summaryOf` and `countedInTotal`; maths respects them and gap-mod
 | frontend/ui-flow.mjs, read-flow.mjs | Chapters, reading sequence/state and main page composition |
 | frontend/review-app.mjs | Page/crop/whole-bill/confirmation/recovery/API orchestration; not the financial engine |
 | backend/billshield_core/structure.py, structure_flat.py, structure_proposal.py, whole_bill.py | Bill structure model, Python verification, single-crop plan, cross-page linking (D-044) |
+| backend/billshield_core/bill_map.py | Whole-bill pass: prompt, parsing, Python checks of counted lines/copies/details/empty claims (D-065) |
+| scripts/eval_confirmation_load.py, eval_synthetic_causes.py, eval_bill_map.py | W0-lite measurements; the last two call a model (cached in private/) |
 | backend/billshield_core/message_ai.py, tone.py | AI messages in three tones with placeholders; template tone fallback (D-048) |
 | frontend/line-tree.mjs, saved-checks.mjs, tone.mjs, extraction/locate.mjs | Hierarchical line rows; earlier checks list/dialog; tone display; PDF-text amount positions |
 | frontend/extraction/page-review.mjs | Candidate append/repeat rules, manual fields, remove/Undo metadata, section proposal/acceptance bookkeeping |
@@ -157,6 +163,8 @@ Configured models: vision `anthropic/claude-haiku-5.5` via OpenRouter when `OPEN
 - Ignored `.env.local` holds credentials; never print/request/commit them. Names only: GROQ_API_KEY, OPEN_ROUTER_KEY, BILLSHIELD_ACCESS_CODE (Vercel only), SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, optional BILLSHIELD_ALLOWED_ORIGINS, VISION_PROVIDER.
 - Supabase: publishable key plus the person's token; secret keys refused. One anonymous user per browser, stored as a signed pass in localStorage (`billshield-session`). `/api/session` returns 410 only when the refresh token is rejected; other failures keep the pass (D-049).
 - Saved: confirmed rows (role/group, not the hierarchy), expectation, finding, message, events. Saved checks are read-only; no delete.
+
+`/api/link-pages` with `mode: "map"` runs the whole-bill pass in its own request (returns `plan: null` when it does not add up). `/api/explain` accepts `contextNotes` beside the review; they are checked again in `gap_llm.clean_notes` and never saved.
 
 Routes: GET /api/health; POST /api/read-page, /api/link-pages, /api/groq-extract, /api/analyze, /api/explain, /api/draft-message, /api/session, /api/messages/{id}/events, /api/reviews, /api/reviews/open; /docs. Access/origin/JSON/size guards apply to every POST.
 
@@ -215,13 +223,15 @@ Important regressions: summary+detail counted once only under conservative rule;
 - History is per browser; site-data wiping or another device starts a fresh list. No delete, edit or provider name.
 - Outdated status text: "PDF selected … Nothing is uploaded." Stranger found the goal unclear, the UI overwhelming in parts and the next step unclear.
 - Test rows and one builder-created "sent" event (anonymous user 183d914c…) are in the real database; not user evidence.
-- Known-user test with an observed send and changed-word count is missing.
+- Known-user test with an observed send and changed-word count is missing. **Nobody has tested the merged D-064–D-066 version.**
+- Only EUR and INR pass the reader (`parse_response`), `/api/link-pages` and the review contract; amounts always use 2 decimals; the reader prompt has a Dutch-only rule ("Factuurbedrag"); `amount-candidates.mjs` has names from one German bill (PRD_SCALABLE W1).
+- The whole-bill pass replaces the structure only when linking fails; a bill that adds up but repeats lines keeps them. Payments/balances are labelled but the balance equation is not checked in Python.
+- The participant's PDF has been replayed from its exported lines, not run end to end on the merged version; Flipkart (C) still stops at grouping questions; the new elements are not checked at phone width.
+- Each bill now makes one more AI call (the whole-bill pass); the summary's numbers other than its total are AI-written (labelled).
 
 ## 12. Next technical work — owner approval per stage
 
-1. UI clarity from E-210: one-line purpose, one clear next action per chapter, fold away secondary controls, fix outdated texts.
-2. Hosted regression A–D with Haiku; time the slowest page.
-3. Optional: provider name in saved list (needs a `save_review` change — migration, ask first), delete a saved check, chat (N-3).
+See docs/PRD.md §12 and docs/PRD_SCALABLE.md §10b. In short: user test of the merged version → W1 any currency/language → Python balance check → repeats on bills that add up → W6 never stuck → held-out real bills for the evaluation scripts.
 
 ## 13. Product evidence and records to maintain
 

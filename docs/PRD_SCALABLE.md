@@ -2,7 +2,7 @@
 
 Version 4.0 draft · 2026-10-20 · Owner: Prateek Wahi · Branch: `feature/scalable-check`
 
-**Status (2026-10-20, branch):** W4, W2 and W5 built and tested on the branch with W0-lite measurements; see D-064 for results and limits. W1, W3 and W6 not built. [PRD.md](PRD.md) v3.0 stays authoritative for `main` and the live app. This document becomes authoritative for the branch once the owner approves it. Each change below that touches a rule in PRD v3.0 §5 is marked **[changes a §5 rule]** and needs explicit owner approval before it is built.
+**Status (2026-10-20, merged to main 9861c5b):** the approved rule changes are recorded in [PRD.md](PRD.md) v3.1, which is authoritative for what exists; this document keeps the plan for what is left. Built: **W4** (maths-checked lines), **W2** (bill notes), **W5** (Python-graded causes), part of **W3** as the **whole-bill pass** (counted lines, copies, details, earlier bills, payments, empty tables, summary; D-065/D-066) and **W0-lite** (three measurement scripts). Not built: **W1** (any currency/language), the Python **balance check** (U2), W3 for bills that already add up, **W6** (never stuck). No user has tested the merged version. Rules marked **[changes a §5 rule]** below were approved by the owner where §10a says so.
 
 ---
 
@@ -308,6 +308,19 @@ All are typed models in `backend/billshield_core`. AI output is parsed into them
 - **Test bills today:** the existing private bills as the regression baseline, plus synthetic bills. No new real bills are tested today; any result is reported as covering only these bills.
 - **The explanation is in English only.** The message follows the recommendation and stays English (question 5).
 - **Merge gate relaxed for today:** the stranger-test condition in §10 is waived for a same-day merge. The test is still owed before any claim that the change helped users.
+
+## 10b. Built, measured and still open (2026-10-20, end of day)
+
+| Workstream | State | Measured | Open |
+|---|---|---|---|
+| W0-lite | `eval_confirmation_load.py`, `eval_synthetic_causes.py`, `eval_bill_map.py` | baseline and after for cached reads; 13 generated causes | held-out real bills from other countries |
+| W4 | built (D-064) | 93 of 166 counted lines in cached reads no longer need a look | user timing |
+| W2 | built (D-064) | notes found on the Vodafone and generated bills | verification against images (only PDFs have a text layer) |
+| W5 | built (D-064, D-066) | right cause first in 13/13 generated bills | real-bill accuracy |
+| W3 (whole-bill pass) | built for bills whose pages do not link; summary for every bill (D-065, D-066) | participant's 49 lines: 45 folded with a checked reason, 0 left to review | bills that add up but still show repeats; participant's PDF end to end |
+| U2 balance check | not built | — | — |
+| W1 | not built; found: EUR/INR only, 2 decimals, Dutch rule, hard-coded names | — | all |
+| W6 | not built | Flipkart (C) still stops at grouping questions | all |
 
 ## 11. Open questions for the owner
 
