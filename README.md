@@ -1,66 +1,36 @@
-# BillShield
+# Kill Bill 2.0
 
-Check a bill against the expected payment, verify amounts with Python and prepare one grounded editable message. The user sends it; the app never contacts a provider.
+**Paid more than you expected?** Upload a bill, say what you expected to pay, and the app shows where the difference comes from and drafts one clear message to the company. You send it yourself; the app never contacts anyone.
 
-**Current checkpoint, 2026-10-20:** main 9861c5b is live on [the hosted app](https://c8-hackathon-killbill2-0.vercel.app). Whole-bill reading with Claude Haiku (OpenRouter); a Python-verified bill structure; **lines that add up are checked by maths** instead of by you; a **whole-bill pass** folds away repeats, details, earlier bills, payments and empty tables and writes **About this bill**; the explanation uses **notes from the bill's own text** and **Python grades every cause**, marking its lines in The maths; AI messages in three tones; **Your earlier checks**. **262 Python / 103 browser-module tests pass.** User evidence: one stranger test on an earlier version (~80% independent, self-reported) and one assisted participant test that failed on the version before these changes; **nobody has tested the merged version yet.** Use the main address; per-deployment URLs are older versions.
+Live: https://c8-hackathon-killbill2-0.vercel.app
 
-Continue with [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md), [PRD](docs/PRD.md) v3.1, [PRD_SCALABLE](docs/PRD_SCALABLE.md) (what is left) and [decisions](docs/DECISIONS.md) through D-066.
+## How it works
 
-## Run locally
+1. **Your bill** — upload a PDF or photos and enter what you expected to pay.
+2. **Read** — an AI (Claude Haiku) reads the pages and makes sense of the whole bill.
+3. **Check the lines** — lines that add up to a printed total are checked by maths; you only look at the rest.
+4. **What we found** — the difference, the maths, and the likely causes, each checked by Python.
+5. **Your message** — a short message in a warm, neutral or direct tone, ready to copy.
 
-From this application folder:
+**The rule behind it:** the AI reads and explains; Python owns every number. Every amount you see or send is calculated and checked by code.
 
-```powershell
-.venv\Scripts\python.exe app.py
-```
-
-Open http://127.0.0.1:4173/ (API docs at /docs). If 4173 is occupied, first check if the app already runs; do not start a second copy. Ctrl+C stops the existing process when appropriate. Python edits need restart; static UI changes need Ctrl+F5, which clears unsaved rows.
-
-First setup, if needed:
+## Run it locally
 
 ```powershell
 py -3.11 -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[test]"
 npm --prefix frontend ci
+.venv\Scripts\python.exe app.py
 ```
 
-Local configuration is ignored .env.local; names only: GROQ_API_KEY, OPEN_ROUTER_KEY, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, optional BILLSHIELD_ACCESS_CODE. On Vercel, set the keys for **Preview** as well as Production, or a preview reads with Groq instead of Haiku. Never print/commit values. Supabase uses publishable key plus user token, not secret key. Reading assets are pinned under frontend/vendor; read CLAUDE.md before regenerating.
+Open http://127.0.0.1:4173/. Keys go in an ignored `.env.local` (names only): `OPEN_ROUTER_KEY`, `GROQ_API_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`.
 
-## Use the current flow
-
-1. **Your bill:** upload PDF/image pages, enter the expected amount; currency sets the decimal mark. Earlier checks from this browser are listed below and open read-only.
-2. **Read:** tick the pages to send and press **Read the whole bill** (the pages go to Claude Haiku; you confirm first). The app then makes sense of the whole bill and writes a short summary; Python checks it. Fallbacks: draw an area, read on this device, or add a line.
-3. **Check the lines:** **About this bill** on top; lines marked ✓ were checked by maths; look only at the rest (discounts and minus signs always stay for you). Repeats, details, earlier bills and payments are under "Shown on the bill — not counted". **Looks right — check it** runs Python.
-4. **What we found:** Python's result and maths; an AI story with a disclaimer; each likely cause with Python's check (green: explains it all, blue: part, grey: offset or bill text only), the bill note behind it, and its lines marked in The maths.
-5. **Your message:** pick Warm / Neutral / Direct, edit, Copy, send it yourself, then **I sent it**.
-
-## Verify without live model/database writes
-
-```powershell
-.venv\Scripts\python.exe -m unittest discover -s tests
-npm --prefix frontend test
-node --check frontend/review-app.mjs
-git diff --check
-```
-
-Measurement (opt-in; the last two call a model and cache answers in ignored private/):
-
-```powershell
-.venv\Scripts\python.exe scripts/eval_confirmation_load.py            # cached reads: lines left for the person
-.venv\Scripts\python.exe scripts/eval_synthetic_causes.py --send     # generated bills with a known cause (Groq)
-.venv\Scripts\python.exe scripts/eval_bill_map.py private/masked/<name>/reader-lines.json --send   # OpenRouter, text only
-```
-
-Optional offline UI helper:
-
-```powershell
-.venv\Scripts\python.exe scripts/ui_fixture_server.py
-```
-
-Open http://127.0.0.1:4180/. Model/storage stubbed; Python real. Not production, fresh OCR accuracy or real-user evidence. Normal app is app.py, not legacy frontend npm start.
+Tests: `.venv\Scripts\python.exe -m unittest discover -s tests` and `npm --prefix frontend test`.
 
 ## Privacy and limits
 
-No file storage: bill images are never saved by the app. With whole-bill reading, the ticked pages pass through the server in memory to OpenRouter/Claude Haiku (retention requested off, not verified). Only confirmed lines and results are saved, per browser. Local response cache exists on developer machines only. No zero-retention promise.
+- Bill images are never stored. The pages you choose are sent to the AI to be read; only the checked lines and results are saved, per browser.
+- Euro and Indian rupee bills only for now; up to ten pages.
+- The AI can misread a bill; that is why Python checks the totals and you can correct any line.
 
-Configuration names: GROQ_API_KEY, OPEN_ROUTER_KEY, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, BILLSHIELD_ACCESS_CODE (hosted). EUR/INR only for now (any currency is planned, W1); ten pages maximum, 4,000,000 bytes per file. Each bill makes several AI calls: one per page, linking, the whole-bill pass, the explanation and the tones. Reader mistakes still need review. No chat, contacts, automatic sending, legal judgement, delete or cross-device history. See the PRD for precise status.
+More detail: [docs/PRD.md](docs/PRD.md) (requirements), [docs/DECISIONS.md](docs/DECISIONS.md) (why things are the way they are), [CLAUDE.md](CLAUDE.md) (developer guide).
