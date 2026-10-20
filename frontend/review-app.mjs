@@ -207,6 +207,10 @@ function setDecimalHint(text) {
 // One AI-read line -> an unconfirmed candidate. area is the drawn table area, or null for a whole page.
 // placed is Python's checked plan for the line (section, tick, hint, role for summaries), if any.
 function visionCandidate(line, { page, area, sourceKey, outputCurrency, placed, model, id = null, gid = null, wholePage = false }) {
+  // A discount printed without a minus that Python counted as a deduction because the printed totals add up that way
+  // (owner 2026-10-20). The printed amount stays visible in the note; nothing else is changed.
+  const deduction = placed?.signedRaw ? `Printed without a minus sign (${line.raw_amount}). It reduces the bill: Python counted it as a deduction because the printed totals add up exactly that way.` : null;
+  if (deduction) line = { ...line, raw_amount: placed.signedRaw };
   const suggestion = visionSuggestion(line);
   // Uniform display: no currency marks, chosen decimal format; unclear values stay as printed with a note.
   const separator = elements.decimalSeparator.value;
@@ -251,7 +255,7 @@ function visionCandidate(line, { page, area, sourceKey, outputCurrency, placed, 
     description: line.description, currency: line.currency || outputCurrency || elements.currency.value,
     originalLabel: line.original_label && line.original_label !== line.description ? line.original_label : "",
     context: `AI reader suggestion (${model || visionName}) · check against the original page${line.original_label && line.original_label !== line.description ? ` · printed as “${line.original_label}”` : ""}${placed?.note ? ` · AI link (unverified): ${placed.note}` : ""}`,
-    warning: [line.warning, ...suggestion.notes, ...(cleaned ? cleaned.notes : []), ...formatNotes, bounds
+    warning: [deduction, line.warning, ...suggestion.notes, ...(cleaned ? cleaned.notes : []), ...formatNotes, bounds
       ? "Model source box is unverified. Inspect it before confirming."
       : row ? "Read from the highlighted row (found by the AI reader, not verified). Check the amount in that row before confirming."
       : area ? "Read from the dashed table area; the exact position of this amount is not known. Check the amount in that table before confirming."

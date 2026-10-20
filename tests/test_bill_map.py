@@ -72,3 +72,45 @@ class BillMap(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# Shaped like the owner's electricity bill (2026-10-20): the subsidy is printed without a minus sign, and
+# "Bill after subsidy" is a running total of everything above it.
+ELECTRICITY = [(1, parse_response(reply({"lines": [
+    {"id": i, "role": role, "description": label, "raw_amount": amount, "page": 1, "confidence": 0.9}
+    for i, role, label, amount in [
+        ("c1", "charge", "Energy charge", "1875.25"), ("c2", "charge", "Fixed charge", "20.00"),
+        ("c3", "charge", "Other charges", "261.74"), ("s1", "subtotal", "Bill amount", "2156.99"),
+        ("d", "discount", "Government subsidy", "184.50"), ("a", "adjustment", "Loss/gain adjustment", "-0.49"),
+        ("s2", "subtotal", "Bill after subsidy", "1972.00"), ("ar", "charge", "Arrears", "0.50"),
+        ("t", "total", "Net bill", "1972.50")]],
+    "structure": {"sections": [{"id": "bill", "label": "Bill charges", "subtotal_line_id": "s1"},
+                               {"id": "after", "label": "After subsidy", "subtotal_line_id": "s2"}],
+                  "rows": [{"line_id": x, "section_id": "bill"} for x in ("c1", "c2", "c3")]
+                  + [{"line_id": "d", "section_id": "after"}, {"line_id": "a", "section_id": "after"},
+                     {"line_id": "ar", "section_id": None}]}})))]
+
+
+class DeductionWithoutMinus(unittest.TestCase):
+    def test_the_whole_bill_pass_counts_it_as_a_deduction_when_the_total_then_adds_up(self):
+        answer = {"amount_due": "p1-t", "counted": ["p1-c1", "p1-c2", "p1-c3", "p1-d", "p1-a", "p1-ar"],
+                  "others": [{"id": "p1-s1", "kind": "info", "of": None}, {"id": "p1-s2", "kind": "info", "of": None}],
+                  "summary": "An electricity bill with a government subsidy."}
+        with patch("billshield_core.whole_bill.post_chat", return_value=reply(answer)):
+            plan = map_pages(ELECTRICITY, decimal_separator=".", currency="INR", api_key="k")
+        self.assertEqual(plan["status"], "ok")
+        self.assertEqual(plan["lines"]["p1-d"]["signedRaw"], "-184.50")
+        self.assertEqual(plan["lines"]["p1-d"]["role"], "discount")
+        self.assertNotIn("signedRaw", plan["lines"]["p1-c1"])
+
+    def test_a_discount_printed_without_a_minus_is_not_flipped_when_the_totals_do_not_confirm_it(self):
+        answer = {"amount_due": "p1-t", "counted": ["p1-c1", "p1-c2", "p1-d"], "others": [], "summary": "x"}
+        with patch("billshield_core.whole_bill.post_chat", return_value=reply(answer)):
+            self.assertIsNone(map_pages(ELECTRICITY, decimal_separator=".", currency="INR", api_key="k"))
+
+    def test_linking_keeps_the_reading_in_which_more_printed_figures_add_up(self):
+        from billshield_core.whole_bill import link_pages
+        plan = link_pages(ELECTRICITY, decimal_separator=".", currency="INR", api_key=None)
+        bill = plan["tree"][0]
+        self.assertTrue(bill["matches"])  # 2156.99 - 184.50 - 0.49 + 0.50 = 1972.50 only as a deduction
+        self.assertNotIn("signedRaw", plan["lines"]["p1-d"])  # its own running-total section still does not add up

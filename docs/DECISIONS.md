@@ -1,5 +1,13 @@
 # BillShield — Decision log
 
+## D-067 — A discount printed without a minus counts as a deduction only when the printed totals prove it
+
+Date: 2026-10-20. Status: built and tested on branch `fix/discount-sign`; push and merge pending owner. Source: owner's electricity bill on the live app: "GOVT SUBSIDY 184.50" (no minus) read correctly as a discount but counted as +184.50, so "Bill after subsidy" and the bill total did not add up and the whole-bill pass was rejected.
+
+**Decision:** changes the rule "signs are never flipped". The reader decides by meaning (role discount); Python tries such a line as a deduction and keeps that only where the printed figures then add up: in linking, the reading in which more printed figures match wins, and a line gets the deduction only if its own part then matches; in the whole-bill pass, only if the counted lines then equal the amount due exactly. The line shows the minus with the note "Printed without a minus sign (184.50). It reduces the bill: Python counted it as a deduction because the printed totals add up exactly that way." Otherwise nothing changes and the person decides.
+
+**Tested:** three Python tests on an electricity-shaped bill; a generated receipt in the browser: subsidy −184.50, everything adds up, nothing to review. **Open (owner):** on that receipt the whole-bill pass chose "Bill after subsidy" 1972.00 as this period's amount and put the 0.50 arrears under "not counted" (a balance carried over), as its instructions say; the receipt's NET BILL is 1972.50. Running totals ("bill after subsidy" includes everything above it) are not nested by the linking pass; the whole-bill pass covers them.
+
 ## D-066 — A summary for every bill; cause lines marked in The maths; merge to main
 
 Date: 2026-10-20. Status: merged to main (9861c5b) with the owner's approval ("lets push this to the main"); Vercel serves it. Source: owner's preview tests of the D-064/D-065 branch.

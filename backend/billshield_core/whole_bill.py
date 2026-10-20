@@ -90,6 +90,25 @@ def _amounts(pages, ids, decimal_separator, currency):
     return lines, unreadable
 
 
+RANK = {"ok": 0, "incomplete": 1, "mismatch": 2, "invalid": 3}
+
+
+def deducted(lines: dict) -> tuple[dict, set[str]]:
+    """Owner 2026-10-20 (electricity bill, "GOVT SUBSIDY 184.50"): a bill may print a deduction without a minus sign.
+    The reader decides by meaning (role discount); Python counts it as a deduction only where the printed totals then
+    add up (callers compare both readings). Returns the lines with such discounts negative, and their ids."""
+    flipped = {line_id for line_id, (role, minor) in lines.items() if role == "discount" and minor > 0}
+    return {line_id: (role, -minor if line_id in flipped else minor) for line_id, (role, minor) in lines.items()}, flipped
+
+
+def _score(check: StructureCheck) -> tuple[int, int]:
+    return RANK[check.status], sum(1 for node in check.nodes.values() if node.matches is False)
+
+
+def _signed_raw(raw: str | None) -> str:
+    return "-" + str(raw or "").strip().lstrip("+")
+
+
 def merged_structure(pages, ids, lines) -> BillStructure:
     """Deterministic fallback: one invoice, each page's own sections; flat pages put their rows on the invoice."""
     totals = [gid for gid, (role, _) in lines.items() if role == "total"]
@@ -451,12 +470,23 @@ def link_pages(pages: list[tuple[int, ExtractionOutput]], *, decimal_separator: 
                 "rows": tuple(row for row in proposal.rows if row.line_id in known),
                 "summaries": tuple(link for link in proposal.summaries if link.line_id in known)})
             ai_check = _with_unreadable(verify_structure(proposal, lines), unreadable)
-            rank = {"ok": 0, "incomplete": 1, "mismatch": 2, "invalid": 3}
-            if rank[ai_check.status] <= rank[check.status]:
+            if RANK[ai_check.status] <= RANK[check.status]:
                 structure, check, linked_by = proposal, ai_check, "ai"
+    # A discount printed without a minus: keep the reading in which the printed figures add up better.
+    flipped: set[str] = set()
+    signed, candidates = deducted(lines)
+    if candidates:
+        signed_check = _with_unreadable(verify_structure(structure, signed), unreadable)
+        if _score(signed_check) < _score(check):
+            lines, check, flipped = signed, signed_check, candidates
     meta = {ids[(page, line.id)]: {"id": ids[(page, line.id)], "confidence": line.confidence, "warning": line.warning,
                                    "text_match": line.text_match} for page, output in pages for line in output.lines}
     result = plan(structure, check, labels, currency, notes if linked_by == "ai" else {}, lines, decimal_separator, meta)
+    raw = {ids[(page, line.id)]: line.raw_amount for page, output in pages for line in output.lines}
+    for line_id in flipped:
+        entry = result["lines"].get(line_id)
+        if entry and entry.get("verified"):  # only where its own part now adds up to the printed figure
+            entry["signedRaw"] = _signed_raw(raw[line_id])
     result["linkedBy"] = linked_by
     result["decimalMark"] = decimal_separator
     result["ids"] = {f"{page}:{local}": gid for (page, local), gid in ids.items()}
@@ -487,7 +517,15 @@ def map_pages(pages: list[tuple[int, ExtractionOutput]], *, decimal_separator: s
         proposal = parse_map(post_chat(map_request(pages, ids), api_key, cache_dir, 120, OPENROUTER_ENDPOINT, "OpenRouter"))
     except (RuntimeError, ValueError, KeyError, IndexError):
         return None
-    checked = verify_map(proposal, amounts, labels, currency)
+    checked, flipped = verify_map(proposal, amounts, labels, currency), set()
+    if checked is None:
+        # A discount printed without a minus: try it as a deduction; used only if the sum then matches exactly.
+        signed = {line_id: (role, -minor if role == "discount" and minor is not None and minor > 0 else minor)
+                  for line_id, (role, minor) in amounts.items()}
+        checked = verify_map(proposal, signed, labels, currency)
+        if checked is not None:
+            flipped = {line_id for line_id in checked["counted"] if signed[line_id] != amounts[line_id]}
+            amounts = signed
     if checked is None:
         return None
     structure, lines = structure_from_map(checked, amounts)
@@ -502,6 +540,9 @@ def map_pages(pages: list[tuple[int, ExtractionOutput]], *, decimal_separator: s
     for line_id, (text, ok) in checked["texts"].items():
         result["lines"][line_id] = {"group": "", "path": "", "verified": ok, "hint": None, "role": "",
                                     "referenceText": text, "autoVerified": False}
+    raw = {ids[(page, line.id)]: line.raw_amount for page, output in pages for line in output.lines}
+    for line_id in flipped:
+        result["lines"][line_id]["signedRaw"] = _signed_raw(raw[line_id])
     result["summary"] = checked["summary"]
     result["linkedBy"] = "map"
     result["decimalMark"] = decimal_separator
