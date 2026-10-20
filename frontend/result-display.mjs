@@ -18,8 +18,8 @@ export function mathRows(result) {
   const groups = (result.groups || []).filter(group => group.amount);
   const inGroup = new Set(groups.flatMap(group => group.lineIds));
   const rows = [
-    ...groups.map(group => ({ label: group.label, value: group.amount, kind: "line" })),
-    ...counted.filter(line => !inGroup.has(line.id)).map(line => ({ label: line.description, value: line.amount, kind: "line" })),
+    ...groups.map(group => ({ label: group.label, value: group.amount, kind: "line", lineIds: group.lineIds })),
+    ...counted.filter(line => !inGroup.has(line.id)).map(line => ({ label: line.description, value: line.amount, kind: "line", lineIds: [line.id] })),
   ];
   const { calculatedTotal, printedTotal } = result.amounts;
   if (printedTotal && result.minor?.printedTotal === result.minor?.calculatedTotal) {

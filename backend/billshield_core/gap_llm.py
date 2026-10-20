@@ -31,7 +31,8 @@ Rules:
   why a charge is there: usage outside the bundle such as roaming, a price change, a one-off fee, a promotion that
   ended. Use them: a cause backed by a line AND a note is the strongest. Use your general knowledge of how bills work
   to connect them, but claim nothing the lines or notes do not show.
-- Do not calculate, add, compare or restate any amount. Write NO digits and NO currency symbols.
+- Do not calculate, add, compare or restate any amount. Write NO digits and NO currency symbols, and do not
+  spell amounts out in words either (never "eighteen" or "three point seven eight"): Python shows every amount.
 - If Python reports an exact match, treat it as the strongest clue and say it matches exactly.
 - A difference is not proof of a mistake. Never say overcharged, illegal, fraud or scam.
 - You do not know earlier or usual prices. Never call a charge high, higher, excessive, unusual or

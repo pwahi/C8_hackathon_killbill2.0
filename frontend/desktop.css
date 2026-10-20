@@ -644,7 +644,7 @@ body[data-ui-step='4'] #status:not(.failure) { display: none; }
 .graded-causes { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .graded-causes .cause { border-left: 3px solid #b5b5ad; padding: 2px 0 2px 12px; display: grid; gap: 4px; }
 .graded-causes .cause-full { border-left-color: var(--green); }
-.graded-causes .cause-part { border-left-color: var(--accent); }
+.graded-causes .cause-part { border-left-color: #3a6ea5; }
 .graded-causes .cause-grade { color: var(--muted); font-size: 13px; }
 .graded-causes .cause-full .cause-grade { color: var(--green); font-weight: 600; }
 .graded-causes .cause-reason { margin: 0; }
@@ -673,9 +673,16 @@ body[data-ui-step='2'] #payload-panel { margin-top: 12px; }
 
 /* Key for the coloured bars next to each cause (Python's check of the cause's numbers). */
 .graded-wrap { display: grid; gap: 10px; }
-.cause-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; font-size: 12px; color: var(--muted); }
+.cause-legend { display: flex; flex-wrap: nowrap; gap: 14px; margin: 0; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .cause-legend strong { font-weight: 600; color: var(--ink); }
 .legend-key { display: inline-flex; align-items: center; gap: 6px; }
 .legend-key::before { content: ''; width: 3px; height: 14px; border-radius: 1px; background: #b5b5ad; }
 .legend-full::before { background: var(--green); }
-.legend-part::before { background: var(--accent); }
+.legend-part::before { background: #3a6ea5; }
+
+/* The maths: rows behind a likely cause, coloured like Python's check of that cause. */
+.math-table tr.math-cause td:first-child { box-shadow: inset 4px 0 0 #b5b5ad; }
+.math-table tr.math-cause-full td:first-child { box-shadow: inset 4px 0 0 var(--green); }
+.math-table tr.math-cause-part td:first-child { box-shadow: inset 4px 0 0 #3a6ea5; }
+.math-table tr.math-cause td { background: #f6f7f9; font-weight: 600; }
+.math-table tr.math-cause td:first-child::after { content: "  · likely cause"; font-weight: 400; font-size: 12px; color: var(--muted); }

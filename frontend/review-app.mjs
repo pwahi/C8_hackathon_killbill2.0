@@ -1887,10 +1887,9 @@ function gradedCauses(explanation, labels) {
   const legend = document.createElement("p");
   legend.className = "cause-legend";
   const lead = document.createElement("strong");
-  lead.textContent = "Bar colour = Python's check:";
+  lead.textContent = "Python's check:";
   legend.append(lead);
-  for (const [kind, text] of [["full", "explains the whole difference"], ["part", "explains part of it"],
-    ["other", "offset by other lines, or based on bill text only"]]) {
+  for (const [kind, text] of [["full", "explains it all"], ["part", "explains part"], ["other", "offset, or text only"]]) {
     const key = document.createElement("span");
     key.className = `legend-key legend-${kind}`;
     key.textContent = text;
@@ -1910,7 +1909,7 @@ function onTheBill(lineIds) {
   if (!lines.length) return null;
   const page = lines[0].page;
   const onPage = lines.filter((line) => line.page === page);
-  const source = reviewState.pageElements.get(page)?.querySelector("canvas, img");
+  const source = null;  // owner 2026-10-20: the cause is marked in The maths, not as a picture of the bill here
   const box = document.createElement("div");
   box.className = "on-the-bill";
   if (source) {
@@ -2051,9 +2050,19 @@ function renderResult(result, ai = { state: "skipped" }) {
   table.className = "math-table";
   table.setAttribute("aria-label", "Code-checked bill amounts");
   const tableBody = document.createElement("tbody");
+  // Owner 2026-10-20: the lines behind a cause are marked here, in The maths, with the colour of Python's check.
+  const causeGrade = new Map();
+  for (const cause of ai.state === "done" ? ai.explanation?.likelyCauses || [] : []) {
+    for (const id of cause.lineIds) if (cause.grade && !causeGrade.has(id)) causeGrade.set(id, cause.grade);
+  }
   for (const row of mathRows(result)) {
     const tr = document.createElement("tr");
     tr.className = `math-${row.kind}`;
+    const grade = (row.lineIds || []).map((id) => causeGrade.get(id)).find(Boolean);
+    if (grade) {
+      tr.classList.add("math-cause", `math-cause-${["full", "part"].includes(grade) ? grade : "other"}`);
+      tr.title = "A likely cause of the difference (see Checked by maths, explained by AI)";
+    }
     for (const text of [row.label, row.value]) {
       const td = document.createElement("td");
       td.textContent = text;
