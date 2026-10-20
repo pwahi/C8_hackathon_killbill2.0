@@ -4,7 +4,9 @@ import { containsPossiblePrivateData } from "./privacy.mjs";
 const ROLES = new Set(["charge", "discount", "adjustment", "subtotal", "total"]);
 const SIGNED = /^\s*(?:[-−(]|(?:EUR|INR|€|₹)\s*[-−])/iu;
 // Mirrors Python's label rule: a currency word alone is fine; an amount in a label is not.
-const AMOUNT_IN_LABEL = /[€₹$]\s*\d|\d\s*[€₹$]|\b(?:EUR|INR|Rs)\.?\s*\d|\d\s*(?:EUR|INR|Rs)\b|\d[.,]\d|\d{3,}/iu;
+// A plain number belongs to many product names ("Infinity Family 699 Plan", "Internet 100 Mbit"); only what reads as
+// money is refused: a currency sign or code next to a number, or a number with two decimals.
+const AMOUNT_IN_LABEL = /\p{Sc}\s*\d|\d\s*\p{Sc}|\b(?:EUR|INR|Rs)\.?\s*\d|\d\s*(?:EUR|INR|Rs)\b|\d[.,]\d{2}(?!\d)/iu;
 const YEAR = /\b(?:19|20)\d{2}\b/gu;
 
 function hasAmount(text) {

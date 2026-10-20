@@ -68,6 +68,9 @@ test("a currency word alone is fine in a label, an amount is not", () => {
   assert.match(readiness({ ...ready, description: "Fee 59.90" }, "INR"), /contains an amount/);
   assert.match(readiness({ ...ready, description: "Fee INR 5" }, "INR"), /contains an amount/);
   assert.equal(readiness({ ...ready, description: "Fee September 2026" }, "INR"), null);
+  // Owner 2026-10-20: a plain number in a product name is not an amount.
+  assert.equal(readiness({ ...ready, description: "Infinity Family 699 Plan" }, "INR"), null);
+  assert.match(readiness({ ...ready, description: "Plan ₹699" }, "INR"), /contains an amount/);
 });
 
 test("a subtotal without a group is not ready", () => {

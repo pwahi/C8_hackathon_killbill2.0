@@ -328,13 +328,21 @@ class ProvenanceTests(unittest.TestCase):
 
 class LabelSafetyTests(unittest.TestCase):
     def test_amounts_and_private_data_cannot_enter_message_through_labels(self) -> None:
-        for label in ("Delivery 59.90", "Fee INR 5", "Fee €5", "5 EUR fee", "Fee 2312", "Account number fee",
+        for label in ("Delivery 59.90", "Fee INR 5", "Fee €5", "5 EUR fee", "Fee ₹699", "Account number fee",
                       "Booking reference X7K9P2", "Delivery address"):
             with self.subTest(label=label):
                 data = payload("BS-002")
                 line_by_id(data, "delivery")["description"] = label
                 with self.assertRaises(ReviewError):
                     analyze_confirmed_review(data)
+
+    def test_a_plain_number_in_a_product_name_is_an_ordinary_label(self) -> None:
+        # Owner 2026-10-20, participant's bill: "Infinity Family 699 Plan" was refused as "contains an amount".
+        for label in ("Infinity Family 699 Plan", "Internet 100 Mbit", "1,5 GB data"):
+            with self.subTest(label=label):
+                data = payload("BS-002")
+                line_by_id(data, "delivery")["description"] = label
+                self.assertEqual(analyze_confirmed_review(data)["verdict"], "unexplained")
 
     def test_identifier_words_without_a_number_are_ordinary_labels(self) -> None:
         # Owner, Odido bill: "Customer benefit" is a discount, not private data.

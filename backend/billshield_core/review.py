@@ -54,8 +54,13 @@ def private_text(text: str) -> bool:
 
 # Labels are copied into the message, so they must not smuggle in amounts code did not check.
 # A currency word on its own ("TOTAL EUR") is harmless; a currency next to a number is an amount.
+# Owner 2026-10-20 (participant's bill, "Infinity Family 699 Plan"): a plain number is part of many product names
+# ("Internet 100 Mbit", "30 GB"), so only what reads as money is refused: a currency sign or code next to a number,
+# or a number with two decimals ("59.90", "59,90").
+CURRENCY_SIGN = "$\u00a2-\u00a5\u058f\u060b\u07fe\u07ff\u09f2\u09f3\u09fb\u0af1\u0bf9\u0e3f\u17db\u20a0-\u20c0\ufdfc\ufe69\uff04\uffe0\uffe1\uffe5\uffe6"
 AMOUNT_IN_LABEL = re.compile(
-    r"[€₹$]\s*\d|\d\s*[€₹$]|\b(?:EUR|INR|Rs)\.?\s*\d|\d\s*(?:EUR|INR|Rs)\b|\d[.,]\d|\d{3,}", re.IGNORECASE
+    rf"[{CURRENCY_SIGN}]\s*\d|\d\s*[{CURRENCY_SIGN}]|\b(?:EUR|INR|Rs)\.?\s*\d|\d\s*(?:EUR|INR|Rs)\b|\d[.,]\d{{2}}(?!\d)",
+    re.IGNORECASE,
 )
 YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
 # Grouping must be consistent with the declared decimal mark; anything else is rejected, not guessed.
