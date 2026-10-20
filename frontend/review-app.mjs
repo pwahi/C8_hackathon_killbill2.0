@@ -1883,7 +1883,23 @@ function gradedCauses(explanation, labels) {
     }
     list.append(item);
   }
-  return list;
+  // Owner 2026-10-20: say what the coloured bars mean, right under the causes.
+  const legend = document.createElement("p");
+  legend.className = "cause-legend";
+  const lead = document.createElement("strong");
+  lead.textContent = "Bar colour = Python's check:";
+  legend.append(lead);
+  for (const [kind, text] of [["full", "explains the whole difference"], ["part", "explains part of it"],
+    ["other", "offset by other lines, or based on bill text only"]]) {
+    const key = document.createElement("span");
+    key.className = `legend-key legend-${kind}`;
+    key.textContent = text;
+    legend.append(key);
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "graded-wrap";
+  wrap.append(list, legend);
+  return wrap;
 }
 
 // Owner 2026-10-20: show the part of the bill behind a cause. A cut-out of the page around those lines, each marked in

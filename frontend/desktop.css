@@ -642,7 +642,7 @@ body[data-ui-step='4'] #status:not(.failure) { display: none; }
 
 /* AI causes with Python's check of their evidence (PRD_SCALABLE W5), and the bill's own words behind them (W2). */
 .graded-causes { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-.graded-causes .cause { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; display: grid; gap: 4px; }
+.graded-causes .cause { border-left: 3px solid #b5b5ad; padding: 2px 0 2px 12px; display: grid; gap: 4px; }
 .graded-causes .cause-full { border-left-color: var(--green); }
 .graded-causes .cause-part { border-left-color: var(--accent); }
 .graded-causes .cause-grade { color: var(--muted); font-size: 13px; }
@@ -670,3 +670,12 @@ body[data-ui-step='2'] #payload-panel { margin-top: 12px; }
 .graded-causes .on-the-bill { display: grid; gap: 6px; justify-items: start; margin-top: 4px; }
 .graded-causes .on-the-bill canvas { width: 100%; height: auto; max-height: 220px; object-fit: contain; object-position: left top; border: 1px solid var(--line); border-radius: 4px; background: #fff; cursor: zoom-in; }
 .graded-causes .on-the-bill .link-button { font-size: 13px; }
+
+/* Key for the coloured bars next to each cause (Python's check of the cause's numbers). */
+.graded-wrap { display: grid; gap: 10px; }
+.cause-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; font-size: 12px; color: var(--muted); }
+.cause-legend strong { font-weight: 600; color: var(--ink); }
+.legend-key { display: inline-flex; align-items: center; gap: 6px; }
+.legend-key::before { content: ''; width: 3px; height: 14px; border-radius: 1px; background: #b5b5ad; }
+.legend-full::before { background: var(--green); }
+.legend-part::before { background: var(--accent); }
