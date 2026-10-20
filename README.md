@@ -4,7 +4,11 @@
 
 **Paid more than you expected?** Upload a bill, say what you expected to pay, and the app shows where the difference comes from and drafts one clear message to the company. You send it yourself; the app never contacts anyone.
 
-Live: https://c8-hackathon-killbill2-0.vercel.app
+## Try it
+
+**Live app: https://c8-hackathon-killbill2-0.vercel.app**
+
+No account, no access code, nothing to install: open the link in a browser (desktop works best) and press **Check my bill**. Have a bill ready as a PDF or photos (up to ten pages) and know roughly what you expected to pay. Your checks are saved privately in that browser and listed under **Your earlier checks** when you come back.
 
 ## How it works
 
@@ -15,6 +19,40 @@ Live: https://c8-hackathon-killbill2-0.vercel.app
 5. **Your message** — a short message in a warm, neutral or direct tone, ready to copy.
 
 **The rule behind it:** the AI reads and explains; Python owns every number. Every amount you see or send is calculated and checked by code.
+
+## Stack
+
+| Part | What it uses |
+|---|---|
+| Web page | Plain HTML, CSS and JavaScript modules (no framework); PDF.js and Tesseract.js for reading on the device as a fallback |
+| Server | Python with FastAPI, one app for local runs and hosting |
+| Reading the bill | Claude Haiku 5.5 through OpenRouter (vision, text only for linking pages) |
+| Explanation and message | GPT-OSS-120B through Groq |
+| Saving checks | Supabase (Postgres, anonymous sign-in, row-level security; only the publishable key) |
+| Hosting | Vercel, deployed automatically from `main` |
+
+## Repository structure
+
+```
+app.py                  FastAPI server: API routes, safety checks, serves the web page
+backend/billshield_core/
+  review.py, engine.py, money.py   exact money maths, checks and verdicts (Python owns every number)
+  groq_vision.py         reading prompts and parsing of the AI's answer
+  whole_bill.py, structure.py, bill_map.py   linking pages and making sense of the whole bill, checked by Python
+  gap.py, gap_llm.py     finding the difference and grading the AI's likely causes
+  message_ai.py, tone.py, drafting.py   the message in three tones, amounts filled in by Python
+  store.py               saving to Supabase as the signed-in browser
+frontend/
+  index.html, ui-flow.mjs, review-app.mjs   the five chapters and everything the page does
+  extraction/            reading on the device, privacy filters, confirmation helpers
+  desktop.css, styles.css, assets/   design, fonts and logo
+  test/                  browser-module tests
+tests/                  Python tests with masked sample bills (fixtures)
+scripts/                measurement and test helpers (some call an AI; opt-in)
+supabase/migrations/    database tables and access rules
+docs/                   PRD (requirements), DECISIONS (why), PRD_SCALABLE (what is left), design notes
+vercel.json             hosting settings (60-second limit per request)
+```
 
 ## Run it locally
 
