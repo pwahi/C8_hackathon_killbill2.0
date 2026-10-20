@@ -1868,6 +1868,8 @@ function gradedCauses(explanation, labels) {
     grade.className = "cause-grade";
     grade.textContent = GRADE_TEXT[cause.grade](cause, explanation.difference);
     item.append(title, grade, paragraph(cause.reason, "cause-reason"));
+    const where = onTheBill(cause.lineIds);
+    if (where) item.append(where);
     for (const index of cause.noteIds || []) {
       const note = explanation.notes?.[index];
       if (!note) continue;
@@ -1882,6 +1884,55 @@ function gradedCauses(explanation, labels) {
     list.append(item);
   }
   return list;
+}
+
+// Owner 2026-10-20: show the part of the bill behind a cause. A cut-out of the page around those lines, each marked in
+// yellow where the reader found it, and a link to the full page with the same lines lit up. Display only.
+function onTheBill(lineIds) {
+  const lines = lineIds.map((id) => reviewState.candidates.find((line) => line.id === id))
+    .filter((line) => line && (line.bounds || line.region));
+  if (!lines.length) return null;
+  const page = lines[0].page;
+  const onPage = lines.filter((line) => line.page === page);
+  const source = reviewState.pageElements.get(page)?.querySelector("canvas, img");
+  const box = document.createElement("div");
+  box.className = "on-the-bill";
+  if (source) {
+    const width = source.naturalWidth || source.width;
+    const height = source.naturalHeight || source.height;
+    const boxes = onPage.map((line) => line.bounds || line.region);
+    const top = Math.max(0, Math.min(...boxes.map((b) => b.top)) - 0.02);
+    const bottom = Math.min(1, Math.max(...boxes.map((b) => b.bottom)) + 0.02);
+    if (width && height && bottom > top) {
+      const crop = document.createElement("canvas");
+      const scale = Math.min(2, 1100 / width);
+      crop.width = Math.round(width * scale);
+      crop.height = Math.round((bottom - top) * height * scale);
+      const context = crop.getContext("2d");
+      context.drawImage(source, 0, top * height, width, (bottom - top) * height, 0, 0, crop.width, crop.height);
+      context.fillStyle = "rgba(245, 196, 0, 0.32)";
+      context.strokeStyle = "rgba(167, 107, 0, 0.9)";
+      context.lineWidth = 2;
+      for (const b of boxes) {
+        const x = b.x0 * crop.width, y = (b.top - top) * height * scale;
+        const w = (b.x1 - b.x0) * crop.width, h = (b.bottom - b.top) * height * scale;
+        context.fillRect(x, y, w, h);
+        context.strokeRect(x, y, w, h);
+      }
+      crop.setAttribute("role", "img");
+      crop.setAttribute("aria-label", `Part of page ${page} of your bill with ${onPage.length === 1 ? "this line" : "these lines"} marked`);
+      box.append(crop);
+    }
+  }
+  const show = document.createElement("button");
+  show.type = "button";
+  show.className = "link-button";
+  show.textContent = `Show on page ${page} of the bill`;
+  const open = () => { flow.check(); showOnBill(lines.map((line) => line.id)); };
+  show.addEventListener("click", open);
+  box.querySelector("canvas")?.addEventListener("click", open);
+  box.append(show);
+  return box;
 }
 
 // One re-check problem with the two ways to fix it: look at the lines, or read the page again.

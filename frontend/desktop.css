@@ -665,3 +665,8 @@ body[data-ui-step='2'] .line-actions { grid-template-columns: repeat(2, minmax(0
 body[data-ui-step='2'] .line-actions #undo-remove { grid-column: 1 / -1; justify-self: end; }
 /* Looks right closer to the table it checks. */
 body[data-ui-step='2'] #payload-panel { margin-top: 12px; }
+
+/* The part of the bill behind a cause (What we found). */
+.graded-causes .on-the-bill { display: grid; gap: 6px; justify-items: start; margin-top: 4px; }
+.graded-causes .on-the-bill canvas { width: 100%; height: auto; max-height: 220px; object-fit: contain; object-position: left top; border: 1px solid var(--line); border-radius: 4px; background: #fff; cursor: zoom-in; }
+.graded-causes .on-the-bill .link-button { font-size: 13px; }
