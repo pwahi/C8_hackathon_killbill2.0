@@ -2,7 +2,7 @@
 
 Version 4.0 draft · 2026-10-20 · Owner: Prateek Wahi · Branch: `feature/scalable-check`
 
-**Status:** proposal, nothing built yet. [PRD.md](PRD.md) v3.0 stays authoritative for `main` and the live app. This document becomes authoritative for the branch once the owner approves it. Each change below that touches a rule in PRD v3.0 §5 is marked **[changes a §5 rule]** and needs explicit owner approval before it is built.
+**Status (2026-10-20, branch):** W4, W2 and W5 built and tested on the branch with W0-lite measurements; see D-064 for results and limits. W1, W3 and W6 not built. [PRD.md](PRD.md) v3.0 stays authoritative for `main` and the live app. This document becomes authoritative for the branch once the owner approves it. Each change below that touches a rule in PRD v3.0 §5 is marked **[changes a §5 rule]** and needs explicit owner approval before it is built.
 
 ---
 

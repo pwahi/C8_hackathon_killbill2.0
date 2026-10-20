@@ -1,5 +1,20 @@
 # BillShield — Decision log
 
+## D-064 — Confirmation by exception; the bill's own text and Python-graded causes (branch feature/scalable-check)
+
+Date: 2026-10-20. Status: implemented and tested on the branch; preview and merge pending owner. Source: the failed Harsh test (confirmation effort above his threshold, roaming cause missed) and [PRD_SCALABLE.md](PRD_SCALABLE.md).
+
+**Decision (owner):** development reopened on a branch only; scope for 2026-10-20 is W0-lite, W4, W2 and W5. A line counts when it is checked by maths **or** confirmed by the person (changes the rule "every counted line is confirmed by the user").
+
+**What changed:**
+- **W4.** Python marks a line `autoVerified` when the nearest printed figure above it (section subtotal, or the bill total) matches exactly, the line is a plain positive charge, subtotal or total, it carries no reader warning, and it was read cleanly: reader confidence ≥ 0.9, or the amount appears as printed in the PDF's own text layer (server-side check, the model cannot set it). Such lines start confirmed and say "✓ Checked by maths"; editing or unticking one withdraws the check for its section. Discounts, minus signs and adjustments are always shown to the person, because a payment read as a discount adds up just as well.
+- **W2.** The page reader returns up to 8 context notes: the printed quote, its plain-English meaning, the lines it explains. A note with anything personal is dropped, in any language (long digit runs, IBAN, e-mail, identifier patterns). A note is verified only when its quote is in the PDF text layer. Notes go beside the review to `/api/explain`, are checked again there and are never saved.
+- **W5.** The explainer may cite notes. Python grades every cause by its evidence, whatever the cause is: full (the cited lines equal the difference), part, over, text (rests on a bill note), or unsupported (hidden; then the AI story is hidden too).
+
+**Measured (honest limits):** cached page reads: 93 of 166 counted lines no longer need a look (`scripts/eval_confirmation_load.py`; one page at a time, so multi-page bills look worse than in the app). Generated bills: the right cause first in 13 of 13 (`scripts/eval_synthetic_causes.py`; self-written and easier than real bills). Owner's masked bills A, B and D read, checked and explained end to end locally; C (6-page Flipkart) still does not link its structure, as it did before these changes. No new real bill and no user has tested this yet.
+
+**Found, not fixed (W1, next round):** labels with a 3-digit number ("Internet 100 Mbit") are refused; only EUR and INR pass the reader and the review contract; amounts always use 2 decimals; the browser's amount finder knows only `EUR INR Rs € ₹` and names from one German bill; the reader prompt still has a Dutch-specific rule.
+
 ## D-063 — The hosted app can run without an access code (submission)
 
 Date: 2026-10-19. Status: Implemented and tested locally; push and the Vercel setting pending owner.
