@@ -571,22 +571,23 @@ async function readWholeBill() {
     if (generation !== reviewGeneration) return;
     if (!response.ok || linked.error) throw new Error(linked.error || "The pages could not be connected.");
     let plan = linked.plan;
-    if (plan.status !== "ok") {
-      // Owner 2026-10-20 (participant's 10-page bill): ask the AI to make sense of the whole bill — what is counted,
-      // what is a repeat, a detail, an earlier bill, a payment or an empty table. Used only if Python finds that the
-      // counted lines add up exactly to the amount due; otherwise the first result stays.
-      setStatus("Some parts did not add up. Asking the AI to make sense of the whole bill; Python checks its answer…", "busy");
-      try {
-        const second = await fetch("/api/link-pages", {
-          method: "POST", headers: apiHeaders("whole-bill"),
-          body: JSON.stringify({ mode: "map", decimalSeparator: elements.decimalSeparator.value, currency: elements.currency.value,
-            pages: outputs.map(({ page, output }) => ({ page, output })) }),
-        });
-        const mapped = second.ok ? (await second.json()).plan : null;
-        if (generation !== reviewGeneration) return;
-        if (mapped) plan = mapped;
-      } catch { /* the first result stays */ }
-    }
+    // Owner 2026-10-20: ask the AI to make sense of the whole bill — what is counted, what is a repeat, a detail, an
+    // earlier bill, a payment or an empty table — and to summarise it, for every bill. Nothing is used unless Python
+    // finds that its counted lines add up exactly to the amount due. A bill that already checks out keeps its own
+    // structure and only gains the summary; one that does not is replaced by the checked map.
+    setStatus(plan.status === "ok" ? "Writing a short summary of your bill; Python checks it…"
+      : "Some parts did not add up. Asking the AI to make sense of the whole bill; Python checks its answer…", "busy");
+    try {
+      const second = await fetch("/api/link-pages", {
+        method: "POST", headers: apiHeaders("whole-bill"),
+        body: JSON.stringify({ mode: "map", decimalSeparator: elements.decimalSeparator.value, currency: elements.currency.value,
+          pages: outputs.map(({ page, output }) => ({ page, output })) }),
+      });
+      const mapped = second.ok ? (await second.json()).plan : null;
+      if (generation !== reviewGeneration) return;
+      if (mapped && plan.status !== "ok") plan = mapped;
+      else if (mapped?.summary) plan = { ...plan, summary: mapped.summary };
+    } catch { /* the first result stays, without a summary */ }
     useBillDecimalMark(plan.decimalMark);
     const added = outputs.flatMap(({ page, output, model }) => output.lines.map(line => {
       const gid = plan.ids[`${page}:${line.id}`];
