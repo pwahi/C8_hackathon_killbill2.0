@@ -10,6 +10,8 @@
 
 No account, no access code, nothing to install: open the link in a browser (desktop works best) and press **Check my bill**. Have a bill ready as a PDF or photos (up to ten pages) and know roughly what you expected to pay. Your checks are saved privately in that browser and listed under **Your earlier checks** when you come back.
 
+> **⚠️ Mask your bill before you upload it.** Your data leaves your device: the pages you choose pass through the app's server on **Vercel** to **OpenRouter** (Claude Haiku) to be read; the checked lines and short notes from the bill go to **Groq** for the explanation and message; the checked lines and results are saved in **Supabase**. Images are not stored, but these are external services. Cover your name, address, account, customer and phone numbers before uploading, for example with a black box in a screenshot or PDF editor.
+
 ## How it works
 
 1. **Your bill** — upload a PDF or photos and enter what you expected to pay.
@@ -69,7 +71,7 @@ Tests: `.venv\Scripts\python.exe -m unittest discover -s tests` and `npm --prefi
 
 ## Privacy and limits
 
-- Bill images are never stored. The pages you choose are sent to the AI to be read; only the checked lines and results are saved, per browser.
+- Bill images are never stored, but the pages you choose are sent to external services (Vercel, OpenRouter, Groq) to be read and explained, so mask personal details first. Only the checked lines and results are saved (Supabase), per browser.
 - Euro and Indian rupee bills only for now; up to ten pages.
 - The AI can misread a bill; that is why Python checks the totals and you can correct any line.
 
